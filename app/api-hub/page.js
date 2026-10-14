@@ -193,6 +193,9 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                 <p>
                   This router enforces a cryptographic signature signature verification protocol. The stream URL is base64url encoded, appended with an expiration timestamp, and signed using an HMAC-SHA256 signature generated with the server's secret key (<code className="font-mono">STREAM_SECRET</code>). Requests with expired timestamps or incorrect signatures are instantly blocked (returns 403 Forbidden).
                 </p>
+                <p>
+                  Direct HLS sources (<code className="font-mono">.m3u8</code>) instead use the streaming proxy <code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-zinc-900 font-mono text-[10px] text-violet-600 dark:text-violet-400">/api/proxy?url=&amp;exp=&amp;sig=</code>. Playlists are fetched server-side and every segment, variant, <code className="font-mono">#EXT-X-KEY</code> and <code className="font-mono">#EXT-X-MAP</code> URI is rewritten to a freshly signed relative proxy link, so the browser never performs a cross-origin request. Media segments are relayed chunk-by-chunk as they arrive (no buffering), with the upstream <code className="font-mono">Content-Type</code>, <code className="font-mono">Range</code>/<code className="font-mono">206</code> responses and CORS headers preserved.
+                </p>
               </div>
 
               <div className="space-y-1.5">
