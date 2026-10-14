@@ -96,19 +96,101 @@ export function toPlaybackUrl(entry: Pick<FeedEntry, 'url' | 'referer'>): string
   return buildProxyUrl(entry.url, { referer: entry.referer });
 }
 
-async function fetchFeedText(feedUrl: string): Promise<string> {
+/**
+ * GitHub blob/raw URL → GitHub Contents API URL.
+ *
+ * Playlists hosted on GitHub are frequently served through
+ * `raw.githubusercontent.com`, which several networks (and CDN-side
+ * rate limits) block. The Contents API returns the very same file — real data,
+ * just a different transport — so it is used as an automatic fallback.
+ */
+export function githubContentsApiUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'github.com') {
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts.length >= 5 && (parts[2] === 'blob' || parts[2] === 'raw')) {
+        const [owner, repo, , ref, ...rest] = parts;
+        return `https://api.github.com/repos/${owner}/${repo}/contents/${rest.join('/')}?ref=${ref}`;
+      }
+      return null;
+    }
+    if (parsed.hostname === 'raw.githubusercontent.com') {
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts.length >= 4) {
+        const [owner, repo, ref, ...rest] = parts;
+        return `https://api.github.com/repos/${owner}/${repo}/contents/${rest.join('/')}?ref=${ref}`;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Decode a GitHub Contents API file response (base64) into playlist text. */
+export function decodeGithubContents(payload: any): string | null {
+  if (!payload || Array.isArray(payload)) return null;
+  if (typeof payload.content === 'string' && payload.content.trim()) {
+    try {
+      const decoded = payload.encoding === 'base64' || !payload.encoding
+        ? Buffer.from(payload.content, 'base64').toString('utf8')
+        : payload.content;
+      return decoded;
+    } catch {
+      return null;
+    }
+  }
+  // Files over the API's inline limit only expose `download_url`.
+  return null;
+}
+
+async function fetchFeedTextOnce(feedUrl: string, signal: AbortSignal): Promise<string> {
+  const res = await fetch(feedUrl, {
+    headers: { 'User-Agent': BROWSER_UA, Accept: 'application/x-mpegURL, application/json, text/plain, */*' },
+    cache: 'no-store',
+    signal,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  if (text.length > MAX_FEED_BYTES) throw new Error('Feed exceeds size limit');
+  return text;
+}
+
+/** Fetch one playlist, falling back to the GitHub Contents API when the raw host is blocked. */
+export async function fetchFeedText(feedUrl: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FEED_FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(feedUrl, {
-      headers: { 'User-Agent': BROWSER_UA, Accept: 'application/x-mpegURL, application/json, text/plain, */*' },
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    if (text.length > MAX_FEED_BYTES) throw new Error('Feed exceeds size limit');
-    return text;
+    let firstError: any = null;
+    try {
+      return await fetchFeedTextOnce(feedUrl, controller.signal);
+    } catch (err) {
+      firstError = err;
+    }
+
+    // Blocked raw.githubusercontent / HTML blob page → retry through the API.
+    const apiUrl = githubContentsApiUrl(feedUrl);
+    if (apiUrl) {
+      try {
+        const res = await fetch(apiUrl, {
+          headers: { 'User-Agent': BROWSER_UA, Accept: 'application/vnd.github+json' },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const text = decodeGithubContents(await res.json());
+          if (text && text.length <= MAX_FEED_BYTES) {
+            logger.info('Live feed loaded through the GitHub contents API', { feed: feedUrl });
+            return text;
+          }
+        }
+      } catch (err: any) {
+        logger.debug('GitHub contents fallback failed', { feed: feedUrl, error: err?.message });
+      }
+    }
+
+    throw firstError ?? new Error('Feed fetch failed');
   } finally {
     clearTimeout(timer);
   }

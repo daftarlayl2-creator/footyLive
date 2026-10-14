@@ -10,6 +10,9 @@ import {
   normalizeChannelTitle,
   parseFeedText,
   toPlaybackUrl,
+  fetchFeedText,
+  githubContentsApiUrl,
+  decodeGithubContents,
   DEFAULT_LIVE_FEEDS,
   MAX_CHANNEL_SOURCES,
 } from './feeds';
@@ -252,6 +255,49 @@ describe('playback routing', () => {
   });
 });
 
+describe('GitHub-hosted playlists', () => {
+  it('derives the Contents API URL for blob and raw URLs', () => {
+    expect(
+      githubContentsApiUrl('https://raw.githubusercontent.com/owner/repo/main/feed/playlist.m3u')
+    ).toBe('https://api.github.com/repos/owner/repo/contents/feed/playlist.m3u?ref=main');
+    expect(
+      githubContentsApiUrl('https://github.com/owner/repo/blob/master/playlist.m3u')
+    ).toBe('https://api.github.com/repos/owner/repo/contents/playlist.m3u?ref=master');
+    expect(githubContentsApiUrl('https://cdn.example.com/playlist.m3u')).toBeNull();
+    expect(githubContentsApiUrl('not-a-url')).toBeNull();
+  });
+
+  it('decodes a base64 contents payload and ignores junk', () => {
+    const encoded = Buffer.from('#EXTM3U\n#EXTINF:-1,Channel A\nhttps://cdn.example.com/a.m3u8\n').toString('base64');
+    expect(decodeGithubContents({ content: encoded, encoding: 'base64' })).toContain('#EXTM3U');
+    expect(decodeGithubContents({ content: '' })).toBeNull();
+    expect(decodeGithubContents([{ type: 'dir' }])).toBeNull();
+    expect(decodeGithubContents(null)).toBeNull();
+  });
+
+  it('falls back to the API when the raw host is blocked', async () => {
+    const playlist = Buffer.from('#EXTM3U\n#EXTINF:-1,Channel A\nhttps://cdn.example.com/a.m3u8\n').toString('base64');
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(String(url));
+        if (String(url).includes('raw.githubusercontent.com')) return new Response('blocked', { status: 403 });
+        return new Response(JSON.stringify({ content: playlist, encoding: 'base64' }), { status: 200 });
+      })
+    );
+
+    const text = await fetchFeedText('https://raw.githubusercontent.com/owner/repo/main/playlist.m3u');
+    expect(text).toContain('#EXTM3U');
+    expect(calls[1]).toContain('api.github.com/repos/owner/repo/contents/playlist.m3u');
+  });
+
+  it('surfaces the original failure for non-GitHub feeds', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 500 })));
+    await expect(fetchFeedText('https://cdn.example.com/playlist.m3u')).rejects.toThrow('HTTP 500');
+  });
+});
+
 describe('probeChannel', () => {
   beforeEach(() => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -269,15 +315,66 @@ describe('probeChannel', () => {
     await expect(probeChannel(ch)).resolves.toBe('live');
   });
 
-  it('reports offline for HTTP errors, HTML error pages and network failures', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 403 })));
+  it('reports live for non-playlist media that responds 200', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('binary', { status: 200 })));
+    await expect(probeChannel({ url: 'https://cdn.example.com/live/chunk.mp4' })).resolves.toBe('live');
+  });
+
+  it('reports offline only when the upstream is genuinely gone', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 404 })));
     await expect(probeChannel(ch)).resolves.toBe('offline');
 
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>blocked</html>', { status: 200 })));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('gone', { status: 410 })));
     await expect(probeChannel(ch)).resolves.toBe('offline');
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>not a stream</html>', { status: 200 })));
+    await expect(probeChannel(ch)).resolves.toBe('offline');
+  });
+
+  it('reports "unknown" (standby) when a CDN blocks the probe', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('blocked', { status: 403 })));
+    await expect(probeChannel(ch)).resolves.toBe('unknown');
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 429 })));
+    await expect(probeChannel(ch)).resolves.toBe('unknown');
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 503 })));
+    await expect(probeChannel(ch)).resolves.toBe('unknown');
 
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
-    await expect(probeChannel(ch)).resolves.toBe('offline');
+    await expect(probeChannel(ch)).resolves.toBe('unknown');
+  });
+
+  it('never fails a channel because HEAD is blocked (GET fallback wins)', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: any) => {
+        calls.push(init?.method || 'GET');
+        // Hosts that reject HEAD (405) but serve the playlist on a ranged GET.
+        if (init?.method === 'HEAD') return new Response('no', { status: 405 });
+        if (init?.headers?.Range) return new Response('#EXTM3U\n#EXT-X-TARGETDURATION:6\n', { status: 206 });
+        return new Response('#EXTM3U\n', { status: 200 });
+      })
+    );
+    await expect(probeChannel(ch)).resolves.toBe('live');
+    expect(calls[0]).toBe('GET');
+  });
+
+  it('sends browser-like headers so hotlink protection is bypassed', async () => {
+    const seen: any[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: any) => {
+        seen.push(init.headers);
+        return new Response('#EXTM3U\n#EXT-X-VERSION:3\n');
+      })
+    );
+    await probeChannel({ url: 'https://cdn.example.com/live/index.m3u8', referer: 'https://player.example.com/' });
+    expect(seen[0].Referer).toBe('https://player.example.com/');
+    expect(seen[0].Origin).toBe('https://player.example.com');
+    expect(seen[0].Range).toBe('bytes=0-8191');
+    expect(String(seen[0]['User-Agent'])).toContain('Mozilla');
   });
 
   it('withTimeout resolves to the fallback when the work is too slow', async () => {

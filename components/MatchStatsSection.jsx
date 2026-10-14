@@ -13,14 +13,14 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
     <div className="space-y-5">
       {/* Match Statistics panel */}
       {teamStats.length > 0 && (
-        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950 overflow-hidden shadow-xl">
+        <div className="rounded-2xl border border-navy-750/80 bg-navy-950/80 overflow-hidden shadow-xl">
           <button
             onClick={() => setShowStats(!showStats)}
-            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-zinc-900 cursor-pointer"
+            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-800 cursor-pointer"
           >
             <span className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 border border-violet-500/20">
-                <BarChart3 className="h-4 w-4 text-violet-400" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime-500/10 border border-lime-500/20">
+                <BarChart3 className="h-4 w-4 text-lime-400" />
               </div>
               <span>Match Statistics</span>
             </span>
@@ -37,7 +37,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
               <div className="flex items-center justify-between pb-4 border-b border-zinc-900">
                 <div className="flex items-center gap-2.5">
                   {homeTeam?.badge && (
-                    <img src={homeTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-zinc-900 ring-1 ring-zinc-800" />
+                    <img src={homeTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-navy-900 ring-1 ring-zinc-800" />
                   )}
                   <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">{homeTeam?.name || 'Home'}</span>
                 </div>
@@ -45,7 +45,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                 <div className="flex items-center gap-2.5">
                   <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">{awayTeam?.name || 'Away'}</span>
                   {awayTeam?.badge && (
-                    <img src={awayTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-zinc-900 ring-1 ring-zinc-800" />
+                    <img src={awayTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-navy-900 ring-1 ring-zinc-800" />
                   )}
                 </div>
               </div>
@@ -66,31 +66,31 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                 return (
                   <div key={`${stat.name || 'stat'}-${idx}`} className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className={`font-bold tabular-nums min-w-[3ch] text-left ${homeLeads ? 'text-violet-400' : 'text-zinc-300'}`}>
+                      <span className={`font-bold tabular-nums min-w-[3ch] text-left ${homeLeads ? 'text-lime-400' : 'text-zinc-300'}`}>
                         {homeVal}
                       </span>
                       <span className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider">
                         {stat.label || stat.name}
                       </span>
-                      <span className={`font-bold tabular-nums min-w-[3ch] text-right ${awayLeads ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                      <span className={`font-bold tabular-nums min-w-[3ch] text-right ${awayLeads ? 'text-sky-400' : 'text-zinc-300'}`}>
                         {awayVal}
                       </span>
                     </div>
                     {/* Visual bar split */}
-                    <div className="flex h-2 rounded-full overflow-hidden bg-zinc-900/80 border border-zinc-800 gap-0.5">
+                    <div className="flex h-2 rounded-full overflow-hidden bg-navy-900/80 border border-navy-750 gap-0.5">
                       <div
                         className={`rounded-l-full transition-all duration-700 ease-out ${
                           homeLeads 
-                            ? 'bg-gradient-to-r from-violet-600 to-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]' 
-                            : 'bg-gradient-to-r from-violet-600/50 to-violet-500/40'
+                            ? 'bg-gradient-to-r from-lime-600 to-lime-500 shadow-[0_0_8px_rgba(50,205,50,0.3)]' 
+                            : 'bg-gradient-to-r from-lime-600/50 to-lime-500/40'
                         }`}
                         style={{ width: `${homePct}%` }}
                       />
                       <div
                         className={`rounded-r-full transition-all duration-700 ease-out ml-auto ${
                           awayLeads 
-                            ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.3)]' 
-                            : 'bg-gradient-to-r from-emerald-500/40 to-emerald-400/30'
+                            ? 'bg-gradient-to-r from-sky-500 to-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.3)]' 
+                            : 'bg-gradient-to-r from-sky-500/40 to-sky-400/30'
                         }`}
                         style={{ width: `${awayPct}%` }}
                       />
@@ -100,13 +100,13 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
               })}
 
               {/* Legend */}
-              <div className="flex items-center justify-center gap-6 pt-3 border-t border-zinc-900">
+              <div className="flex items-center justify-center gap-6 pt-3 border-t border-navy-800">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-violet-600 to-violet-500" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-lime-600 to-lime-500" />
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{homeTeam?.name || 'Home'}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-sky-500 to-sky-400" />
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{awayTeam?.name || 'Away'}</span>
                 </div>
               </div>
@@ -117,17 +117,17 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
 
       {/* Commentary log panel */}
       {commentary.length > 0 && (
-        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950 overflow-hidden shadow-xl">
+        <div className="rounded-2xl border border-navy-750/80 bg-navy-950/80 overflow-hidden shadow-xl">
           <button
             onClick={() => setShowCommentary(!showCommentary)}
-            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-zinc-900 cursor-pointer"
+            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-800 cursor-pointer"
           >
             <span className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <MessageSquare className="h-4 w-4 text-emerald-400" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime-500/10 border border-lime-500/20">
+                <MessageSquare className="h-4 w-4 text-lime-400" />
               </div>
               <span>Live Play-by-Play Logs</span>
-              <span className="text-[10px] font-bold text-zinc-600 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-zinc-600 bg-navy-900 border border-navy-750 px-2 py-0.5 rounded-full">
                 {commentary.length}
               </span>
             </span>
@@ -139,7 +139,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
           </button>
           
           {showCommentary && (
-            <div className="px-5 py-4 space-y-0 max-h-80 overflow-y-auto divide-y divide-zinc-900/80">
+            <div className="px-5 py-4 space-y-0 max-h-80 overflow-y-auto divide-y divide-navy-800/80">
               {commentary.slice(0, 30).map((item, idx) => {
                 // Color-code by event type
                 const eventType = (item.type || '').toLowerCase();
@@ -147,8 +147,8 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                 const isCard = eventType.includes('card') || eventType.includes('yellow') || eventType.includes('red');
                 const isSub = eventType.includes('sub');
 
-                let timeBg = 'bg-violet-950/40 border-violet-900/60 text-violet-400';
-                if (isGoal) timeBg = 'bg-emerald-950/40 border-emerald-900/60 text-emerald-400';
+                let timeBg = 'bg-lime-950/40 border-lime-900/60 text-lime-400';
+                if (isGoal) timeBg = 'bg-lime-950/40 border-lime-900/60 text-lime-400';
                 else if (isCard) timeBg = 'bg-amber-950/40 border-amber-900/60 text-amber-400';
                 else if (isSub) timeBg = 'bg-sky-950/40 border-sky-900/60 text-sky-400';
 
@@ -161,7 +161,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                     
                     {/* Log description */}
                     <div className="space-y-1 flex-1">
-                      <p className={`font-medium leading-relaxed ${isGoal ? 'text-emerald-300 font-bold' : 'text-zinc-300'}`}>
+                      <p className={`font-medium leading-relaxed ${isGoal ? 'text-lime-300 font-bold' : 'text-zinc-300'}`}>
                         {isGoal && '⚽ '}{isCard && '🟨 '}{isSub && '🔄 '}{item.text}
                       </p>
                     </div>

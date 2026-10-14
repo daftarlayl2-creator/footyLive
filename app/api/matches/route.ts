@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMatches } from '@/lib/streamEngine';
 
-export const revalidate = 10; // short revalidation for live match updates
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // live data — never serve a stale static payload
 
 export async function GET(request: NextRequest) {
   try {

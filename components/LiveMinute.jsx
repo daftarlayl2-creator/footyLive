@@ -24,7 +24,7 @@ export default function LiveMinute({ apiMinute, apiMinuteNumber }) {
           <Minus className="h-3 w-3" />
         </button>
         
-        <span className="text-[13px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-violet-950/60 border border-violet-850/80 text-violet-400 min-w-[5ch] text-center tabular-nums shadow-sm">
+        <span className="text-[13px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-lime-950/60 border border-lime-850/80 text-lime-400 min-w-[5ch] text-center tabular-nums shadow-sm">
           {display}
         </span>
         

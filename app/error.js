@@ -17,7 +17,7 @@ export default function Error({ error, reset }) {
       </p>
       <button
         onClick={reset}
-        className="mt-6 inline-flex items-center gap-2 rounded-lg bg-violet-600 hover:bg-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-600/20 transition-all active:scale-95 cursor-pointer"
+        className="mt-6 inline-flex items-center gap-2 rounded-lg lime-cta px-5 py-2.5 text-sm font-bold transition-all cursor-pointer"
       >
         <RefreshCw className="h-4 w-4" />
         Try Again

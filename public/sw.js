@@ -1,4 +1,4 @@
-const CACHE_NAME = 'footylive-v1';
+const CACHE_NAME = 'evivlive-v2';
 const OFFLINE_URL = '/offline.html';
 
 const ASSETS_TO_CACHE = [

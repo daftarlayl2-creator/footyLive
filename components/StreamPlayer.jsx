@@ -47,7 +47,7 @@ const STABLE_PLAYBACK_MS = 20_000;
 /** hls.js media-error recoveries tried before giving up on a server. */
 const MAX_MEDIA_RECOVERIES = 2;
 const SWITCH_NOTICE_MS = 6_000;
-const AUTO_SWITCH_STORAGE_KEY = 'footylive:auto-switch';
+const AUTO_SWITCH_STORAGE_KEY = 'evivlive:auto-switch';
 
 const HLS_CONFIG = {
   maxBufferLength: 20,
@@ -499,7 +499,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
   if (servers.length === 0) {
     return (
-      <div className="flex w-full flex-col items-center justify-center rounded-2xl border border-zinc-800 bg-[#050508] px-6 text-center" style={{ aspectRatio: '16/9' }}>
+      <div className="flex w-full flex-col items-center justify-center rounded-2xl border border-navy-750 bg-[#0a1226] px-6 text-center" style={{ aspectRatio: '16/9' }}>
         <AlertCircle className="mb-3 h-8 w-8 text-zinc-600" />
         <p className="text-sm font-bold text-white">No stream sources available</p>
         <p className="mt-1 text-xs text-zinc-500">Check back closer to kickoff.</p>
@@ -514,8 +514,8 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
         ref={playerRef}
         className={`group relative overflow-hidden bg-black shadow-2xl transition-all duration-500 ease-out ${
           isTheaterMode
-            ? 'relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] h-[45vh] w-screen rounded-none border-y border-zinc-800 sm:h-[55vh] md:h-[65vh] lg:h-[70vh] xl:h-[75vh]'
-            : 'w-full rounded-2xl border border-zinc-800'
+            ? 'relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] h-[45vh] w-screen rounded-none border-y border-navy-750 sm:h-[55vh] md:h-[65vh] lg:h-[70vh] xl:h-[75vh]'
+            : 'w-full rounded-2xl border border-navy-750'
         }`}
         style={isTheaterMode ? undefined : { aspectRatio: '16/9' }}
       >
@@ -548,10 +548,10 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
         {/* Connecting screen (also explains an automatic switch); server-rendered too */}
         {isActivePhase && phase === 'connecting' && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#050508] px-6 text-center">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#0a1226] px-6 text-center">
             <div className="relative flex items-center justify-center">
-              <div className="h-12 w-12 animate-spin rounded-full border-2 border-violet-500/20 border-t-violet-500" />
-              <Cpu className="absolute h-5 w-5 animate-pulse text-violet-400" />
+              <div className="h-12 w-12 animate-spin rounded-full border-2 border-lime-500/20 border-t-lime-500" />
+              <Cpu className="absolute h-5 w-5 animate-pulse text-lime-400" />
             </div>
             <p className="mt-4 font-mono text-xs font-bold uppercase tracking-wider text-zinc-400">
               Connecting to {activeServer.label}…
@@ -574,13 +574,13 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
         {/* Mid-playback buffering */}
         {showMedia && isVideo && phase === 'ready' && isPlaying && isBuffering && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-violet-400" />
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-lime-400" />
           </div>
         )}
 
         {/* Server failed and auto-switch is off */}
         {!isUpcoming && phase === 'failed' && activeServer && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#050508]/95 px-6 text-center">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a1226]/95 px-6 text-center">
             <div className="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
               <AlertCircle className="h-6 w-6 text-red-400" />
             </div>
@@ -593,7 +593,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
                 <button
                   type="button"
                   onClick={tryNextServer}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-violet-600/20 transition-colors hover:bg-violet-500"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg lime-cta px-4 py-2 text-xs font-bold transition-colors"
                 >
                   <ArrowRightLeft className="h-3.5 w-3.5" />
                   Try {nextServer.label}
@@ -602,7 +602,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
               <button
                 type="button"
                 onClick={reloadStream}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-850 bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-300 transition-colors hover:text-white"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-navy-800 bg-navy-900 px-4 py-2 text-xs font-bold text-zinc-300 transition-colors hover:text-white"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Retry {activeServer.label}
@@ -613,7 +613,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
         {/* Every server failed */}
         {!isUpcoming && phase === 'exhausted' && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#050508]/95 px-6 text-center">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a1226]/95 px-6 text-center">
             <div className="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
               <AlertCircle className="h-6 w-6 text-red-400" />
             </div>
@@ -627,7 +627,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             <button
               type="button"
               onClick={retryAll}
-              className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-violet-600/20 transition-colors hover:bg-violet-500"
+              className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-lg lime-cta px-4 py-2 text-xs font-bold transition-colors"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {hasMultiple ? 'Retry all servers' : 'Retry'}
@@ -642,7 +642,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center bg-black/40 opacity-0 backdrop-blur-[1.5px] animate-fade-in"
             style={{ animationDelay: '250ms' }}
           >
-            <div className="flex h-16 w-16 scale-100 transform items-center justify-center rounded-full border border-violet-400/20 bg-violet-600/90 text-white shadow-[0_0_30px_rgba(124,58,237,0.6)] transition-all duration-300 hover:scale-110 active:scale-95">
+            <div className="flex h-16 w-16 scale-100 transform items-center justify-center rounded-full border border-lime-300/30 bg-lime-500 text-navy-950 shadow-[0_0_30px_rgba(50,205,50,0.55)] transition-all duration-300 hover:scale-110 hover:bg-lime-400 active:scale-95">
               <Play className="ml-1 h-7 w-7 fill-white" />
             </div>
           </div>
@@ -651,7 +651,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
         {/* Upcoming: nothing is loaded until kickoff */}
         {isUpcoming && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 px-6 text-center">
-            <ShieldAlert className="mb-3 h-10 w-10 text-violet-400" />
+            <ShieldAlert className="mb-3 h-10 w-10 text-lime-400" />
             <p className="text-sm font-bold text-white">Fixture Has Not Started Yet</p>
             <p className="mt-1 max-w-xs text-xs text-zinc-500">
               Live streams will be generated by our provider strategy registry close to kickoff.
@@ -665,7 +665,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             hasMultiple && !isUpcoming ? 'max-w-[calc(100%-9.5rem)]' : 'max-w-[calc(100%-1.5rem)]'
           }`}
         >
-          <span className="truncate rounded-full border border-zinc-800/80 bg-black/75 px-3 py-1 text-xs font-bold text-white backdrop-blur-md">
+          <span className="truncate rounded-full border border-navy-750/80 bg-black/75 px-3 py-1 text-xs font-bold text-white backdrop-blur-md">
             {matchTitle}
           </span>
           {phase === 'ready' && matchStatus === 'live' && (
@@ -685,8 +685,8 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
         {/* Notices: automatic switch, muted autoplay */}
         <div className="pointer-events-none absolute inset-x-0 top-14 z-30 flex flex-col items-center gap-2 px-3">
           {phase === 'ready' && switchedFrom && (
-            <div className="inline-flex max-w-full animate-fade-in items-center gap-2 rounded-full border border-violet-500/30 bg-black/85 px-3.5 py-1.5 text-[11px] font-bold text-white shadow-2xl backdrop-blur-md">
-              <ArrowRightLeft className="h-3.5 w-3.5 shrink-0 text-violet-400" />
+            <div className="inline-flex max-w-full animate-fade-in items-center gap-2 rounded-full border border-lime-500/30 bg-black/85 px-3.5 py-1.5 text-[11px] font-bold text-white shadow-2xl backdrop-blur-md">
+              <ArrowRightLeft className="h-3.5 w-3.5 shrink-0 text-lime-400" />
               <span className="truncate">
                 Switched to {activeServer.label} · {switchedFrom.label} was unavailable
               </span>
@@ -696,7 +696,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             <button
               type="button"
               onClick={handleUnmute}
-              className="pointer-events-auto inline-flex animate-fade-in cursor-pointer items-center gap-2 rounded-full border border-zinc-700 bg-black/85 px-3.5 py-1.5 text-[11px] font-bold text-white shadow-2xl backdrop-blur-md transition-colors hover:border-violet-500/50"
+              className="pointer-events-auto inline-flex animate-fade-in cursor-pointer items-center gap-2 rounded-full border border-zinc-700 bg-black/85 px-3.5 py-1.5 text-[11px] font-bold text-white shadow-2xl backdrop-blur-md transition-colors hover:border-lime-500/50"
             >
               <VolumeX className="h-3.5 w-3.5 text-zinc-300" />
               Tap to unmute
@@ -714,10 +714,10 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             {/* Live timeline indicator */}
             <div className="flex items-center gap-3">
               <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800/80">
-                <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600" />
+                <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-gradient-to-r from-lime-600 to-lime-400" />
               </div>
-              <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-red-500">
-                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-red-500" />
+              <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-lime-500 dark:text-lime-400">
+                <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
                 Live
               </span>
             </div>
@@ -756,11 +756,11 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
                     value={isMuted ? 0 : volume}
                     onChange={handleVolumeChange}
                     aria-label="Volume"
-                    className="h-1 w-0 cursor-pointer appearance-none rounded-full bg-zinc-800 accent-violet-500 outline-none transition-all duration-300 focus:w-20 group-hover/volume:w-20"
+                    className="h-1 w-0 cursor-pointer appearance-none rounded-full bg-zinc-800 accent-lime-500 outline-none transition-all duration-300 focus:w-20 group-hover/volume:w-20"
                   />
                 </div>
 
-                <span className="hidden items-center gap-1.5 rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-violet-400 sm:inline-flex">
+                <span className="hidden items-center gap-1.5 rounded-md border border-lime-500/20 bg-lime-500/10 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-lime-400 sm:inline-flex">
                   Native Player (Ad-Free)
                 </span>
               </div>
@@ -803,9 +803,9 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
       {/* Ad-Shield explainer */}
       {kind === 'embed' && sandboxShield && (
-        <div className="animate-fade-in space-y-2.5 rounded-xl border border-violet-200 bg-violet-50 p-4 text-xs leading-relaxed text-zinc-650 shadow-sm dark:border-violet-500/20 dark:bg-violet-950/15 dark:text-zinc-400">
-          <div className="flex items-center gap-2 font-bold text-violet-700 dark:text-violet-400">
-            <Shield className="h-4 w-4 text-violet-600 dark:text-violet-500" />
+        <div className="animate-fade-in space-y-2.5 rounded-xl border border-lime-200 bg-lime-50 p-4 text-xs leading-relaxed text-zinc-650 shadow-sm dark:border-lime-500/20 dark:bg-lime-950/15 dark:text-zinc-400">
+          <div className="flex items-center gap-2 font-bold text-lime-700 dark:text-lime-400">
+            <Shield className="h-4 w-4 text-lime-600 dark:text-lime-500" />
             <span>Ad-Shield Active (Intrusive Ad & Popup Blocker)</span>
           </div>
           <p className="text-[11.5px] leading-normal text-zinc-600 dark:text-zinc-400">
@@ -823,7 +823,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
       {/* Action toolbar (Ad-Shield / native status, Refresh, Theater, Fullscreen) */}
       <div className="glass-panel flex flex-col justify-between gap-4 rounded-xl p-4 shadow-md lg:flex-row lg:items-center">
         {kind === 'embed' ? (
-          <div className="flex w-full items-center gap-3 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-2.5 shadow-inner dark:border-zinc-900/60 dark:bg-zinc-950/60 lg:w-auto">
+          <div className="flex w-full items-center gap-3 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-2.5 shadow-inner dark:border-navy-800/60 dark:bg-navy-950/60 lg:w-auto">
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-1.5">
                 <span className={`h-1.5 w-1.5 rounded-full ${sandboxShield ? 'bg-green-500' : 'animate-pulse bg-red-400'}`} />
@@ -853,9 +853,9 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             </button>
           </div>
         ) : (
-          <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-zinc-900/60 dark:bg-zinc-950/40 lg:w-auto">
+          <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-800/60 dark:bg-navy-950/40 lg:w-auto">
             <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-lime-600 dark:text-lime-400">
                 Native Player Active
               </span>
               <span className="mt-0.5 block text-[10px] leading-none text-zinc-500 dark:text-zinc-500">
@@ -865,11 +865,11 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
           </div>
         )}
 
-        <div className="flex w-full items-center justify-end gap-2 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-1.5 shadow-inner dark:border-zinc-900/60 dark:bg-zinc-950/60 lg:w-auto">
+        <div className="flex w-full items-center justify-end gap-2 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-1.5 shadow-inner dark:border-navy-800/60 dark:bg-navy-950/60 lg:w-auto">
           <button
             type="button"
             onClick={reloadStream}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-zinc-950 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-950 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
             title="Reload Stream Connection"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${showMedia && phase === 'connecting' ? 'animate-spin' : ''}`} />
@@ -881,8 +881,8 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             onClick={() => setIsTheaterMode((on) => !on)}
             className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
               isTheaterMode
-                ? 'border-violet-500/45 bg-violet-600/10 text-violet-600 shadow-sm hover:bg-violet-600/20 dark:text-violet-400'
-                : 'border-zinc-300 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 hover:text-zinc-950 dark:border-zinc-950 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'
+                ? 'border-lime-500/45 bg-lime-600/10 text-lime-600 shadow-sm hover:bg-lime-600/20 dark:text-lime-400'
+                : 'border-zinc-300 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 hover:text-zinc-950 dark:border-navy-950 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'
             }`}
             title={isTheaterMode ? 'Exit Theater Mode' : 'Enter Theater Mode'}
           >
@@ -893,7 +893,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-zinc-950 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-950 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
             title="Toggle Fullscreen"
           >
             <Maximize className="h-3.5 w-3.5" />

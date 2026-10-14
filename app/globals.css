@@ -2,13 +2,59 @@
 
 @import "tailwindcss";
 
+/* ==========================================================================
+   EVIV Live — Brand system
+   Navy Blue surfaces  ·  Vivid Lime Green accents
+   navy   → #0A192F (page) · #0b132b (deep) · #112240 (raised)
+   lime   → #32CD32 (primary accent) · #00FF00 (peak / glow)
+   ========================================================================== */
+
 /* === Tailwind v4 Theme Configuration === */
 @theme {
-  --color-background: #09090b;
-  --color-surface: #18181b;
-  --color-border: #27272a;
+  /* --- Brand surfaces (Navy Blue) --- */
+  --color-background: #0a192f;
+  --color-surface: #112240;
+  --color-border: #1e3a5f;
 
-  /* Custom intermediate color shades missing from default palette */
+  --color-navy-50: #f1f5fb;
+  --color-navy-100: #dde7f4;
+  --color-navy-200: #bccde4;
+  --color-navy-300: #93aacd;
+  --color-navy-400: #6482ad;
+  --color-navy-500: #3f5d8c;
+  --color-navy-600: #2b4671;
+  --color-navy-700: #1e3358;
+  --color-navy-750: #17294a;
+  --color-navy-800: #112240;
+  --color-navy-850: #0b132b;
+  --color-navy-900: #0a192f;
+  --color-navy-950: #060e1e;
+
+  /* --- Brand accent (Vivid Lime Green) --- */
+  --color-lime-50: #f5ffe6;
+  --color-lime-100: #e8ffcc;
+  --color-lime-150: #d9ffb0;
+  --color-lime-200: #c9ff94;
+  --color-lime-250: #b6fd78;
+  --color-lime-300: #a2fa5f;
+  --color-lime-350: #8bf64f;
+  --color-lime-400: #70f245;
+  --color-lime-450: #52ef3d;
+  --color-lime-500: #32cd32;
+  --color-lime-550: #29b62b;
+  --color-lime-600: #229d25;
+  --color-lime-650: #1c851f;
+  --color-lime-700: #166d19;
+  --color-lime-750: #125713;
+  --color-lime-800: #0e430f;
+  --color-lime-850: #0b320c;
+  --color-lime-900: #072308;
+  --color-lime-950: #041705;
+
+  /* Punchy highlight used for glows / the LIVE pulse */
+  --color-eviv-glow: #00ff00;
+
+  /* Custom intermediate zinc shades still referenced by legacy markup */
   --color-zinc-150: #e8e8ec;
   --color-zinc-250: #d1d1d6;
   --color-zinc-350: #a8a8b3;
@@ -17,15 +63,12 @@
   --color-zinc-650: #4a4a55;
   --color-zinc-750: #333338;
   --color-zinc-850: #1f1f23;
-  --color-violet-450: #9b7dff;
-  --color-violet-650: #6d28d9;
-  --color-violet-850: #3b0f7a;
-  --color-indigo-550: #5b5bd6;
-  --color-indigo-650: #4338ca;
   --color-amber-550: #d97706;
 
-  /* Custom animation */
+  /* Custom animations */
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-live-pulse: livePulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-float: float 6s ease-in-out infinite;
 
   /* Font family */
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -36,15 +79,15 @@
 
 /* === CSS Custom Properties for theming === */
 :root {
-  --background: 240 10% 3.9%;
+  --background: 216 64% 11%;          /* navy 900 */
   --foreground: 0 0% 98%;
-  --card: 240 10% 5.9%;
+  --card: 217 60% 16%;                /* navy 800 */
   --card-foreground: 0 0% 98%;
-  --border: 240 5.9% 15%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 263.4 70% 50.4%;
-  --accent-foreground: 0 0% 98%;
+  --border: 212 51% 25%;              /* navy 700 */
+  --muted: 217 60% 16%;
+  --muted-foreground: 214 20% 65%;
+  --accent: 120 61% 50%;              /* lime 500 */
+  --accent-foreground: 216 64% 11%;
 }
 
 /* === Base styles (no aggressive universal resets) === */
@@ -70,6 +113,25 @@ body {
   overflow-x: hidden;
 }
 
+html {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  color-scheme: light;
+}
+
+/* === Selection + focus ring in brand colours === */
+::selection {
+  background: rgba(50, 205, 50, 0.3);
+  color: #f5ffe6;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(50, 205, 50, 0.65);
+  outline-offset: 2px;
+}
+
 /* === Glow Orb Decorations === */
 .glow-orb {
   position: absolute;
@@ -81,45 +143,82 @@ body {
 }
 
 .dark .glow-orb {
-  opacity: 0.15;
+  opacity: 0.16;
 }
 
-.glow-orb-purple {
-  background: radial-gradient(circle, #8b5cf6 0%, transparent 80%);
+.glow-orb-navy {
+  background: radial-gradient(circle, #1e3358 0%, transparent 80%);
 }
 
+.glow-orb-lime {
+  background: radial-gradient(circle, #32cd32 0%, transparent 80%);
+}
+
+/* Legacy aliases kept so older markup keeps glowing */
+.glow-orb-purple,
 .glow-orb-emerald {
-  background: radial-gradient(circle, #10b981 0%, transparent 80%);
+  background: radial-gradient(circle, #32cd32 0%, transparent 80%);
 }
 
-/* === Dynamic Glassmorphic Panel Design System === */
+/* === Dynamic Glassmorphic Panel Design System (navy glass) === */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(10, 25, 47, 0.1);
 }
 
 .dark .glass-panel {
-  background: rgba(13, 13, 16, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(160deg, rgba(17, 34, 64, 0.72) 0%, rgba(10, 25, 47, 0.85) 100%);
+  border: 1px solid rgba(50, 205, 50, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .glass-panel-hover {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.35s ease, background 0.35s ease;
 }
 
 .glass-panel-hover:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(124, 58, 237, 0.2);
-  box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.06), 0 0 20px -2px rgba(124, 58, 237, 0.04);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(50, 205, 50, 0.35);
+  box-shadow: 0 18px 34px -14px rgba(10, 25, 47, 0.22), 0 0 22px -4px rgba(50, 205, 50, 0.18);
+  transform: translateY(-4px);
 }
 
 .dark .glass-panel-hover:hover {
-  background: rgba(18, 18, 23, 0.75);
-  border-color: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8), 0 0 25px -2px rgba(139, 92, 246, 0.12);
+  background: linear-gradient(160deg, rgba(23, 41, 74, 0.9) 0%, rgba(11, 19, 43, 0.95) 100%);
+  border-color: rgba(50, 205, 50, 0.45);
+  box-shadow: 0 24px 44px -20px rgba(0, 0, 0, 0.85), 0 0 26px -4px rgba(50, 205, 50, 0.28);
+  transform: translateY(-4px);
+}
+
+/* === Brand utilities === */
+.text-glow-lime {
+  text-shadow: 0 0 18px rgba(50, 205, 50, 0.45);
+}
+
+.brand-gradient-text {
+  background-image: linear-gradient(100deg, #32cd32 0%, #a2fa5f 55%, #32cd32 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lime-cta {
+  background-image: linear-gradient(95deg, #32cd32 0%, #52ef3d 100%);
+  color: #060e1e;
+  box-shadow: 0 0 0 rgba(50, 205, 50, 0);
+  transition: box-shadow 0.3s ease, transform 0.2s ease, filter 0.3s ease;
+}
+
+.lime-cta:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 22px -2px rgba(50, 205, 50, 0.55);
+}
+
+.lime-cta:active {
+  transform: scale(0.96);
 }
 
 /* === Custom Adaptive Scrollbars === */
@@ -131,18 +230,18 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(10, 25, 47, 0.2);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(50, 205, 50, 0.5);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(50, 205, 50, 0.28);
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(50, 205, 50, 0.55);
 }
 
 /* Premium utility to completely hide scrollbars but keep scrolling active */
@@ -179,6 +278,65 @@ body {
   animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+/* Live pulse — the lime heartbeat used on LIVE badges and channel dots */
+@keyframes livePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(50, 205, 50, 0.7);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(50, 205, 50, 0);
+    opacity: 0.75;
+  }
+}
+
+.live-dot {
+  animation: livePulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* Sheen sweep used on prominent cards / CTAs */
+@keyframes sheen {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+
+.sheen-on-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.sheen-on-hover::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(50, 205, 50, 0.16), transparent);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.sheen-on-hover:hover::after {
+  animation: sheen 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .animate-pulse-slow,
+  .animate-float,
+  .sheen-on-hover:hover::after {
+    animation: none !important;
+  }
+  .glass-panel-hover,
+  .glass-panel-hover:hover {
+    transform: none;
+  }
+}
+
 /* === Custom elegant horizontal scrollbar for leagues shelf === */
 .custom-horizontal-scrollbar::-webkit-scrollbar {
   height: 4px;
@@ -187,19 +345,19 @@ body {
   background: transparent;
 }
 .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(50, 205, 50, 0.22);
   border-radius: 9999px;
 }
 .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.55);
+  background: rgba(50, 205, 50, 0.6);
 }
 .dark .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(50, 205, 50, 0.18);
 }
 .dark .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.45);
+  background: rgba(50, 205, 50, 0.5);
 }
 .custom-horizontal-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.2) transparent;
+  scrollbar-color: rgba(50, 205, 50, 0.22) transparent;
 }

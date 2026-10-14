@@ -1,21 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { Play, Clock, ShieldAlert, Star } from 'lucide-react';
+import { Play, Clock, ShieldAlert, Star, Flag, Timer } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { isTeamFavorited, toggleFavoriteTeam } from '@/lib/utils/favorites';
 
 function TeamBadge({ team, size = 'h-9 w-9' }) {
   const [imgError, setImgError] = useState(false);
   const hasBadge = team.badge && !imgError;
-  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(team.name)}&background=f4f4f5&color=71717a&size=128&bold=true&format=png`;
+  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(team.name)}&background=0b132b&color=32cd32&size=128&bold=true&format=png`;
 
   if (hasBadge) {
     return (
       <img
         src={team.badge}
         alt={team.name}
-        className={`${size} rounded-full object-contain bg-white dark:bg-zinc-950 p-0.5 ring-1 ring-zinc-200 dark:ring-zinc-800 group-hover:ring-violet-500/50 group-hover:scale-110 transition-all duration-300 shadow-sm`}
+        className={`${size} rounded-full object-contain bg-white dark:bg-navy-900 p-0.5 ring-1 ring-navy-200 dark:ring-navy-750 group-hover:ring-lime-500/60 group-hover:scale-110 transition-all duration-300 shadow-sm`}
         loading="lazy"
         onError={() => setImgError(true)}
       />
@@ -26,14 +26,33 @@ function TeamBadge({ team, size = 'h-9 w-9' }) {
     <img
       src={fallbackUrl}
       alt={team.name}
-      className={`${size} rounded-full object-contain group-hover:scale-110 transition-all duration-300`}
+      className={`${size} rounded-full object-contain ring-1 ring-navy-200 dark:ring-navy-750 group-hover:scale-110 transition-all duration-300`}
       loading="lazy"
     />
   );
 }
 
+/** Small yellow / red card chips, counted from the upstream live feed. */
+function CardChips({ cards, align = 'left' }) {
+  if (!cards) return null;
+  const { yellow = 0, red = 0 } = cards;
+  if (!yellow && !red) return null;
+
+  return (
+    <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+      {Array.from({ length: Math.min(yellow, 3) }).map((_, i) => (
+        <span key={`y${i}`} className="h-3 w-2 rounded-[2px] bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.45)]" title={`${yellow} yellow card${yellow > 1 ? 's' : ''}`} />
+      ))}
+      {Array.from({ length: Math.min(red, 3) }).map((_, i) => (
+        <span key={`r${i}`} className="h-3 w-2 rounded-[2px] bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]" title={`${red} red card${red > 1 ? 's' : ''}`} />
+      ))}
+      {yellow > 3 && <span className="text-[9px] font-black text-amber-400">+{yellow - 3}</span>}
+    </span>
+  );
+}
+
 export default function MatchCard({ match, tab }) {
-  const { id, status, timestamp, homeTeam, awayTeam, sources, tournament, homeScore, awayScore, leagueLogo, currentMinuteNumber } = match;
+  const { id, status, timestamp, homeTeam, awayTeam, sources, tournament, homeScore, awayScore, currentMinuteNumber, note, live } = match;
 
   const [liveData, setLiveData] = useState(null);
   const [homeFav, setHomeFav] = useState(false);
@@ -52,11 +71,12 @@ export default function MatchCard({ match, tab }) {
     };
   }, [homeTeam?.name, awayTeam?.name]);
 
+  // Live scores, minutes and cards are re-read straight from the API.
   useEffect(() => {
     if (status !== 'live') { setLiveData(null); return; }
     const poll = async () => {
       try {
-        const res = await fetch(`/api/match/${id}`);
+        const res = await fetch(`/api/match/${id}`, { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
         if (data.match) setLiveData(data.match);
@@ -67,41 +87,57 @@ export default function MatchCard({ match, tab }) {
     return () => { if (polling.current) clearInterval(polling.current); polling.current = null; };
   }, [id, status]);
 
-  const liveMinute = liveData?.currentMinute || match.currentMinute;
-  const liveMinuteNumber = liveData?.currentMinuteNumber ?? match.currentMinuteNumber;
+  const liveMinute = liveData?.currentMinute || match.currentMinute || live?.detail;
   const displayHomeScore = liveData?.homeScore ?? homeScore;
   const displayAwayScore = liveData?.awayScore ?? awayScore;
+  const cards = {
+    home: liveData?.cards?.home ?? live?.cards?.home,
+    away: liveData?.cards?.away ?? live?.cards?.away,
+  };
+  const scorers = {
+    home: liveData?.scorers?.home?.length ? liveData.scorers.home : live?.scorers?.home || [],
+    away: liveData?.scorers?.away?.length ? liveData.scorers.away : live?.scorers?.away || [],
+  };
 
-  const currentMinute = liveMinute || (liveMinuteNumber ? `${liveMinuteNumber}'` : '');
+  const currentMinute = liveMinute || (currentMinuteNumber ? `${currentMinuteNumber}'` : '');
+  const kickoff = new Date(timestamp);
+  const isToday = kickoff.toDateString() === new Date().toDateString();
+  const dayLabel = isToday ? '' : kickoff.toLocaleDateString([], { weekday: 'short' });
   const timeStr = status === 'live'
-    ? (currentMinute ? `${currentMinute}` : 'LIVE')
-    : new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    ? (currentMinute || 'LIVE')
+    : `${dayLabel ? `${dayLabel} ` : ''}${kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
   const timeLeft = status === 'upcoming' ? getTimeLeft(timestamp) : '';
   const isMatchFavorited = homeFav || awayFav;
+  const showScores = status === 'live' || status === 'finished';
 
   return (
     <Link
       href={`/watch/${id}?tab=${tab || 'live'}`}
-      className={`group relative flex flex-col rounded-xl glass-panel glass-panel-hover p-4 shadow-md hover:shadow-lg dark:hover:shadow-[0_0_25px_rgba(124,58,237,0.15)] transition-all duration-500 ${
-        isMatchFavorited 
-          ? 'border-violet-300 bg-gradient-to-br from-violet-50/40 via-white/80 to-violet-50/20 ring-1 ring-violet-200/50 shadow-[0_10px_30px_rgba(139,92,246,0.08)] dark:border-violet-500/35 dark:bg-gradient-to-br dark:from-violet-950/15 dark:via-[#0e0c15]/65 dark:to-[#050508]/85 dark:ring-1 dark:ring-violet-500/20 dark:shadow-[0_0_30px_rgba(139,92,246,0.18)]' 
+      className={`group relative flex flex-col rounded-xl glass-panel glass-panel-hover p-4 shadow-md overflow-hidden ${
+        isMatchFavorited
+          ? 'border-lime-300 bg-gradient-to-br from-lime-50/40 via-white/80 to-lime-50/20 ring-1 ring-lime-200/50 shadow-[0_10px_30px_rgba(50,205,50,0.1)] dark:border-lime-500/35 dark:bg-gradient-to-br dark:from-lime-950/25 dark:via-navy-850/65 dark:to-navy-950/85 dark:ring-1 dark:ring-lime-500/25 dark:shadow-[0_0_30px_rgba(50,205,50,0.2)]'
           : ''
       }`}
     >
+      {/* Lime sheen sweep on hover */}
+      <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(50,205,50,0.12),transparent_60%)]" />
+
       {/* Top Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+      <div className="relative flex items-center justify-between mb-4 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {status === 'live' ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-2.5 py-0.5 text-[11px] font-extrabold text-red-600 dark:text-red-400">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
-              </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-lime-500/10 border border-lime-500/30 px-2.5 py-0.5 text-[11px] font-extrabold text-lime-600 dark:text-lime-400">
+              <span className="live-dot relative inline-flex h-1.5 w-1.5 rounded-full bg-lime-500" />
               {currentMinute || 'LIVE'}
             </span>
+          ) : status === 'finished' ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-navy-100 dark:bg-navy-900 border border-navy-200 dark:border-navy-750 px-2.5 py-0.5 text-[11px] font-bold text-navy-600 dark:text-zinc-300 shadow-sm">
+              <Flag className="h-3 w-3" />
+              FT
+            </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-200/50 border border-zinc-300/40 dark:bg-zinc-900 dark:border-zinc-800 px-2.5 py-0.5 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-navy-100/70 border border-navy-200/70 dark:bg-navy-900 dark:border-navy-750 px-2.5 py-0.5 text-[11px] font-bold text-navy-700 dark:text-zinc-300 shadow-sm">
               <Clock className="h-3 w-3" />
               {timeStr}
             </span>
@@ -115,38 +151,39 @@ export default function MatchCard({ match, tab }) {
           )}
         </div>
         {tournament && (
-          <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 truncate max-w-[130px] flex items-center gap-1.5 bg-zinc-200/50 border border-zinc-300/40 dark:bg-zinc-950/60 dark:border-zinc-900 px-2.5 py-0.5 rounded-full shadow-sm" title={tournament}>
-            {leagueLogo ? (
-              <img src={leagueLogo} alt="" className="h-3.5 w-3.5 rounded-full object-contain bg-zinc-50 dark:bg-zinc-950 inline-block shrink-0" />
-            ) : (
-              <span className="h-1.5 w-1.5 rounded-full bg-zinc-400 dark:bg-zinc-700 inline-block shrink-0" />
-            )}
+          <span className="text-[11px] font-bold text-navy-600 dark:text-zinc-400 truncate max-w-[130px] flex items-center gap-1.5 bg-navy-100/60 border border-navy-200/60 dark:bg-navy-900/70 dark:border-navy-750 px-2.5 py-0.5 rounded-full shadow-sm transition-colors group-hover:border-lime-500/30" title={tournament}>
+            <span className="h-1.5 w-1.5 rounded-full bg-lime-500 inline-block shrink-0" />
             <span className="truncate">{tournament}</span>
           </span>
         )}
       </div>
 
       {/* Main scoreboard block */}
-      <div className="space-y-3.5 py-1">
+      <div className="relative space-y-3.5 py-1">
         {/* Home Team */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <TeamBadge team={homeTeam} />
-            <span className="text-[14px] font-bold truncate text-zinc-800 dark:text-zinc-100 group-hover:text-violet-600 dark:group-hover:text-white transition-colors">{homeTeam.name}</span>
+            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{homeTeam.name}</span>
+            <CardChips cards={cards.home} />
             <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 toggleFavoriteTeam(homeTeam.name);
               }}
-              className="p-1 rounded-md hover:bg-zinc-200/60 dark:hover:bg-zinc-900/90 text-zinc-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+              className="p-1 rounded-md hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
               title={homeFav ? "Unfavorite Team" : "Favorite Team"}
             >
-              <Star className={`h-3.5 w-3.5 transition-all ${homeFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-zinc-400 dark:text-zinc-500'}`} />
+              <Star className={`h-3.5 w-3.5 transition-all ${homeFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
             </button>
           </div>
-          {status === 'live' && displayHomeScore !== undefined && (
-            <span className="text-[18px] font-black text-zinc-800 dark:text-white tabular-nums shrink-0 bg-zinc-100/85 dark:bg-zinc-950 px-2.5 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-800/80 shadow-sm">{displayHomeScore}</span>
+          {showScores && displayHomeScore !== undefined && (
+            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-md border shadow-sm transition-colors ${
+              status === 'live'
+                ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
+                : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
+            }`}>{displayHomeScore}</span>
           )}
         </div>
 
@@ -154,41 +191,65 @@ export default function MatchCard({ match, tab }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <TeamBadge team={awayTeam} />
-            <span className="text-[14px] font-bold truncate text-zinc-800 dark:text-zinc-100 group-hover:text-violet-600 dark:group-hover:text-white transition-colors">{awayTeam.name}</span>
+            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{awayTeam.name}</span>
+            <CardChips cards={cards.away} />
             <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 toggleFavoriteTeam(awayTeam.name);
               }}
-              className="p-1 rounded-md hover:bg-zinc-200/60 dark:hover:bg-zinc-900/90 text-zinc-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+              className="p-1 rounded-md hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
               title={awayFav ? "Unfavorite Team" : "Favorite Team"}
             >
-              <Star className={`h-3.5 w-3.5 transition-all ${awayFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-zinc-400 dark:text-zinc-500'}`} />
+              <Star className={`h-3.5 w-3.5 transition-all ${awayFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
             </button>
           </div>
-          {status === 'live' && displayAwayScore !== undefined && (
-            <span className="text-[18px] font-black text-zinc-800 dark:text-white tabular-nums shrink-0 bg-zinc-100/85 dark:bg-zinc-950 px-2.5 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-800/80 shadow-sm">{displayAwayScore}</span>
+          {showScores && displayAwayScore !== undefined && (
+            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-md border shadow-sm transition-colors ${
+              status === 'live'
+                ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
+                : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
+            }`}>{displayAwayScore}</span>
           )}
         </div>
+
+        {/* Real-time scorer feed (live matches only) */}
+        {status === 'live' && (scorers.home.length > 0 || scorers.away.length > 0) && (
+          <div className="space-y-1 pt-1">
+            {[['home', scorers.home], ['away', scorers.away]].map(([side, list]) =>
+              list.length ? (
+                <p key={side} className={`text-[10.5px] font-semibold text-navy-500 dark:text-zinc-400 truncate ${side === 'away' ? 'text-right' : ''}`}>
+                  {list.slice(-3).join(' · ')}
+                </p>
+              ) : null
+            )}
+          </div>
+        )}
       </div>
 
       {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-zinc-300 dark:via-zinc-800/80 to-transparent my-3.5" />
+      <div className="h-px bg-gradient-to-r from-transparent via-navy-200 dark:via-navy-750 to-transparent my-3.5 group-hover:via-lime-500/40 transition-colors duration-500" />
 
       {/* Footer Info */}
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-[11px] text-zinc-500 dark:text-zinc-500 font-bold tracking-wide">
-          {sources.length === 0 ? 'Verification only' : `${sources.length} stream server${sources.length !== 1 ? 's' : ''}`}
+      <div className="relative flex items-center justify-between text-xs">
+        <span className="text-[11px] text-navy-500 dark:text-zinc-500 font-bold tracking-wide flex items-center gap-1.5">
+          {note ? (
+            <span className="text-amber-600 dark:text-amber-400">{note}</span>
+          ) : sources.length === 0 ? (
+            'Verification only'
+          ) : (
+            `${sources.length} stream server${sources.length !== 1 ? 's' : ''}`
+          )}
         </span>
 
         {sources.length > 0 ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-600 dark:text-violet-400 group-hover:text-violet-500 dark:group-hover:text-violet-300 transition-colors">
-            <Play className="h-3 w-3 fill-violet-500/20 dark:fill-violet-400/20 group-hover:scale-110 transition-transform" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-lime-600 dark:text-lime-400 group-hover:text-lime-500 dark:group-hover:text-lime-300 transition-colors">
+            <Play className="h-3 w-3 fill-lime-500/25 group-hover:scale-110 transition-transform" />
             Watch Stream
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-zinc-500">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-navy-500 dark:text-zinc-500">
             <ShieldAlert className="h-3.5 w-3.5" />
             Pending Link
           </span>
@@ -196,14 +257,21 @@ export default function MatchCard({ match, tab }) {
       </div>
 
       {status === 'upcoming' && timeLeft && (
-        <div className="mt-3 rounded-lg bg-zinc-100/80 border border-zinc-200 dark:bg-zinc-950/70 dark:border-zinc-800 px-3 py-2 text-center text-xs font-bold text-zinc-700 dark:text-zinc-300 shadow-inner">
+        <div className="relative mt-3 rounded-lg bg-navy-100/80 border border-navy-200 dark:bg-navy-950/70 dark:border-navy-750 px-3 py-2 text-center text-xs font-bold text-navy-700 dark:text-zinc-300 shadow-inner">
           {timeLeft.toLowerCase().trim().includes('starting soon') ? (
-            <span className="text-violet-600 dark:text-violet-400 font-black animate-pulse">Starting soon</span>
+            <span className="text-lime-600 dark:text-lime-400 font-black animate-pulse">Starting soon</span>
           ) : (
-            <>
-              Kickoff in <span className="text-violet-600 dark:text-violet-400 font-black font-mono">{timeLeft}</span>
-            </>
+            <span className="inline-flex items-center gap-1.5">
+              <Timer className="h-3.5 w-3.5 text-lime-500" />
+              Kickoff in <span className="text-lime-600 dark:text-lime-400 font-black font-mono">{timeLeft}</span>
+            </span>
           )}
+        </div>
+      )}
+
+      {status === 'finished' && (
+        <div className="relative mt-3 rounded-lg bg-navy-100/70 border border-navy-200 dark:bg-navy-950/60 dark:border-navy-750 px-3 py-2 text-center text-[11px] font-bold text-navy-600 dark:text-zinc-400">
+          Full time · stats &amp; highlights available
         </div>
       )}
     </Link>

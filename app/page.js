@@ -1,45 +1,44 @@
-import { getMatches, getLiveMatches } from '@/lib/streamEngine';
+import { getMatches } from '@/lib/streamEngine';
 import MatchGrid from '@/components/MatchGrid';
 
-export const revalidate = 10;
+// Live dashboard: always rendered on demand, with the upstream scoreboard
+// itself cached for 15-20s inside the ESPN provider.
+export const dynamic = 'force-dynamic';
+
+export const metadata = {
+  title: 'EVIV Live — Today’s Football Fixtures, Live Scores & Streams',
+  description:
+    'Every football match of the day with real-time scores, live minutes, cards and statistics — plus premium ad-free streams.',
+};
 
 export default async function Home({ searchParams }) {
   const resolvedSearchParams = await searchParams;
   const tab = resolvedSearchParams?.tab || 'live';
 
-  const [allMatches, liveMatches] = await Promise.all([
-    getMatches(),
-    getLiveMatches()
-  ]);
-
-  const matchMap = new Map();
-  for (const m of allMatches) matchMap.set(m.id, m);
-  for (const m of liveMatches) matchMap.set(m.id, m);
-  let mergedMatches = Array.from(matchMap.values());
+  const matches = await getMatches();
 
   const now = Date.now();
-  const thirtyMin = 30 * 60 * 1000;
-  mergedMatches = mergedMatches.filter(m => {
+  const dayAgo = now - 36 * 60 * 60 * 1000;
+  const visible = matches.filter((m) => {
     if (m.status === 'live') return true;
-    if (m.status === 'upcoming' && m.timestamp < now - thirtyMin) return false;
-    return true;
+    if (m.status === 'finished') return m.timestamp >= dayAgo;
+    // Upcoming: keep fixtures that have not been running for more than 30 min
+    // (a stale "upcoming" row is dropped rather than shown as a fake live one).
+    return m.timestamp >= now - 30 * 60 * 1000;
   });
 
-  mergedMatches.sort((a, b) => {
-    if (a.status === 'live' && b.status !== 'live') return -1;
-    if (b.status === 'live' && a.status !== 'live') return 1;
-    if (a.status === 'live' && b.status === 'live') {
-      const aHas = (a.sources?.length || 0) > 0 ? 0 : 1;
-      const bHas = (b.sources?.length || 0) > 0 ? 0 : 1;
-      if (aHas !== bHas) return aHas - bHas;
-    }
-    if (a.priority !== b.priority) return a.priority - b.priority;
+  // Live first, then the next kick-offs, then today's results.
+  const order = { live: 0, upcoming: 1, finished: 2 };
+  visible.sort((a, b) => {
+    const byStatus = (order[a.status] ?? 3) - (order[b.status] ?? 3);
+    if (byStatus !== 0) return byStatus;
+    if (a.status === 'finished') return b.timestamp - a.timestamp;
     return a.timestamp - b.timestamp;
   });
 
   return (
     <div className="space-y-5">
-      <MatchGrid matches={mergedMatches} defaultTab={tab} />
+      <MatchGrid matches={visible} defaultTab={tab} />
     </div>
   );
 }
