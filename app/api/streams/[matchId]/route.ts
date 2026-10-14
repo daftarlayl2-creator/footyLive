@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMatchDetails, resolveAllStreams } from '@/lib/streamEngine';
+import { detectStreamKind } from '@/lib/player/servers';
 
 export const revalidate = 15; // stream links change less frequently, 15s is safe
 
@@ -24,7 +25,8 @@ export async function GET(
       matchStatus: match.status,
       streams: resolved.channels || [],
       defaultUrl: resolved.proxiedUrl,
-      isDirectHls: resolved.proxiedUrl.includes('.m3u8') || resolved.proxiedUrl.includes('.mpd') || resolved.proxiedUrl.includes('.mp4')
+      // Proxy links URL-encode the upstream path, so classify by the URL they carry.
+      isDirectHls: detectStreamKind(resolved.proxiedUrl) !== 'embed',
     });
   } catch (err: any) {
     return NextResponse.json(

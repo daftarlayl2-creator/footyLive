@@ -148,3 +148,61 @@ export async function getLiveChannelById(id: string): Promise<LiveChannel | null
   const channels = await getLiveChannels();
   return channels.find((c) => c.id === id) ?? null;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Alternate sources for one channel                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Most servers offered for a single channel. */
+export const MAX_CHANNEL_SOURCES = 8;
+
+/** Titles too generic to prove two entries are the same channel. */
+const GENERIC_TITLES = new Set(['live event', 'live stream', 'live tv']);
+
+/**
+ * Title normalised for "is this the same channel?" checks: case, accents and
+ * punctuation are ignored, as is the " (2)" suffix the JSON parser gives each
+ * stream of a multi-stream item.
+ */
+export function normalizeChannelTitle(name: string): string {
+  return name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** Only multi-word, non-generic titles are trusted to identify a channel. */
+function isDistinctiveTitle(title: string): boolean {
+  return title.includes(' ') && !GENERIC_TITLES.has(title);
+}
+
+/**
+ * Every playable source for channel `id`: the channel itself first, then the
+ * other entries carrying the same channel — duplicate listings in the same feed
+ * (same tvg-id) and entries with the same distinctive title in any feed — in
+ * feed order. The player offers them as Server 1, Server 2, …, Backup.
+ */
+export function findChannelSources(channels: LiveChannel[], id: string): LiveChannel[] {
+  const primary = channels.find((c) => c.id === id);
+  if (!primary) return [];
+
+  const title = normalizeChannelTitle(primary.name);
+  const matchByTitle = isDistinctiveTitle(title);
+
+  const siblings = channels.filter(
+    (c) =>
+      c.id !== primary.id &&
+      ((!!primary.tvgId && c.feedUrl === primary.feedUrl && c.tvgId === primary.tvgId) ||
+        (matchByTitle && normalizeChannelTitle(c.name) === title))
+  );
+
+  return [primary, ...siblings].slice(0, MAX_CHANNEL_SOURCES);
+}
+
+/** The channel `id` plus its alternate sources (empty when the id is unknown). */
+export async function getChannelSources(id: string): Promise<LiveChannel[]> {
+  return findChannelSources(await getLiveChannels(), id);
+}

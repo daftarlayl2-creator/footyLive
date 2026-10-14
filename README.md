@@ -19,6 +19,7 @@ Designed for low latency and high quality, FootyLive resolves streaming server l
 ## 🌟 Key Features
 
 * 📺 **Interactive Stream Player**: Auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback, alongside regular streaming iframe nodes equipped with togglable **sandbox shields** to block intrusive pop-ups and ads.
+* 🔀 **Server Selector & Automatic Failover**: Every source for a match or channel becomes a server — **Server 1, Server 2, …, Backup** — in a selector under the player and a compact in-player menu (works in fullscreen). When the current server fails (fatal HLS error, unrecoverable media error, no first frame, a long stall, or an embed that never loads), the player moves on to the next untried server automatically and says so; once every server has failed it shows a **Retry all** that re-fetches freshly signed links instead of spinning forever. Auto-switch can be turned off (remembered per browser).
 * ⚡ **Multistream Arena**: Stream up to 4 matches at the same time in a responsive drag-to-resize viewport grid with isolated volume controls and reload capabilities.
 * 🕒 **Fast Live Kickoff Promotion**: Dynamic client-side match state elevation that promotes upcoming games to "Live Now" at their exact kickoff time, simulating realistic game timers, starting real-time score polling, and automatically swapping countdown panels with dynamic stream player modules without requiring a page reload.
 * 📅 **Match Lifecycle Management**: Split layout for **Live Now** (auto-refreshing score lists) and **Upcoming** fixtures (with real-time kickoff countdowns).
@@ -28,7 +29,7 @@ Designed for low latency and high quality, FootyLive resolves streaming server l
 * 📡 **Dynamic Live Feeds**: Ingests M3U/JSON playlists (default: `ibstvofficial/Live-events`), keeps only playable HLS/MP4 entries, and routes every stream through the signed `/api/proxy`. Fixtures whose teams appear in a feed title get those streams as extra servers, and `/channels` lists every live channel with live / offline status indicators.
 * ⭐ **Favorite Teams Tracking**: Star your favorite teams to pin their fixtures at the top of your dashboard automatically.
 * 🌓 **Premium Dark Mode**: Seamless theme switching using custom glassmorphic elements, rich visual glows, and harmonized color systems (no plain primaries).
-* 🌐 **Slow Network Resilience**: Stale-while-revalidate caching, aggressive image CDN caching (24h TTL), network error auto-recovery for HLS streams, and graceful loading skeletons that match the page layout.
+* 🌐 **Slow Network Resilience**: Stale-while-revalidate caching, aggressive image CDN caching (24h TTL), hls.js retry/recovery for transient HLS errors (watchdogs only count time while the tab is visible), automatic retry when the connection comes back, and graceful loading skeletons that match the page layout.
 
 ---
 
@@ -40,7 +41,7 @@ Designed for low latency and high quality, FootyLive resolves streaming server l
 | **React** | 19.2.6 | UI rendering |
 | **Tailwind CSS** | 4.3.0 | Utility-first CSS with v4 theme system |
 | **TypeScript** | 6.0.3 | Type checking (library code) |
-| **hls.js** | 1.4.0 | Client-side HLS video playback |
+| **hls.js** | 1.7 | Client-side HLS video playback (npm, code-split; loaded on first HLS play) |
 | **Lucide React** | 1.16.0 | Icon library |
 | **Upstash Redis** | 1.38.0 | Optional distributed caching |
 | **Vitest** | 4.1.7 | Unit testing |
@@ -75,7 +76,8 @@ football-stream-app/
 │   ├── error.js              # Graceful error boundary with retry
 │   └── page.js               # Homepage loading aggregated matches
 ├── components/               # Reusable React components
-│   ├── StreamPlayer.jsx      # Video controller, sandbox toggle, and HLS injector
+│   ├── StreamPlayer.jsx      # Video controller: hls.js/native playback, failover, sandbox toggle
+│   ├── ServerSelector.jsx    # "Server 1 · Server 2 · Backup" selector + in-player server menu
 │   ├── LiveScoreboard.jsx    # Real-time score ticker with live-minute calculation
 │   ├── MatchGrid.jsx         # Fixture listings, multi-select search filters, scroll chevrons
 │   ├── MatchCard.jsx         # Card template with quality badges (HD/SD) and star toggle
@@ -87,7 +89,8 @@ football-stream-app/
 │   ├── config.js             # Global configuration parameters
 │   ├── streamEngine.ts       # Registry aggregator & stream resolver orchestrator
 │   ├── cache/                # Cache manager supporting in-memory SWR & Upstash Redis
-│   ├── broadcast/            # Live feed engine: M3U/JSON parsers, feed cache, stream status probes
+│   ├── broadcast/            # Live feed engine: M3U/JSON parsers, feed cache, status probes, alternate sources
+│   ├── player/               # Server labels, stream-kind detection & failover state machine (pure, tested)
 │   ├── providers/            # Strategic Scraping strategies (WatchFooty, CdnLive, StreamedPk, LiveFeed)
 │   └── utils/                # Helper files (favorites tracker, Jaro-Winkler team matching)
 ├── public/                   # Static icons, manifest, offline fallbacks
