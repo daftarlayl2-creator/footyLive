@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { ArrowLeft, RadioTower } from 'lucide-react';
-import { getLiveChannelById, toPlaybackUrl } from '@/lib/broadcast/feeds';
+import { getChannelSources, toPlaybackUrl } from '@/lib/broadcast/feeds';
+import { detectStreamKind } from '@/lib/player/servers';
 import StreamPlayer from '@/components/StreamPlayer';
 
 export const revalidate = 60;
 
 export default async function ChannelPage({ params }) {
   const { id } = await params;
-  const channel = /^[a-f0-9]{16}(-\d+)?$/.test(id) ? await getLiveChannelById(id).catch(() => null) : null;
+  // The opened channel first, then other feed entries carrying the same channel.
+  const sources = /^[a-f0-9]{16}(-\d+)?$/.test(id) ? await getChannelSources(id).catch(() => []) : [];
+  const channel = sources[0] ?? null;
 
   if (!channel) {
     return (
@@ -23,9 +26,12 @@ export default async function ChannelPage({ params }) {
     );
   }
 
-  // Only the signed proxy link reaches the browser — never the raw upstream URL.
-  const playbackUrl = toPlaybackUrl(channel);
-  const channels = [{ name: channel.name, proxiedUrl: playbackUrl, quality: 'HD' }];
+  // Only signed proxy links reach the browser — never the raw upstream URLs.
+  const channels = sources.map((source) => {
+    const proxiedUrl = toPlaybackUrl(source);
+    return { name: source.name, url: proxiedUrl, proxiedUrl, quality: 'HD', kind: detectStreamKind(proxiedUrl) };
+  });
+  const playbackUrl = channels[0].proxiedUrl;
 
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto">
@@ -57,7 +63,10 @@ export default async function ChannelPage({ params }) {
       <StreamPlayer streamUrl={playbackUrl} channels={channels} matchTitle={channel.name} matchStatus="live" />
 
       <p className="text-[11px] text-zinc-500">
-        Source: {channel.source}. Playback is routed through FootyLive&apos;s proxy; if the stream stops, try again shortly as feed links rotate.
+        Source: {channel.source}. Playback is routed through FootyLive&apos;s proxy;{' '}
+        {channels.length > 1
+          ? `${channels.length} sources found for this channel — if one stops, the player moves to the next automatically.`
+          : 'if the stream stops, try again shortly as feed links rotate.'}
       </p>
     </div>
   );

@@ -7,6 +7,7 @@ import { StreamedPkProvider } from './providers/streamedPk';
 import { LiveFeedProvider } from './providers/liveFeed';
 import { getCacheManager } from './cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
+import { detectStreamKind } from './player/servers';
 
 const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_123_abc';
 
@@ -106,6 +107,7 @@ export async function resolveAllStreams(
           // Feed streams carry signed proxy links; never expose their raw upstream URL.
           url: server.provider === 'livefeed' ? proxiedUrl : server.url,
           proxiedUrl,
+          kind: detectStreamKind(proxiedUrl) ?? 'embed',
         });
       }
     }

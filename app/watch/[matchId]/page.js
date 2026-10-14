@@ -122,10 +122,8 @@ export default async function WatchPage({ params, searchParams }) {
         </div>
       )}
 
-      {/* Player window block */}
-      {streamUrl && !errorMsg ? (
-        <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
-      ) : channels.length > 0 ? (
+      {/* Player window block: every resolved server goes to the player's selector / failover chain */}
+      {channels.length > 0 || (streamUrl && !errorMsg) ? (
         <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
       ) : (
         <div className="flex aspect-video items-center justify-center rounded-2xl border border-zinc-800 bg-[#060609] p-6 shadow-2xl">

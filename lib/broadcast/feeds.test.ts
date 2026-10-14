@@ -4,11 +4,14 @@ import { parseJsonFeed } from './json';
 import {
   buildLiveChannels,
   channelIdFor,
+  findChannelSources,
   getFeedUrls,
   isPlayableFeedUrl,
+  normalizeChannelTitle,
   parseFeedText,
   toPlaybackUrl,
   DEFAULT_LIVE_FEEDS,
+  MAX_CHANNEL_SOURCES,
 } from './feeds';
 import { PROXY_PATH, verifyProxySignature } from '../hlsProxy';
 import { probeChannel, withTimeout } from './probe';
@@ -154,6 +157,81 @@ describe('playable filtering and channel building', () => {
     const channels = buildLiveChannels(parseM3U(text, FEED_URL));
     expect(channels[0].id).toBe(channelIdFor(channels[0]));
     expect(channels[1].id).toBe(`${channels[0].id}-2`);
+  });
+});
+
+describe('alternate channel sources', () => {
+  const OTHER_FEED = 'https://mirror.example.com/live.json';
+  const channels = buildLiveChannels([
+    ...parseM3U(
+      [
+        '#EXTM3U',
+        '#EXTINF:-1 tvg-id="sonyliv-1",LASK vs Liverpool - 14 Oct 2026',
+        'https://cdn.example.com/lask/eng.m3u8',
+        '#EXTINF:-1,Feyenoord vs Como',
+        'https://cdn.example.com/fey/index.m3u8',
+        '#EXTINF:-1 tvg-id="sonyliv-1",LASK v Liverpool (alt audio)',
+        'https://cdn.example.com/lask/alt.m3u8',
+        '#EXTINF:-1,LASK vs Liverpool - 14 Oct 2026',
+        'https://backup.example.com/lask/index.m3u8',
+        '#EXTINF:-1,Live Event',
+        'https://cdn.example.com/generic-a.m3u8',
+        '#EXTINF:-1,Live Event',
+        'https://cdn.example.com/generic-b.m3u8',
+      ].join('\n'),
+      FEED_URL
+    ),
+    ...parseJsonFeed(
+      JSON.stringify([
+        { name: 'LASK vs Liverpool – 14 Oct 2026', streams: ['https://m.example.com/l1.m3u8', 'https://m.example.com/l2.m3u8'] },
+        { id: 'sonyliv-1', name: 'Unrelated channel', url: 'https://m.example.com/u.m3u8' },
+      ]),
+      OTHER_FEED
+    ),
+  ]);
+  const byUrl = (url: string) => channels.find((c) => c.url === url)!;
+
+  it('normalises titles for comparison', () => {
+    expect(normalizeChannelTitle('  LASK vs. Liverpool (2) ')).toBe('lask vs liverpool');
+    expect(normalizeChannelTitle('Atlético – Real Madrid')).toBe('atletico real madrid');
+  });
+
+  it('collects same-feed tvg-id duplicates and same-title entries from every feed, requested channel first', () => {
+    const lask = byUrl('https://cdn.example.com/lask/eng.m3u8');
+    const sources = findChannelSources(channels, lask.id);
+    expect(sources.map((s) => s.url)).toEqual([
+      'https://cdn.example.com/lask/eng.m3u8',
+      'https://cdn.example.com/lask/alt.m3u8', // same tvg-id, same feed
+      'https://backup.example.com/lask/index.m3u8', // same title
+      'https://m.example.com/l1.m3u8', // same title in another feed ("(1)" suffix ignored)
+      'https://m.example.com/l2.m3u8',
+    ]);
+    // A tvg-id reused by another feed is not proof of the same channel.
+    expect(sources.some((s) => s.name === 'Unrelated channel')).toBe(false);
+  });
+
+  it('starts from whichever duplicate was opened', () => {
+    const backup = byUrl('https://backup.example.com/lask/index.m3u8');
+    expect(findChannelSources(channels, backup.id)[0].url).toBe('https://backup.example.com/lask/index.m3u8');
+  });
+
+  it('does not merge channels on generic titles, and handles unknown ids', () => {
+    const generic = byUrl('https://cdn.example.com/generic-a.m3u8');
+    expect(findChannelSources(channels, generic.id)).toHaveLength(1);
+    expect(findChannelSources(channels, byUrl('https://cdn.example.com/fey/index.m3u8').id)).toHaveLength(1);
+    expect(findChannelSources(channels, 'ffffffffffffffff')).toEqual([]);
+  });
+
+  it(`caps the list at ${MAX_CHANNEL_SOURCES} sources`, () => {
+    const many = buildLiveChannels(
+      Array.from({ length: 12 }, (_, i) => ({
+        name: 'Big Match Live',
+        url: `https://cdn.example.com/big/${i}.m3u8`,
+        source: 'feed.example.com',
+        feedUrl: FEED_URL,
+      }))
+    );
+    expect(findChannelSources(many, many[0].id)).toHaveLength(MAX_CHANNEL_SOURCES);
   });
 });
 

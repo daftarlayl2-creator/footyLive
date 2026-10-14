@@ -17,6 +17,8 @@ export interface Channel {
   proxiedUrl?: string;
   provider?: string;
   quality?: string;
+  /** How the player loads `proxiedUrl`: hls.js, a plain media file, or an iframe. */
+  kind?: 'hls' | 'mp4' | 'embed';
 }
 
 export interface Match {

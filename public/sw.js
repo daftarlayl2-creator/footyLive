@@ -31,10 +31,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests and skip Next.js static chunks/web sockets or dev hot reloads
+  // Only handle GET requests and skip Next.js static chunks/web sockets or dev hot reloads.
+  // API and stream traffic (/api/proxy playlists + segments) goes straight to the network: a
+  // synthetic 480 "offline" response there would turn a retryable network blip into an HTTP
+  // error that hls.js refuses to retry, killing playback instead of riding the blip out.
   if (
     event.request.method !== 'GET' || 
     event.request.url.includes('/_next/') || 
+    new URL(event.request.url).pathname.startsWith('/api/') ||
     event.request.url.includes('webpack') ||
     event.request.url.includes('chrome-extension')
   ) {
