@@ -74,6 +74,12 @@ export default function RootLayout({ children }) {
             </a>
             
             <div className="flex items-center gap-3.5">
+              <a
+                href="/channels"
+                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-500/30 transition-all"
+              >
+                Live Channels
+              </a>
               <a 
                 href="/multistream" 
                 className="text-xs font-bold px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-650 hover:from-violet-500 hover:to-indigo-550 text-white shadow-[0_0_12px_rgba(124,58,237,0.2)] hover:shadow-[0_0_18px_rgba(124,58,237,0.45)] hover:scale-105 active:scale-95 transition-all"

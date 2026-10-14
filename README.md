@@ -25,6 +25,7 @@ Designed for low latency and high quality, FootyLive resolves streaming server l
 * 🔍 **Smart Tournament Filters**: A horizontal, swipeable tournament shelf with team logos, custom click-to-scroll navigation chevrons, and dynamic league-hiding (only showing leagues that have active matches in the current tab).
 * 📊 **Enterprise Match Statistics**: Professional stat comparison panels with visual bar charts, leading-side highlights (violet for home, emerald for away), and color-coded live commentary logs with event-type emoji markers.
 * 🛠️ **Developer API Hub**: A dedicated visual developer playground (`/api-hub`) documenting local REST endpoints, proxy cache architectures, Jaro-Winkler similarity matching systems, HMAC link signing modules, and third-party upstream API databases (Streamed.pk, CDNLive, WatchFooty).
+* 📡 **Dynamic Live Feeds**: Ingests M3U/JSON playlists (default: `ibstvofficial/Live-events`), keeps only playable HLS/MP4 entries, and routes every stream through the signed `/api/proxy`. Fixtures whose teams appear in a feed title get those streams as extra servers, and `/channels` lists every live channel with live / offline status indicators.
 * ⭐ **Favorite Teams Tracking**: Star your favorite teams to pin their fixtures at the top of your dashboard automatically.
 * 🌓 **Premium Dark Mode**: Seamless theme switching using custom glassmorphic elements, rich visual glows, and harmonized color systems (no plain primaries).
 * 🌐 **Slow Network Resilience**: Stale-while-revalidate caching, aggressive image CDN caching (24h TTL), network error auto-recovery for HLS streams, and graceful loading skeletons that match the page layout.
@@ -59,11 +60,14 @@ football-stream-app/
 │   │   ├── streams/[matchId] # Server-side link decoders & quality parameters (HD/SD)
 │   │   ├── stream-redirect   # Cryptographically signed HMAC proxy validator (iframe embeds)
 │   │   ├── proxy             # Streaming HLS/CORS proxy: rewrites .m3u8, relays segments, forwards Range
+│   │   ├── live-channels     # Live feed channels with per-channel status probes
 │   │   └── v1/               # High-speed cached binary image proxy endpoints
 │   │       ├── league-logo   # 24h cached tournament logo proxy
 │   │       ├── team-logo     # 24h cached club badge proxy
 │   │       └── poster        # 24h cached match poster proxy
 │   ├── api-hub/              # Developer hub page documenting REST and upstream APIs
+│   ├── channels/             # Live channel grid with live/offline indicators
+│   ├── channel/[id]/         # Player for a single feed channel (proxied playback)
 │   ├── watch/[matchId]/      # Individual match details and live player view
 │   ├── multistream/          # Multistream arena grid layout
 │   ├── layout.js             # Sticky header, footer, global centered main layout
@@ -83,7 +87,8 @@ football-stream-app/
 │   ├── config.js             # Global configuration parameters
 │   ├── streamEngine.ts       # Registry aggregator & stream resolver orchestrator
 │   ├── cache/                # Cache manager supporting in-memory SWR & Upstash Redis
-│   ├── providers/            # Strategic Scraping strategies (WatchFooty, CdnLive, StreamedPk)
+│   ├── broadcast/            # Live feed engine: M3U/JSON parsers, feed cache, stream status probes
+│   ├── providers/            # Strategic Scraping strategies (WatchFooty, CdnLive, StreamedPk, LiveFeed)
 │   └── utils/                # Helper files (favorites tracker, Jaro-Winkler team matching)
 ├── public/                   # Static icons, manifest, offline fallbacks
 └── app/globals.css           # Tailwind v4 theme, glassmorphism, animations, scrollbars
@@ -113,6 +118,13 @@ STREAM_SECRET="default_stream_hmac_secret_key_123_abc"
 
 # Optional: Upstream API base URL (defaults to https://api.watchfooty.st)
 # NEXT_PUBLIC_API_BASE="https://api.watchfooty.st"
+
+# Optional: comma-separated M3U/JSON live feed URLs. Defaults to the ibstvofficial/Live-events playlist.
+# Set to an empty string to disable live feeds.
+# LIVE_FEED_URLS="https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u"
+
+# Optional: let /api/proxy reach LAN/loopback origins (local testing only)
+# HLS_PROXY_ALLOW_PRIVATE_HOSTS=true
 
 # Optional: Redis caching (Upstash) - defaults to in-memory caching if omitted
 # UPSTASH_REDIS_REST_URL=""

@@ -4,6 +4,7 @@ import { Match, Channel } from './types';
 import { WatchFootyProvider, getMatchDetails, getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
+import { LiveFeedProvider } from './providers/liveFeed';
 import { getCacheManager } from './cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
 
@@ -15,6 +16,7 @@ const providers = [
   new WatchFootyProvider(),
   new CdnLiveProvider(),
   new StreamedPkProvider(),
+  new LiveFeedProvider(),
 ];
 
 export function getStreamRedirectUrl(originalUrl: string): string {
@@ -97,10 +99,13 @@ export async function resolveAllStreams(
     for (const server of allServers) {
       if (!seenUrls.has(server.url)) {
         seenUrls.add(server.url);
+        const proxiedUrl = server.proxiedUrl || getProxiedStreamUrl(server.url);
         uniqueServers.push({
           ...server,
           name: `Server ${serverIndex++}`,
-          proxiedUrl: getProxiedStreamUrl(server.url),
+          // Feed streams carry signed proxy links; never expose their raw upstream URL.
+          url: server.provider === 'livefeed' ? proxiedUrl : server.url,
+          proxiedUrl,
         });
       }
     }
