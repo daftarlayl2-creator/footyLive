@@ -5,6 +5,7 @@ import { WatchFootyProvider, getMatchDetails, getMatchStats, getLeagues, getTopT
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
 import { getCacheManager } from './cache/cacheManager';
+import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
 
 const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_123_abc';
 
@@ -24,6 +25,19 @@ export function getStreamRedirectUrl(originalUrl: string): string {
     .update(`${encoded}:${expires}`)
     .digest('hex');
   return `/api/stream-redirect?u=${encoded}&expires=${expires}&sig=${signature}`;
+}
+
+/**
+ * Pick the right local URL for a stream:
+ *  - direct HLS/MP4 sources go through the streaming CORS proxy (`/api/proxy`)
+ *    so hls.js can load playlists and segments same-origin;
+ *  - iframe/embed pages keep using the signed 302 redirect.
+ */
+export function getProxiedStreamUrl(originalUrl: string): string {
+  if (isDirectStreamUrl(originalUrl)) {
+    return buildProxyUrl(originalUrl);
+  }
+  return getStreamRedirectUrl(originalUrl);
 }
 
 export async function getMatches(): Promise<Match[]> {
@@ -86,14 +100,14 @@ export async function resolveAllStreams(
         uniqueServers.push({
           ...server,
           name: `Server ${serverIndex++}`,
-          proxiedUrl: getStreamRedirectUrl(server.url),
+          proxiedUrl: getProxiedStreamUrl(server.url),
         });
       }
     }
 
     return {
       url: uniqueServers[0].url,
-      proxiedUrl: uniqueServers[0].proxiedUrl || getStreamRedirectUrl(uniqueServers[0].url),
+      proxiedUrl: uniqueServers[0].proxiedUrl || getProxiedStreamUrl(uniqueServers[0].url),
       channels: uniqueServers,
       serverCount: uniqueServers.length,
     };

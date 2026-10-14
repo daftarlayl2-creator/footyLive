@@ -57,7 +57,8 @@ football-stream-app/
 │   │   ├── match/[matchId]   # Live scoreboard endpoints
 │   │   ├── matches           # Master fixtures aggregator
 │   │   ├── streams/[matchId] # Server-side link decoders & quality parameters (HD/SD)
-│   │   ├── stream-redirect   # Cryptographically signed HMAC proxy validator
+│   │   ├── stream-redirect   # Cryptographically signed HMAC proxy validator (iframe embeds)
+│   │   ├── proxy             # Streaming HLS/CORS proxy: rewrites .m3u8, relays segments, forwards Range
 │   │   └── v1/               # High-speed cached binary image proxy endpoints
 │   │       ├── league-logo   # 24h cached tournament logo proxy
 │   │       ├── team-logo     # 24h cached club badge proxy
@@ -153,7 +154,8 @@ FootyLive is equipped with public REST API endpoints. Full interactive documenta
 | `/api/matches` | GET | Aggregated fixtures from all scraping providers, sorted by status & priority |
 | `/api/match/[matchId]` | GET | Real-time scores, lineups, boxscore stats, and live commentary |
 | `/api/streams/[matchId]` | GET | Resolved stream channels with signed proxy URLs |
-| `/api/stream-redirect` | GET | HMAC-validated proxy redirect to upstream stream URLs |
+| `/api/stream-redirect` | GET | HMAC-validated proxy redirect to upstream stream URLs (iframe embeds) |
+| `/api/proxy` | GET | Signed streaming HLS proxy: fetches `.m3u8` server-side, rewrites every segment/key/variant URI to relative proxy links, relays media chunks as they arrive with upstream `Content-Type`, `Range`/`206` preserved and CORS headers added |
 | `/api/v1/league-logo/[id]` | GET | Cached league logo image proxy (24h TTL) |
 | `/api/v1/team-logo/[id]` | GET | Cached team badge image proxy (24h TTL) |
 | `/api/v1/poster/[id]` | GET | Cached match poster image proxy (24h TTL) |
