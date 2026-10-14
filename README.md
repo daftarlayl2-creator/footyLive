@@ -1,35 +1,28 @@
-# ⚽ FootyLive — Premium Live Sports Streaming Aggregator
+# ⚽ EVIV Live — Real-Time Football Scores & Live Streams
 
-FootyLive is a high-performance, ad-free live football streaming aggregator built on **Next.js 16** with **React 19** and **Tailwind CSS v4**. It aggregates live scoreboard metrics, team logistics, and dynamic multi-server stream networks into a premium, glassmorphic client interface.
+**EVIV Live** is a high-performance, ad-free live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Navy Blue / Lime Green** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
 
-Designed for low latency and high quality, FootyLive resolves streaming server links on the fly, provides direct `.m3u8` video player fallbacks with client-side HLS rendering, integrates ad-blocker sandboxes, and implements a dashboard to stream multiple matches simultaneously.
+**No mock data, ever.** Fixtures, scores, match minutes, cards, scorers and statistics are read straight from ESPN's public scoreboard JSON. Streaming sources are aggregated from public feeds/providers and always played through a signed first-party proxy.
 
-**🌐 Live Demo: [https://footylive.vercel.app](https://footylive.vercel.app/)**
+> **Brand:** page/surfaces `#0a192f` · `#0b132b` · `#112240`, accents `#32CD32` → `#00ff00`.
+> **Mark:** a soaring eagle silhouette (Navy/Lime) above the *EVIV Live* wordmark.
 
-<img width="1920" height="976" alt="Screenshot 2026-05-21 103906" src="https://github.com/user-attachments/assets/d304e7f0-2c1e-4520-8935-f281a5183ccf" />
-<img width="1920" height="985" alt="Screenshot 2026-05-21 095834" src="https://github.com/user-attachments/assets/9b15e3d3-f79e-46d5-aca9-57d31b84df9a" />
-<img width="1920" height="982" alt="Screenshot 2026-05-21 095746" src="https://github.com/user-attachments/assets/83a27d6e-6a56-4116-be1f-dcee389cd451" />
-<img width="1920" height="947" alt="Screenshot 2026-05-21 095627" src="https://github.com/user-attachments/assets/22e7b003-d569-4945-9035-8f8addaf0987" />
-<img width="1920" height="979" alt="Screenshot 2026-05-21 095323" src="https://github.com/user-attachments/assets/b8af197b-bfb9-4e5b-b410-8b60592e1eac" />
-<img width="1920" height="1080" alt="Screenshot 2026-05-21 104637" src="https://github.com/user-attachments/assets/b645c61c-34a5-4465-8a2a-ca759cfc4ed0" />
-<img width="1920" height="977" alt="Screenshot 2026-05-21 104530" src="https://github.com/user-attachments/assets/a8189e37-cb7e-4471-a00b-22d0b20fb198" />
+<img alt="EVIV Live dashboard" src="https://github.com/user-attachments/assets/d304e7f0-2c1e-4520-8935-f281a5183ccf" />
 
 ---
 
 ## 🌟 Key Features
 
-* 📺 **Interactive Stream Player**: Auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback, alongside regular streaming iframe nodes equipped with togglable **sandbox shields** to block intrusive pop-ups and ads.
-* 🔀 **Server Selector & Automatic Failover**: Every source for a match or channel becomes a server — **Server 1, Server 2, …, Backup** — in a selector under the player and a compact in-player menu (works in fullscreen). When the current server fails (fatal HLS error, unrecoverable media error, no first frame, a long stall, or an embed that never loads), the player moves on to the next untried server automatically and says so; once every server has failed it shows a **Retry all** that re-fetches freshly signed links instead of spinning forever. Auto-switch can be turned off (remembered per browser).
-* ⚡ **Multistream Arena**: Stream up to 4 matches at the same time in a responsive drag-to-resize viewport grid with isolated volume controls and reload capabilities.
-* 🕒 **Fast Live Kickoff Promotion**: Dynamic client-side match state elevation that promotes upcoming games to "Live Now" at their exact kickoff time, simulating realistic game timers, starting real-time score polling, and automatically swapping countdown panels with dynamic stream player modules without requiring a page reload.
-* 📅 **Match Lifecycle Management**: Split layout for **Live Now** (auto-refreshing score lists) and **Upcoming** fixtures (with real-time kickoff countdowns).
-* 🔍 **Smart Tournament Filters**: A horizontal, swipeable tournament shelf with team logos, custom click-to-scroll navigation chevrons, and dynamic league-hiding (only showing leagues that have active matches in the current tab).
-* 📊 **Enterprise Match Statistics**: Professional stat comparison panels with visual bar charts, leading-side highlights (violet for home, emerald for away), and color-coded live commentary logs with event-type emoji markers.
-* 🛠️ **Developer API Hub**: A dedicated visual developer playground (`/api-hub`) documenting local REST endpoints, proxy cache architectures, Jaro-Winkler similarity matching systems, HMAC link signing modules, and third-party upstream API databases (Streamed.pk, CDNLive, WatchFooty).
-* 📡 **Dynamic Live Feeds**: Ingests M3U/JSON playlists (default: `ibstvofficial/Live-events`), keeps only playable HLS/MP4 entries, and routes every stream through the signed `/api/proxy`. Fixtures whose teams appear in a feed title get those streams as extra servers, and `/channels` lists every live channel with live / offline status indicators.
-* ⭐ **Favorite Teams Tracking**: Star your favorite teams to pin their fixtures at the top of your dashboard automatically.
-* 🌓 **Premium Dark Mode**: Seamless theme switching using custom glassmorphic elements, rich visual glows, and harmonized color systems (no plain primaries).
-* 🌐 **Slow Network Resilience**: Stale-while-revalidate caching, aggressive image CDN caching (24h TTL), hls.js retry/recovery for transient HLS errors (watchdogs only count time while the tab is visible), automatic retry when the connection comes back, and graceful loading skeletons that match the page layout.
+* 🛰️ **REAL Data Only (ESPN public API)**: the home dashboard consumes `https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard` for every competition of the day — live, finished and upcoming — plus per-match summaries for statistics and play-by-play. Nothing is fabricated: a match is only marked live when ESPN reports `status.type.state === "in"`, and unparseable values are omitted rather than invented.
+* ⚽ **Live Match Statistics on the Cards**: live cards show the real score, the real match minute (`62'`, `HT`, `90'+3'`), yellow/red card chips counted from the scoreboard's match details and the goal scorers for both sides. Each card then polls `/api/match/{id}` every 30 s to stay current.
+* 🗂️ **Live / Upcoming / Finished Tabs**: past, live and upcoming fixtures of the day in one dashboard, with tournament filters, multi-select search, favourite-team pinning and kickoff countdowns.
+* 📊 **Enterprise Match Statistics**: real boxscore comparison rows (possession, shots, corners, fouls, cards …) with proportional bars — lime for home, sky for away — next to the real key-events log on the match page.
+* 📡 **Channels That Never Disappear**: `/channels` server-renders every channel from the live feeds, shows all statuses by default and labels CDN-blocked probes **Standby** instead of dumping them into the offline pile. Clicking a channel *always* routes to the signed `/api/proxy` player, whatever the probe said.
+* 🎨 **Navy & Lime Design System**: Tailwind v4 `@theme` tokens (`navy-*`, `lime-*`) drive every surface, button, active state and player control; lime `live-dot` pulses on live badges, and cards animate with a hover lift, ring and sheen sweep (all disabled under `prefers-reduced-motion`).
+* 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback, alongside iframe embeds with togglable sandbox shields.
+* 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls, plus a **Retry all** that re-signs fresh links.
+* 🖥️ **Multistream Arena**: up to four matches side by side in a drag-to-resize grid with per-tile volume.
+* 🌓 **Light & Dark Themes**, slow-network resilience (SWR caching, retry/recovery, skeletons) and an installable PWA with an offline fallback.
 
 ---
 
@@ -39,62 +32,78 @@ Designed for low latency and high quality, FootyLive resolves streaming server l
 |------------|---------|---------|
 | **Next.js** | 16.2.6 | App Router, SSR, API routes |
 | **React** | 19.2.6 | UI rendering |
-| **Tailwind CSS** | 4.3.0 | Utility-first CSS with v4 theme system |
-| **TypeScript** | 6.0.3 | Type checking (library code) |
-| **hls.js** | 1.7 | Client-side HLS video playback (npm, code-split; loaded on first HLS play) |
+| **Tailwind CSS** | 4.3.0 | Utility-first CSS with v4 `@theme` brand tokens |
+| **TypeScript** | 6.0.3 | Typed library code (providers, probe, proxy) |
+| **hls.js** | 1.7 | Client-side HLS playback (code-split) |
 | **Lucide React** | 1.16.0 | Icon library |
 | **Upstash Redis** | 1.38.0 | Optional distributed caching |
-| **Vitest** | 4.1.7 | Unit testing |
+| **Vitest** | 4.1.7 | Unit + server-render component tests |
 
 ---
 
-## 🏗️ Architecture Design & Directory Structure
-
-FootyLive is organized around Next.js App Router patterns, utilizing server-rendered layouts, dynamic client components, and lightweight local caching layers.
+## 🧭 Real-Data Pipeline (ESPN)
 
 ```
-football-stream-app/
-├── app/                      # Next.js App Router
-│   ├── api/                  # API endpoints for match data and stream redirection
-│   │   ├── match/[matchId]   # Live scoreboard endpoints
-│   │   ├── matches           # Master fixtures aggregator
-│   │   ├── streams/[matchId] # Server-side link decoders & quality parameters (HD/SD)
-│   │   ├── stream-redirect   # Cryptographically signed HMAC proxy validator (iframe embeds)
-│   │   ├── proxy             # Streaming HLS/CORS proxy: rewrites .m3u8, relays segments, forwards Range
-│   │   ├── live-channels     # Live feed channels with per-channel status probes
-│   │   └── v1/               # High-speed cached binary image proxy endpoints
-│   │       ├── league-logo   # 24h cached tournament logo proxy
-│   │       ├── team-logo     # 24h cached club badge proxy
-│   │       └── poster        # 24h cached match poster proxy
-│   ├── api-hub/              # Developer hub page documenting REST and upstream APIs
-│   ├── channels/             # Live channel grid with live/offline indicators
-│   ├── channel/[id]/         # Player for a single feed channel (proxied playback)
-│   ├── watch/[matchId]/      # Individual match details and live player view
-│   ├── multistream/          # Multistream arena grid layout
-│   ├── layout.js             # Sticky header, footer, global centered main layout
-│   ├── loading.js            # Skeleton loader matching page structure
-│   ├── error.js              # Graceful error boundary with retry
-│   └── page.js               # Homepage loading aggregated matches
-├── components/               # Reusable React components
-│   ├── StreamPlayer.jsx      # Video controller: hls.js/native playback, failover, sandbox toggle
-│   ├── ServerSelector.jsx    # "Server 1 · Server 2 · Backup" selector + in-player server menu
-│   ├── LiveScoreboard.jsx    # Real-time score ticker with live-minute calculation
-│   ├── MatchGrid.jsx         # Fixture listings, multi-select search filters, scroll chevrons
-│   ├── MatchCard.jsx         # Card template with quality badges (HD/SD) and star toggle
-│   ├── MatchStatsSection.jsx # Enterprise stat bars & color-coded commentary logs
-│   ├── MatchCountdown.jsx    # Real-time kickoff countdown timer
-│   ├── LiveMinute.jsx        # Adjustable live minute display
-│   └── ThemeToggle.jsx       # Global Dark/Light mode theme switch
-├── lib/                      # Utilities & Core Logic
-│   ├── config.js             # Global configuration parameters
-│   ├── streamEngine.ts       # Registry aggregator & stream resolver orchestrator
-│   ├── cache/                # Cache manager supporting in-memory SWR & Upstash Redis
-│   ├── broadcast/            # Live feed engine: M3U/JSON parsers, feed cache, status probes, alternate sources
-│   ├── player/               # Server labels, stream-kind detection & failover state machine (pure, tested)
-│   ├── providers/            # Strategic Scraping strategies (WatchFooty, CdnLive, StreamedPk, LiveFeed)
-│   └── utils/                # Helper files (favorites tracker, Jaro-Winkler team matching)
-├── public/                   # Static icons, manifest, offline fallbacks
-└── app/globals.css           # Tailwind v4 theme, glassmorphism, animations, scrollbars
+ESPN scoreboard (all/scoreboard?dates=YYYYMMDD)        ← fixtures, scores, minutes, cards, venues
+        │
+        ├── lib/providers/espn.ts  → normalised `Match` (live | upcoming | finished)
+        │        • status.type.state  → live / upcoming / finished (+ postponed → upcoming + note)
+        │        • status clock/detail → "62'", "HT", "FT"      (period-aware fallback)
+        │        • competitions[0].details → yellow/red cards, goals, own goals, penalties, scorers
+        │        • season.slug → tournament name, country, priority (real upstream metadata)
+        │
+        ├── lib/streamEngine.ts    → merges catalogue stream servers onto the ESPN fixture
+        │                            (fuzzy team matching; ESPN stays authoritative)
+        │
+        └── summary / CDN game package → stats + play-by-play
+                 • /soccer/all/summary?event=ID            (tried first)
+                 • /soccer/{league}/summary?event=ID       (slug derived from the season slug)
+                 • cdn.espn.com/core/soccer/game?xhr=1&gameId=ID   (league-agnostic fallback)
+```
+
+**Caching:** scoreboards 15 s upstream / 20 s in-app, summaries 45 s, probe results 90 s (in-memory SWR, or Upstash Redis when configured). The home page and `/api/matches` render dynamically so a visitor never sees a stale static snapshot.
+
+---
+
+## 🏗️ Architecture & Directory Structure
+
+```
+footylive/
+├── app/
+│   ├── api/
+│   │   ├── matches            # Every real fixture of the day (live → upcoming → finished)
+│   │   ├── match/[matchId]    # Live scoreboard polling: score, minute, cards, scorers, incidents
+│   │   ├── streams/[matchId]  # Resolved servers with signed proxy URLs
+│   │   ├── stream-redirect    # HMAC-validated redirect for iframe embeds
+│   │   ├── proxy              # Signed HLS relay (playlist rewriting, Range/206, CORS)
+│   │   ├── live-channels      # Feed channels + best-effort status (never hides a channel)
+│   │   └── v1/                # 24h image proxies: league-logo, team-logo, poster
+│   ├── api-hub/               # Developer docs: endpoints, real-data pipeline, upstream APIs
+│   ├── channels/              # Server-rendered channel grid (all statuses shown)
+│   ├── channel/[id]/          # Proxied playback for one channel + bounded status check
+│   ├── watch/[matchId]/       # Live scoreboard, real stats, play-by-play, player + failover
+│   ├── multistream/           # Up to 4 simultaneous players
+│   ├── layout.js              # EVIV Live header (eagle mark above the wordmark), footer, glows
+│   ├── globals.css            # Tailwind v4 @theme: navy & lime palettes, glass, animations
+│   └── page.js                # Home dashboard (dynamic, live data)
+├── components/
+│   ├── BrandLogo.jsx          # Eagle silhouette SVG (navy/lime), favicon + header + footer
+│   ├── MatchCard.jsx          # Real live cards: minute, cards, scorers, FT state, lime pulse
+│   ├── MatchGrid.jsx          # Live / Upcoming / Finished tabs, tournament shelf, search
+│   ├── MatchStatsSection.jsx  # Real stat bars (lime home · sky away) + key-events log
+│   ├── LiveScoreboard.jsx     # Live scoreboard with thematic skins, cards and scorers
+│   ├── LiveChannelsGrid.jsx   # Channels with Live / Standby / Unreachable statuses
+│   ├── StreamPlayer.jsx       # hls.js/native playback, failover, sandbox toggle
+│   └── ServerSelector.jsx     # Server 1 … Backup selector + in-player menu
+├── lib/
+│   ├── providers/espn.ts      # ★ Real ESPN fixture/statistics provider (pure normalisers)
+│   ├── providers/             # WatchFooty, CDNLive, StreamedPk, LiveFeed (stream sources)
+│   ├── broadcast/             # Feed parsers, channel resolver, resilient probe
+│   ├── cache/                 # In-memory SWR + optional Upstash Redis
+│   ├── player/                # Server labels, stream-kind detection, failover machine
+│   ├── utils/matching.ts      # Jaro-Winkler style team/league matching
+│   └── streamEngine.ts        # Merges real fixtures with stream sources; HMAC URL signing
+└── public/                    # manifest.json, icon.svg (eagle), offline.html, sw.js
 ```
 
 ---
@@ -106,95 +115,107 @@ football-stream-app/
 * **npm** v9+
 
 ### 1. Installation
-Clone the repository and install all dependencies:
 ```bash
-git clone https://github.com/OgBek/footyLive.git
-cd football-stream-app
+git clone https://github.com/daftarlayl2-creator/footyLive.git
+cd footyLive
 npm install
 ```
 
 ### 2. Configure Environment Variables
 Create a `.env.local` file in the root directory:
 ```env
-# Cryptographic Stream Key (Signs and validates player streams via HMAC)
+# Cryptographic stream key (signs player links and proxy URLs via HMAC)
 STREAM_SECRET="default_stream_hmac_secret_key_123_abc"
 
-# Optional: Upstream API base URL (defaults to https://api.watchfooty.st)
+# Optional: catalogue provider base URL (stream sources; defaults to https://api.watchfooty.st)
 # NEXT_PUBLIC_API_BASE="https://api.watchfooty.st"
 
-# Optional: comma-separated M3U/JSON live feed URLs. Defaults to the ibstvofficial/Live-events playlist.
+# Optional: comma-separated M3U/JSON live feed URLs (defaults to ibstvofficial/Live-events).
 # Set to an empty string to disable live feeds.
 # LIVE_FEED_URLS="https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u"
 
+# Optional: cached image proxy base (defaults to the catalogue provider)
 # Optional: let /api/proxy reach LAN/loopback origins (local testing only)
 # HLS_PROXY_ALLOW_PRIVATE_HOSTS=true
 
-# Optional: Redis caching (Upstash) - defaults to in-memory caching if omitted
+# Optional: Redis caching (Upstash) — falls back to in-memory caching when omitted
 # UPSTASH_REDIS_REST_URL=""
 # UPSTASH_REDIS_REST_TOKEN=""
 ```
 
+> ESPN's public endpoints need no key. If your network blocks them, today's fixtures will be empty
+> (the dashboard says so and retries automatically) — nothing is replaced with placeholder data.
+
 ### 3. Running in Development Mode
-Start the development server with hot reloading:
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your web browser.
+Open [http://localhost:3000](http://localhost:3000).
 
 ### 4. Build and Production Run
-Compile optimized client bundles and start the production server:
 ```bash
 npm run build
 npm run start
 ```
+Cloudflare Workers build: `npm run build:cloudflare`.
 
 ### 5. Running Tests
 ```bash
 npm run test
 ```
-
-Run a specific test file:
-```bash
-npx vitest run lib/utils/matching.test.ts
-```
+The suite covers the ESPN normalisers (live/upcoming/finished, minutes, cards, scorers, stats),
+the channel probe policy (blocked → Standby, 404 → offline, HEAD-blocked → GET retry), the proxy
+signing, the failover machine and server-rendered brand/live UI assertions.
 
 ---
 
 ## 🛠️ Developer REST API Directory
 
-FootyLive is equipped with public REST API endpoints. Full interactive documentation is available at [`/api-hub`](https://footylive.vercel.app/api-hub).
+Interactive documentation lives at [`/api-hub`](https://eviv.live/api-hub).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/matches` | GET | Aggregated fixtures from all scraping providers, sorted by status & priority |
-| `/api/match/[matchId]` | GET | Real-time scores, lineups, boxscore stats, and live commentary |
-| `/api/streams/[matchId]` | GET | Resolved stream channels with signed proxy URLs |
-| `/api/stream-redirect` | GET | HMAC-validated proxy redirect to upstream stream URLs (iframe embeds) |
-| `/api/proxy` | GET | Signed streaming HLS proxy: fetches `.m3u8` server-side, rewrites every segment/key/variant URI to relative proxy links, relays media chunks as they arrive with upstream `Content-Type`, `Range`/`206` preserved and CORS headers added |
-| `/api/v1/league-logo/[id]` | GET | Cached league logo image proxy (24h TTL) |
-| `/api/v1/team-logo/[id]` | GET | Cached team badge image proxy (24h TTL) |
-| `/api/v1/poster/[id]` | GET | Cached match poster image proxy (24h TTL) |
+| `/api/matches` | GET | Every real fixture of the day (live, finished, upcoming) merged with catalogue servers |
+| `/api/match/[matchId]` | GET | Live score, minute, cards, scorers and incidents for one match |
+| `/api/streams/[matchId]` | GET | Resolved servers with signed proxy URLs |
+| `/api/stream-redirect` | GET | HMAC-validated redirect to upstream embed URLs |
+| `/api/proxy` | GET | Signed HLS relay: playlists rewritten server-side, segments streamed, `Range`/`206`/CORS preserved |
+| `/api/live-channels` | GET | Feed channels + best-effort status (`live`, `unknown` → “Standby”, `offline`); never hides channels |
+| `/api/v1/league-logo/[id]` | GET | Cached league logo proxy (24h) |
+| `/api/v1/team-logo/[id]` | GET | Cached team badge proxy (24h) |
+| `/api/v1/poster/[id]` | GET | Cached match poster proxy (24h) |
+
+### Channel status semantics
+
+| Status | Meaning | UI |
+|--------|---------|-----|
+| `live` | Probe fetched a real playlist/media response | Lime pulsing **Live** pill |
+| `unknown` | Probe blocked (403/405/429/5xx), timed out, or unreadable body | Neutral **Standby** pill — still playable |
+| `offline` | Upstream answered 404/410 or served an HTML page | **Unreachable** pill — playback still attempted |
+| `checking` | Probe still running | Amber **Checking** pill |
+
+Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL regardless of the probe result.
 
 ---
 
 ## 🤝 Open Source Community Guidelines
 
-We welcome contributions from developers, football enthusiasts, and UI/UX designers! Help us make FootyLive the best web sports hub.
-
-### How to Contribute
 1. **Fork** the repository and create your feature branch: `git checkout -b feature/amazing-feature`.
-2. Commit your changes following clean git conventions: `git commit -m 'Add support for custom video players'`.
+2. Commit with clean messages: `git commit -m 'Add support for custom video players'`.
 3. Push to the branch: `git push origin feature/amazing-feature`.
 4. Open a **Pull Request** explaining your changes.
 
 ### Coding Standards
-* **Aesthetic Focus**: Maintain premium UI glassmorphism and HSL-based palettes. Avoid standard generic colors.
-* **Responsive Design**: Ensure every component works seamlessly on mobile screens, tablets, and ultrawide desktops.
-* **Sandbox Integrity**: Always test media players to ensure third-party ads and redirection triggers remain isolated.
-* **Tailwind v4**: Use `@theme` in `globals.css` for custom colors. Dark mode uses `@custom-variant dark` with class-based `.dark` toggling.
+* **Real data first**: never introduce mock fixtures, placeholder scores or fabricated minutes. Missing upstream values are omitted, not invented.
+* **Brand palette**: use the `navy-*` / `lime-*` tokens from `@theme` in `globals.css` (Tailwind v4). Lime is an accent — pairing it with `text-navy-950` keeps contrast accessible.
+* **Responsive Design**: every component must work on mobile, tablet and ultrawide screens.
+* **Sandbox Integrity**: keep third-party ads and redirects isolated inside the player sandbox.
+* **Tests**: normalisers and probe policy changes come with `vitest` cases (`npm run test`).
 
 ---
 
 ## ⚖️ License & Disclaimer
 
-FootyLive is an open-source stream aggregator. It parses public third-party link networks for research and educational purposes. FootyLive does not host, upload, or own any media streams, video channels, or sports network content.
+EVIV Live is an open-source aggregator. It reads public sports data and public third-party link networks
+for research and educational purposes. EVIV Live does not host, upload or own any media streams, video
+channels or sports network content.

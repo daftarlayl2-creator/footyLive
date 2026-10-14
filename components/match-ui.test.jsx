@@ -1,0 +1,187 @@
+/**
+ * Server-render tests for the branded match & channel UI: they pin the parts of
+ * the overhaul that matter — navy/lime palette, the pulsing LIVE indicator,
+ * real live statistics (cards, scorers, minute), the Finished tab and the
+ * "channels are always listed" behaviour.
+ */
+import { describe, expect, it, vi } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...rest }) => (
+    <a href={typeof href === 'string' ? href : '#'} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
+const router = { refresh: vi.fn(), replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() };
+vi.mock('next/navigation', () => ({
+  useRouter: () => router,
+  usePathname: () => '/',
+}));
+
+vi.mock('@/lib/utils/favorites', () => ({
+  isTeamFavorited: () => false,
+  toggleFavoriteTeam: () => {},
+  getFavoriteTeams: () => [],
+}));
+
+const { default: MatchCard } = await import('./MatchCard');
+const { default: MatchGrid } = await import('./MatchGrid');
+const { default: LiveChannelsGrid, StatusIndicator } = await import('./LiveChannelsGrid');
+
+const LIVE_MATCH = {
+  id: 'espn-700001',
+  title: 'Arsenal vs Liverpool',
+  sport: 'football',
+  status: 'live',
+  source: 'espn',
+  timestamp: Date.now() - 30 * 60 * 1000,
+  tournament: 'Premier League',
+  country: 'England',
+  priority: 2,
+  homeTeam: { name: 'Arsenal', badge: 'https://cdn.example.com/ars.png' },
+  awayTeam: { name: 'Liverpool', badge: 'https://cdn.example.com/liv.png' },
+  leagueLogo: '',
+  poster: '',
+  venue: 'Emirates Stadium',
+  note: '',
+  sources: [{ source: 'wf', id: '1', url: 'https://cdn.example.com/a.m3u8', label: 'Server 1' }],
+  fallbackChannels: [],
+  currentMinute: "62'",
+  currentMinuteNumber: 62,
+  homeScore: 2,
+  awayScore: 1,
+  live: {
+    cards: { home: { yellow: 0, red: 0 }, away: { yellow: 1, red: 1 } },
+    scorers: { home: ["Bukayo Saka 20'"], away: ["Mohamed Salah 45'+0'"] },
+    events: [],
+    period: 'In Progress',
+    detail: "62'",
+  },
+};
+
+const UPCOMING_MATCH = {
+  ...LIVE_MATCH,
+  id: 'espn-700002',
+  title: 'Real Madrid vs Barcelona',
+  status: 'upcoming',
+  timestamp: Date.now() + 90 * 60 * 1000,
+  homeTeam: { name: 'Real Madrid', badge: '' },
+  awayTeam: { name: 'Barcelona', badge: '' },
+  currentMinute: '',
+  currentMinuteNumber: 0,
+  homeScore: 0,
+  awayScore: 0,
+  live: undefined,
+  sources: [],
+};
+
+const FINISHED_MATCH = {
+  ...LIVE_MATCH,
+  id: 'espn-700003',
+  title: 'Inter vs Napoli',
+  status: 'finished',
+  timestamp: Date.now() - 3 * 60 * 60 * 1000,
+  homeTeam: { name: 'Inter', badge: '' },
+  awayTeam: { name: 'Napoli', badge: '' },
+  currentMinute: 'FT',
+  currentMinuteNumber: 90,
+  homeScore: 3,
+  awayScore: 0,
+  sources: [],
+};
+
+describe('MatchCard', () => {
+  it('shows real live score, minute, cards and scorers with a pulsing lime dot', () => {
+    const html = renderToStaticMarkup(<MatchCard match={LIVE_MATCH} tab="live" />);
+
+    expect(html).toContain('Arsenal');
+    expect(html).toContain('Liverpool');
+    expect(html).toContain('62&#x27;'); // minute label is server-rendered escaped
+    expect(html).toMatch(/live-dot/);
+    expect(html).toMatch(/bg-lime-500/);
+    expect(html).toContain('Bukayo Saka 20&#x27;');
+    expect(html).toContain('Mohamed Salah');
+    // Cards: one yellow + one red for the away side.
+    expect((html.match(/bg-amber-400/g) || []).length).toBeGreaterThan(0);
+    expect((html.match(/bg-red-500/g) || []).length).toBeGreaterThan(0);
+    // Links into the player page for real stream resolution.
+    expect(html).toContain('href="/watch/espn-700001?tab=live"');
+    expect(html).toContain('1 stream server');
+  });
+
+  it('renders a kickoff countdown for upcoming fixtures and no fake score', () => {
+    const html = renderToStaticMarkup(<MatchCard match={UPCOMING_MATCH} tab="upcoming" />);
+    expect(html).toContain('Kickoff in');
+    expect(html).not.toMatch(/live-dot/);
+    expect(html).toContain('Pending Link');
+  });
+
+  it('renders the finished state with FT and the final score', () => {
+    const html = renderToStaticMarkup(<MatchCard match={FINISHED_MATCH} tab="finished" />);
+    expect(html).toContain('FT');
+    expect(html).toContain('Full time');
+    expect(html).toMatch(/href="\/watch\/espn-700003\?tab=finished"/);
+  });
+});
+
+describe('MatchGrid', () => {
+  const matches = [LIVE_MATCH, UPCOMING_MATCH, FINISHED_MATCH];
+
+  it('exposes Live / Upcoming / Finished tabs with real counts', () => {
+    const html = renderToStaticMarkup(<MatchGrid matches={matches} defaultTab="live" />);
+    expect(html).toContain('Live Now (1)');
+    expect(html).toContain('Upcoming (1)');
+    expect(html).toContain('Finished (1)');
+    expect(html).toContain('Arsenal');
+    expect(html).not.toContain('Inter');
+  });
+
+  it('lists completed matches in the Finished tab', () => {
+    const html = renderToStaticMarkup(<MatchGrid matches={matches} defaultTab="finished" />);
+    expect(html).toContain('Inter');
+    expect(html).toContain('Napoli');
+    expect(html).not.toContain('Arsenal');
+  });
+
+  it('never invents a live state for ESPN fixtures still marked upcoming', () => {
+    const stale = { ...UPCOMING_MATCH, timestamp: Date.now() - 45 * 60 * 1000 };
+    const html = renderToStaticMarkup(<MatchGrid matches={[stale]} defaultTab="upcoming" />);
+    expect(html).toContain('Real Madrid');
+    expect(html).not.toMatch(/live-dot/);
+  });
+
+  it('promotes catalogue fixtures at kickoff time (upstream status lags)', () => {
+    const catalogue = { ...UPCOMING_MATCH, id: 'wf-1', source: 'watchfooty', timestamp: Date.now() - 10 * 60 * 1000 };
+    const html = renderToStaticMarkup(<MatchGrid matches={[catalogue]} defaultTab="live" />);
+    expect(html).toContain('Real Madrid');
+    expect(html).toMatch(/live-dot/);
+  });
+});
+
+describe('LiveChannelsGrid', () => {
+  const channels = [
+    { id: 'a', name: 'Live Event One', group: 'Football', source: 'feed', status: 'live', href: '/channel/a', playable: true },
+    { id: 'b', name: 'Standby Channel', group: 'Football', source: 'feed', status: 'unknown', href: '/channel/b', playable: true },
+    { id: 'c', name: 'Blocked Channel', group: 'Football', source: 'feed', status: 'offline', href: '/channel/c', playable: true },
+  ];
+
+  it('lists every channel by default, including unverified ones', () => {
+    const html = renderToStaticMarkup(<LiveChannelsGrid initialChannels={channels} initialCheckedAt={Date.now()} />);
+    expect(html).toContain('Live Event One');
+    expect(html).toContain('Standby Channel');
+    expect(html).toContain('Blocked Channel');
+    expect(html).toContain('href="/channel/c"');
+    expect(html).toContain('1 live');
+    expect(html).toContain('1 standby');
+    expect(html).toContain('/api/proxy');
+  });
+
+  it('labels blocked probes as Standby rather than offline', () => {
+    expect(renderToStaticMarkup(<StatusIndicator status="unknown" />)).toContain('Standby');
+    expect(renderToStaticMarkup(<StatusIndicator status="live" />)).toContain('Live');
+    expect(renderToStaticMarkup(<StatusIndicator status="offline" />)).toContain('Unreachable');
+  });
+});

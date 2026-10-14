@@ -1,17 +1,30 @@
 import crypto from 'crypto';
 import logger from './logger';
-import { Match, Channel } from './types';
-import { WatchFootyProvider, getMatchDetails, getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
+import { Match, MatchStats, Channel } from './types';
+import {
+  WatchFootyProvider,
+  getMatchDetails as getWatchFootyMatchDetails,
+  getMatchStats as getWatchFootyMatchStats,
+  getLeagues,
+  getTopTeams,
+} from './providers/watchFooty';
+import {
+  getEspnMatches,
+  getEspnMatchById,
+  getEspnMatchStats,
+  isEspnMatchId,
+} from './providers/espn';
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
 import { LiveFeedProvider } from './providers/liveFeed';
 import { getCacheManager } from './cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
 import { detectStreamKind } from './player/servers';
+import { teamSimilarity } from './utils/matching';
 
 const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_123_abc';
 
-export { getMatchDetails, getMatchStats, getLeagues, getTopTeams };
+export { getLeagues, getTopTeams };
 
 const providers = [
   new WatchFootyProvider(),
@@ -43,13 +56,88 @@ export function getProxiedStreamUrl(originalUrl: string): string {
   return getStreamRedirectUrl(originalUrl);
 }
 
+/**
+ * Fixtures for the dashboard.
+ *
+ * Primary source is ESPN's public scoreboard (real fixtures, live scores,
+ * minutes and cards). Matches that also exist in the WatchFooty catalogue are
+ * enriched with that provider's stream sources so the player has servers ready
+ * before the user even opens the match.
+ */
 export async function getMatches(): Promise<Match[]> {
   const cache = getCacheManager();
   return cache.swr('all_matches', async () => {
     const watchFooty = providers.find(p => p.id === 'watchfooty') as WatchFootyProvider;
-    if (!watchFooty) return [];
-    return watchFooty.fetchMatches();
+
+    const [espnMatches, watchFootyMatches] = await Promise.all([
+      getEspnMatches(),
+      watchFooty ? watchFooty.fetchMatches().catch((err) => {
+        logger.error('WatchFooty fixtures failed', err);
+        return [] as Match[];
+      }) : Promise.resolve([] as Match[]),
+    ]);
+
+    if (espnMatches.length > 0) {
+      return attachStreamSources(espnMatches, watchFootyMatches);
+    }
+
+    logger.warn('ESPN fixtures unavailable, falling back to catalogue provider');
+    return watchFootyMatches;
   }, 15);
+}
+
+/**
+ * Copy stream servers from the catalogue provider onto the matching ESPN
+ * fixture (fuzzy team-name matching), so the ESPN data stays authoritative
+ * while the players still resolve.
+ */
+export function attachStreamSources(espnMatches: Match[], catalogue: Match[]): Match[] {
+  if (!catalogue.length) return espnMatches;
+
+  return espnMatches.map((match) => {
+    const best = catalogue
+      .map((candidate) => ({
+        candidate,
+        score:
+          teamSimilarity(match.homeTeam?.name || '', candidate.homeTeam?.name || '') +
+          teamSimilarity(match.homeTeam?.name || '', candidate.awayTeam?.name || '') +
+          teamSimilarity(match.awayTeam?.name || '', candidate.homeTeam?.name || '') +
+          teamSimilarity(match.awayTeam?.name || '', candidate.awayTeam?.name || ''),
+      }))
+      .sort((a, b) => b.score - a.score)[0];
+
+    // 2.0 ≈ both sides matched; anything lower is not the same fixture.
+    if (!best || best.score < 2.0) return match;
+
+    return {
+      ...match,
+      sources: best.candidate.sources?.length ? best.candidate.sources : match.sources,
+      fallbackChannels: best.candidate.fallbackChannels?.length
+        ? best.candidate.fallbackChannels
+        : match.fallbackChannels,
+      venue: match.venue || best.candidate.venue,
+      leagueLogo: match.leagueLogo || best.candidate.leagueLogo,
+      poster: match.poster || best.candidate.poster,
+    };
+  });
+}
+
+/** Details for a single match — ESPN fixtures and catalogue ids both work. */
+export async function getMatchDetails(matchId: string): Promise<Match | null> {
+  if (isEspnMatchId(matchId)) {
+    const espnMatch = await getEspnMatchById(matchId);
+    if (!espnMatch) return null;
+    const catalogue = await getMatches().catch(() => [] as Match[]);
+    const enriched = catalogue.find((m) => m.id === matchId);
+    return enriched ? { ...espnMatch, sources: enriched.sources, fallbackChannels: enriched.fallbackChannels } : espnMatch;
+  }
+  return getWatchFootyMatchDetails(matchId);
+}
+
+/** Statistics for a single match — real ESPN boxscore/commentary when available. */
+export async function getMatchStats(matchId: string): Promise<MatchStats | null> {
+  if (isEspnMatchId(matchId)) return getEspnMatchStats(matchId);
+  return getWatchFootyMatchStats(matchId);
 }
 
 export async function getLiveMatches(): Promise<Match[]> {

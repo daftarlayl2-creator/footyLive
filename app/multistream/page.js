@@ -128,28 +128,28 @@ export default function MultiStreamPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header and Control Dash */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl glass-panel border border-zinc-200/40 dark:border-zinc-900 shadow-xl transition-all duration-300">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl glass-panel border border-zinc-200/40 dark:border-navy-800 shadow-xl transition-all duration-300">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-violet-500 animate-pulse" />
+            <Layers className="h-5 w-5 text-lime-500 animate-pulse" />
             <h1 className="text-xl font-extrabold tracking-tight dark:text-white text-zinc-900">Multi-View Broadcast Arena</h1>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Monitor and watch up to 4 dynamic football streams concurrently in real time. Combine matches, toggle sound feeds, and customize layouts.
           </p>
           {/* Quick Help for Gestures */}
-          <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 border-t border-zinc-100 dark:border-zinc-900/60 mt-2">
-            <span className="font-extrabold text-violet-500">🎮 Hover Shortcuts:</span>
+          <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 border-t border-zinc-100 dark:border-navy-800/60 mt-2">
+            <span className="font-extrabold text-lime-500">🎮 Hover Shortcuts:</span>
             <span>[A] Shield Toggle</span>
             <span>[S] Cycle Server</span>
             <span>[R] Refresh Feed</span>
             <span>[M] Mute</span>
             <span className="text-zinc-350 dark:text-zinc-700">|</span>
-            <span className="font-extrabold text-violet-500">🖱️ Mouse Gestures:</span>
+            <span className="font-extrabold text-lime-500">🖱️ Mouse Gestures:</span>
             <span>Double-Click Header to toggle Shield</span>
             <span>Right-Click Header to cycle servers</span>
             <span className="text-zinc-350 dark:text-zinc-700">|</span>
-            <span className="font-bold text-violet-500">🔌 Qualities Provided:</span>
+            <span className="font-bold text-lime-500">🔌 Qualities Provided:</span>
             <span>SD (480p/576p Std) & HD (720p/1080p High)</span>
           </div>
         </div>
@@ -158,13 +158,13 @@ export default function MultiStreamPage() {
             onClick={() => {
               setSlots([null, null, null, null]);
             }}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-all"
+            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 dark:border-navy-750 dark:bg-navy-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-all"
           >
             Clear Arena
           </button>
           <button
             onClick={fetchMatches}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-650 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-300 flex items-center gap-1.5 transition-all"
+            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-650 dark:border-navy-750 dark:bg-navy-900 dark:hover:bg-zinc-800 dark:text-zinc-300 flex items-center gap-1.5 transition-all"
           >
             <RefreshCw className={`h-3 w-3 ${loadingMatches ? 'animate-spin' : ''}`} />
             Refresh Scores
@@ -188,12 +188,12 @@ export default function MultiStreamPage() {
                 maxWidth: '100%',
                 minWidth: '290px',
               }}
-              className={`relative rounded-2xl overflow-hidden bg-white/70 dark:bg-black/40 border border-zinc-200/50 dark:border-zinc-900/60 shadow-lg aspect-video flex flex-col ${
+              className={`relative rounded-2xl overflow-hidden bg-white/70 dark:bg-black/40 border border-zinc-200/50 dark:border-navy-800/60 shadow-lg aspect-video flex flex-col ${
                 resizingSlotIdx === idx 
-                  ? 'transition-none ring-2 ring-violet-500 shadow-violet-500/10 scale-[0.99]' 
+                  ? 'transition-none ring-2 ring-lime-500 shadow-lime-500/10 scale-[0.99]' 
                   : 'transition-all duration-500 ease-out'
               } ${
-                slot ? 'ring-1 ring-violet-500/10' : 'border-dashed'
+                slot ? 'ring-1 ring-lime-500/10' : 'border-dashed'
               }`}
             >
               {slot ? (
@@ -209,8 +209,8 @@ export default function MultiStreamPage() {
                   onRemove={() => removeSlot(idx)} 
                 />
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3 cursor-pointer group hover:bg-zinc-100/50 dark:hover:bg-zinc-900/10 transition-all duration-300" onClick={() => openSelector(idx)}>
-                  <div className="h-10 w-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 flex items-center justify-center text-zinc-400 group-hover:text-violet-500 group-hover:scale-110 transition-all shadow-inner">
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3 cursor-pointer group hover:bg-zinc-100/50 dark:hover:bg-navy-900/10 transition-all duration-300" onClick={() => openSelector(idx)}>
+                  <div className="h-10 w-10 rounded-xl bg-zinc-100 dark:bg-navy-900 border border-zinc-200 dark:border-navy-800 flex items-center justify-center text-zinc-400 group-hover:text-lime-500 group-hover:scale-110 transition-all shadow-inner">
                     <Plus className="h-5 w-5" />
                   </div>
                   <div>
@@ -230,7 +230,7 @@ export default function MultiStreamPage() {
                         nextSizes[idx] = parseInt(e.target.value);
                         setSizes(nextSizes);
                       }}
-                      className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-violet-500" 
+                      className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-lime-500" 
                     />
                   </div>
                 </div>
@@ -240,11 +240,11 @@ export default function MultiStreamPage() {
               <div 
                 onMouseDown={(e) => startResize(e, idx)}
                 onTouchStart={(e) => startResize(e, idx)}
-                className="absolute top-0 right-0 bottom-0 w-3 hover:w-4 bg-zinc-400/0 hover:bg-violet-500/10 active:bg-violet-600/20 cursor-col-resize z-30 transition-all duration-150 flex items-center justify-center group/handle"
+                className="absolute top-0 right-0 bottom-0 w-3 hover:w-4 bg-zinc-400/0 hover:bg-lime-500/10 active:bg-lime-600/20 cursor-col-resize z-30 transition-all duration-150 flex items-center justify-center group/handle"
                 title="Drag right border to resize screen width"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="w-1.5 h-14 rounded-full bg-zinc-300/10 border border-zinc-250/20 dark:border-zinc-800 group-hover/handle:bg-zinc-450/45 group-hover/handle:border-violet-500/20 group-active/handle:bg-violet-500 group-active/handle:border-violet-500/50 transition-all shadow-sm flex flex-col justify-between py-1 items-center select-none text-zinc-400/40 group-hover/handle:text-zinc-400/80 group-active/handle:text-white">
+                <div className="w-1.5 h-14 rounded-full bg-zinc-300/10 border border-zinc-250/20 dark:border-navy-750 group-hover/handle:bg-zinc-450/45 group-hover/handle:border-lime-500/20 group-active/handle:bg-lime-500 group-active/handle:border-lime-500/50 transition-all shadow-sm flex flex-col justify-between py-1 items-center select-none text-zinc-400/40 group-hover/handle:text-zinc-400/80 group-active/handle:text-white">
                   <span className="w-0.5 h-0.5 bg-current rounded-full" />
                   <span className="w-0.5 h-0.5 bg-current rounded-full" />
                   <span className="w-0.5 h-0.5 bg-current rounded-full" />
@@ -258,15 +258,15 @@ export default function MultiStreamPage() {
       {/* Match Selector Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-lg rounded-2xl glass-panel border border-zinc-200 dark:border-zinc-900 bg-white dark:bg-[#060609] p-5 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-zinc-200/60 dark:border-zinc-900 pb-3">
+          <div className="w-full max-w-lg rounded-2xl glass-panel border border-zinc-200 dark:border-navy-800 bg-white dark:bg-[#0b132b] p-5 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-zinc-200/60 dark:border-navy-800 pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-zinc-900 dark:text-white">Mount Live Fixture</h3>
                 <p className="text-[11px] text-zinc-400">Mount a stream into Screen Slot {activeSlot + 1}</p>
               </div>
               <button 
                 onClick={() => setModalOpen(false)}
-                className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-navy-900 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -280,7 +280,7 @@ export default function MultiStreamPage() {
                 placeholder="Search teams, tournament, or keywords..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-zinc-50 border border-zinc-200 dark:bg-zinc-950 dark:border-zinc-900 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-zinc-50 border border-zinc-200 dark:bg-navy-950 dark:border-navy-800 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-lime-500 transition-all"
               />
             </div>
 
@@ -288,7 +288,7 @@ export default function MultiStreamPage() {
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
               {loadingMatches ? (
                 <div className="py-12 text-center text-xs text-zinc-400 font-semibold flex items-center justify-center gap-2">
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-violet-500" />
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-lime-500" />
                   Updating live rosters...
                 </div>
               ) : filteredMatches.length > 0 ? (
@@ -299,12 +299,12 @@ export default function MultiStreamPage() {
                       key={m.id}
                       className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                         alreadySelected 
-                          ? 'border-zinc-100 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/10 opacity-60' 
-                          : 'border-zinc-200/60 hover:border-zinc-300 bg-white hover:bg-zinc-50 dark:border-zinc-900 dark:bg-zinc-950 dark:hover:bg-zinc-900/60'
+                          ? 'border-zinc-100 bg-zinc-50/50 dark:border-navy-800 dark:bg-navy-900/10 opacity-60' 
+                          : 'border-zinc-200/60 hover:border-zinc-300 bg-white hover:bg-zinc-50 dark:border-navy-800 dark:bg-navy-950 dark:hover:bg-navy-900/60'
                       }`}
                     >
                       <div className="text-left space-y-1.5 max-w-[70%]">
-                        <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-650 dark:bg-zinc-900 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-850">
+                        <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-650 dark:bg-navy-900 dark:text-zinc-400 border border-zinc-200/60 dark:border-navy-800">
                           {m.tournament || 'Live Stream'}
                         </span>
                         <div className="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
@@ -314,7 +314,7 @@ export default function MultiStreamPage() {
                         </div>
                         {m.status === 'live' && (
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-lime-500 live-dot" />
                             <span className="text-[10px] font-extrabold uppercase tracking-widest text-red-500">Live</span>
                             <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 ml-1">
                               {m.homeScore} - {m.awayScore} ({m.currentMinute})
@@ -328,8 +328,8 @@ export default function MultiStreamPage() {
                         onClick={() => selectMatch(m)}
                         className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
                           alreadySelected
-                            ? 'border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-900 dark:bg-zinc-950 dark:text-zinc-600'
-                            : 'border-violet-500 bg-violet-600 hover:bg-violet-500 text-white shadow-md shadow-violet-600/10 active:scale-95'
+                            ? 'border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-navy-800 dark:bg-navy-950 dark:text-zinc-600'
+                            : 'border-lime-400 bg-lime-500 hover:bg-lime-400 text-navy-950 shadow-md shadow-lime-600/20 active:scale-95'
                         }`}
                       >
                         {alreadySelected ? 'Added' : 'Mount Stream'}
@@ -687,8 +687,8 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
       {/* Gesture Pill Toast Notification */}
       {gestureToast && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none transition-all duration-300">
-          <div className="px-4 py-2.5 bg-black/90 dark:bg-black/85 backdrop-blur-md border border-violet-500/35 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-full shadow-2xl flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-ping" />
+          <div className="px-4 py-2.5 bg-black/90 dark:bg-black/85 backdrop-blur-md border border-lime-500/35 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-full shadow-2xl flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-lime-400 rounded-full animate-ping" />
             {gestureToast}
           </div>
         </div>
@@ -697,7 +697,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
       {/* Swipe Feedback Overlay */}
       {isDraggingHeader && Math.abs(dragDeltaX) > 20 && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-35 flex items-center justify-center pointer-events-none transition-all duration-250 select-none">
-          <div className="px-5 py-3 bg-zinc-950/90 border border-violet-500/40 text-white rounded-2xl flex flex-col items-center gap-2 shadow-2xl scale-100 transform transition-transform">
+          <div className="px-5 py-3 bg-navy-950/90 border border-lime-500/40 text-white rounded-2xl flex flex-col items-center gap-2 shadow-2xl scale-100 transform transition-transform">
             <span className="text-2xl animate-pulse">
               {dragDeltaX > 0 ? '👈' : '👉'}
             </span>
@@ -726,7 +726,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
         title="Swipe Left/Right: Cycle Servers | Hold 600ms or Double Click: Toggle Shield | Right Click: Cycle Server"
       >
         <div className="flex items-center gap-2 max-w-[65%]">
-          <span className={`h-1.5 w-1.5 rounded-full ${slotData.status === 'live' ? 'bg-red-500 animate-pulse' : 'bg-zinc-500'}`} />
+          <span className={`h-1.5 w-1.5 rounded-full ${slotData.status === 'live' ? 'bg-lime-500 live-dot' : 'bg-zinc-500'}`} />
           <span className="text-[10px] font-extrabold text-white truncate drop-shadow-md">
             Screen {slotIndex + 1}: {slotData.homeName} vs {slotData.awayName}
           </span>
@@ -743,11 +743,11 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
                 setActiveStreamIdx(idx);
                 showToast(`🔌 Switched to Server ${idx + 1}`);
               }}
-              className="text-[9px] font-extrabold uppercase px-1 py-0.5 rounded bg-black/60 border border-zinc-800 text-white cursor-pointer focus:outline-none"
+              className="text-[9px] font-extrabold uppercase px-1 py-0.5 rounded bg-black/60 border border-navy-750 text-white cursor-pointer focus:outline-none"
               title="Scroll wheel over select to cycle feeds"
             >
               {streams.map((s, index) => (
-                <option key={index} value={index} className="bg-zinc-950">
+                <option key={index} value={index} className="bg-navy-950">
                   S{index + 1} ({s.quality || 'SD'})
                 </option>
               ))}
@@ -757,7 +757,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
           {/* Close Screen Slot */}
           <button 
             onClick={onRemove}
-            className="p-1 rounded bg-black/50 hover:bg-red-600 border border-zinc-800/60 text-zinc-300 hover:text-white transition-colors"
+            className="p-1 rounded bg-black/50 hover:bg-red-600 border border-navy-750/60 text-zinc-300 hover:text-white transition-colors"
             title="Unmount Stream"
           >
             <X className="h-3 w-3" />
@@ -772,7 +772,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
       >
         {resolving ? (
           <div className="flex flex-col items-center justify-center space-y-2.5">
-            <RefreshCw className="h-6 w-6 text-violet-500 animate-spin" />
+            <RefreshCw className="h-6 w-6 text-lime-500 animate-spin" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500">Resolving Streaming Signals...</span>
           </div>
         ) : error ? (
@@ -840,7 +840,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
 
           <div className="flex items-center gap-2">
             {/* Dynamic Screen Sizing Slider */}
-            <div className="flex items-center gap-1.5 bg-black/60 border border-zinc-800/80 px-2 py-0.5 rounded-lg select-none">
+            <div className="flex items-center gap-1.5 bg-black/60 border border-navy-750/80 px-2 py-0.5 rounded-lg select-none">
               <span className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-400">Size: {size}%</span>
               <input
                 type="range"
@@ -849,7 +849,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
                 step="5"
                 value={size}
                 onChange={(e) => onResize(parseInt(e.target.value))}
-                className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-lime-500"
                 title="Drag to resize screen width"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -868,7 +868,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
                 className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded border transition-all ${
                   sandboxShield 
                     ? 'border-green-500/40 bg-green-600/10 text-green-400' 
-                    : 'border-zinc-800 bg-black/60 text-zinc-400 hover:text-zinc-200'
+                    : 'border-navy-750 bg-black/60 text-zinc-400 hover:text-zinc-200'
                 }`}
                 title="Toggle Iframe Sandbox Shields"
               >
