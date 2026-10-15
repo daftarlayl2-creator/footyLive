@@ -23,10 +23,7 @@ vi.mock('../broadcast/feeds', async () => {
   };
 });
 
-vi.mock('../broadcast/probe', () => ({ getChannelStatuses: vi.fn() }));
-
-import { LiveFeedProvider, findMatchFeedChannels, selectActiveFeedChannels } from './liveFeed';
-import { getChannelStatuses } from '../broadcast/probe';
+import { LiveFeedProvider, findMatchFeedChannels } from './liveFeed';
 import { buildLiveChannels } from '../broadcast/feeds';
 import { PROXY_PATH } from '../hlsProxy';
 import { IPTV_ORG_SPORTS_URL } from '../broadcast/sources';
@@ -44,42 +41,14 @@ describe('LiveFeedProvider', () => {
     expect(miss).toEqual([]);
   });
 
-  it('prioritizes confirmed football streams; skips known-offline and non-football listings', async () => {
+  it('only maps confident two-team listings, never official entries that must pass their media gate', () => {
     const channels = buildLiveChannels([
-      { name: 'Yesterday vs Tomorrow', group: 'Football', url: 'https://cdn.example.com/off.m3u8', source: 'feed', feedUrl: 'https://feed.example.com/f.m3u' },
-      { name: 'Chelsea vs Arsenal', group: 'Football', url: 'https://cdn.example.com/unknown.m3u8', source: 'feed', feedUrl: 'https://feed.example.com/f.m3u' },
       { name: 'Man City vs PSG', group: 'Football', url: 'https://cdn.example.com/live.m3u8', source: 'feed', feedUrl: 'https://feed.example.com/f.m3u' },
       { name: 'Basketball event', group: 'Basketball', url: 'https://cdn.example.com/basket.m3u8', source: 'feed', feedUrl: 'https://feed.example.com/f.m3u' },
     ]);
-    vi.mocked(getChannelStatuses).mockResolvedValue({
-      [channels[0].id]: 'offline', [channels[1].id]: 'unknown',
-      [channels[2].id]: 'live', [channels[3].id]: 'live',
-    });
-
     expect(findMatchFeedChannels(channels, 'Juventus vs Inter')).toEqual([]);
-    const selected = await selectActiveFeedChannels(channels);
-    expect(selected.map((ch) => ch.url)).toEqual([channels[2].url, channels[1].url]);
-    expect(getChannelStatuses).toHaveBeenCalledWith(channels.slice(0, 3), { limit: 24 });
-  });
-
-  it('never lets official sports entries bypass their dedicated media-verification gate', async () => {
+    expect(findMatchFeedChannels(channels, 'PSG vs Manchester City').map((ch) => ch.url)).toEqual([channels[0].url]);
     const official = buildLiveChannels([{ name: 'Arsenal vs Chelsea', url: 'https://cdn.example.com/official.m3u8', source: 'iptv-org.github.io', feedUrl: IPTV_ORG_SPORTS_URL }]);
     expect(findMatchFeedChannels(official, 'Arsenal vs Chelsea')).toEqual([]);
-    const calls = vi.mocked(getChannelStatuses).mock.calls.length;
-    expect(await selectActiveFeedChannels(official)).toEqual([]);
-    expect(vi.mocked(getChannelStatuses).mock.calls.length).toBe(calls);
-  });
-
-  it('keeps unverified channels available when the probe service itself fails', async () => {
-    const channels = buildLiveChannels([
-      { name: 'One vs Two', group: 'Football', url: 'https://cdn.example.com/one.m3u8', source: 'feed', feedUrl: 'https://feed.example.com/f.m3u' },
-    ]);
-    vi.mocked(getChannelStatuses).mockRejectedValueOnce(new Error('probes blocked'));
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      expect(await selectActiveFeedChannels(channels)).toEqual(channels);
-    } finally {
-      warn.mockRestore();
-    }
   });
 });

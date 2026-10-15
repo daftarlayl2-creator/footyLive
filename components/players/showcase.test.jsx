@@ -80,6 +80,53 @@ describe('player showcase', () => {
     expect(container.textContent).not.toContain('League title');
   });
 
+  it('shows the featured cutout in front of a semi-transparent national flag, styled like club cards', async () => {
+    const portraits = [
+      { src: 'https://r2.thesportsdb.com/images/media/player/cutout/yamal.png', kind: 'cutout', credit: 'TheSportsDB' },
+      { src: 'https://a.espncdn.com/i/headshots/soccer/players/full/362150.png', kind: 'headshot', credit: 'ESPN' },
+    ];
+    await render(<PlayerBanner player={{ id: '362150', name: 'Lamine Yamal', position: 'Forward', jersey: '10', flag: 'https://cdn.example/esp.png', portraits, featured: true }} />);
+    const frame = container.querySelector('[data-player-portrait]');
+    expect(frame.getAttribute('data-player-portrait')).toBe('cutout');
+    const cutout = frame.querySelector('img[alt="Lamine Yamal"]');
+    expect(cutout.getAttribute('src')).toBe(portraits[0].src);
+    expect(cutout.className).toContain('object-contain');
+    expect(cutout.className).toContain('z-10');
+    // The flag sits *behind* the player inside the card header, semi-transparent and decorative.
+    const overlay = frame.querySelector('[data-player-flag-overlay]');
+    expect(overlay.getAttribute('src')).toBe('https://cdn.example/esp.png');
+    expect(overlay.getAttribute('aria-hidden')).toBe('true');
+    expect(overlay.className).toContain('opacity-[0.28]');
+    expect(frame.firstElementChild).toBe(overlay);
+    // A faint watermark across the header mirrors the club hero's crest watermark.
+    expect(container.querySelector('[data-player-flag-wash]').className).toContain('opacity-[0.09]');
+    expect(container.querySelector('[data-portrait-attribution]').textContent).toContain('TheSportsDB');
+    // No generic placeholder avatar.
+    expect(container.querySelector('.lucide-user-round')).toBeNull();
+  });
+
+  it('falls through broken portraits to the next real headshot, then a branded silhouette', async () => {
+    const portraits = [
+      { src: 'https://r2.thesportsdb.com/images/media/player/cutout/missing.png', kind: 'cutout', credit: 'TheSportsDB' },
+      { src: 'https://a.espncdn.com/i/headshots/soccer/players/full/1.png', kind: 'headshot', credit: 'ESPN' },
+    ];
+    await render(<PlayerBanner player={{ id: '1', name: 'Squad Player', position: 'Defender', jersey: '4', flag: 'https://cdn.example/mar.png', portraits }} />);
+    const image = () => container.querySelector('[data-player-portrait] img[alt="Squad Player"]');
+    await act(async () => image().dispatchEvent(new Event('error')));
+    expect(image().getAttribute('src')).toBe(portraits[1].src);
+    expect(container.querySelector('[data-portrait-attribution]')).toBeNull();
+    await act(async () => image().dispatchEvent(new Event('error')));
+    expect(image()).toBeNull();
+    const silhouette = container.querySelector('[data-player-silhouette]');
+    expect(silhouette.getAttribute('aria-label')).toContain('Squad Player');
+    expect(silhouette.textContent).toBe('4');
+    expect(silhouette.innerHTML).toContain('#CCFF00');
+    // A broken flag disappears everywhere instead of showing a broken image.
+    await act(async () => container.querySelector('[data-player-flag-overlay]').dispatchEvent(new Event('error')));
+    expect(container.querySelector('[data-player-flag-overlay]')).toBeNull();
+    expect(container.querySelector('[data-player-flag-wash]')).toBeNull();
+  });
+
   it('uses honest empty states rather than claiming an unknown player has no trophies or a zero market value', async () => {
     await render(<><PlayerBanner player={{ name: 'New Player', position: 'Player' }} /><TrophyCabinet honors={[]} /></>);
     expect(container.textContent).toContain('Missing data does not mean no trophies');

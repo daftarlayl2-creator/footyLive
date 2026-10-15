@@ -298,8 +298,8 @@ export default function MatchChatPanel({ matchId, userName }) {
           <div className="flex w-full min-w-0 items-center justify-between gap-2">
             <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-navy-600 dark:text-zinc-300">
               <UserAvatar name={account.displayName} avatarUrl={account.avatarUrl} size={20} />
-              Chatting as
-              <span className="truncate font-extrabold text-navy-900 dark:text-zinc-100">{account.displayName}</span>
+              <span className="shrink-0 whitespace-nowrap">Chatting as</span>
+              <span className="min-w-0 truncate font-extrabold text-navy-900 dark:text-zinc-100">{account.displayName}</span>
               {account.verified && <VerifiedBadge size={14} />}
             </span>
             <Link href="/profile" className="tactile shrink-0 rounded-full px-1.5 py-0.5 font-bold text-lime-700 hover:underline dark:text-lime-300">
@@ -393,8 +393,8 @@ export default function MatchChatPanel({ matchId, userName }) {
                   } ${message._status === 'failed' ? 'opacity-70 ring-1 ring-red-500/60' : ''}`}
                 >
                   {!mine && (
-                    <p className="mb-0.5 flex items-center gap-1 text-[11px] font-extrabold" style={{ color: `hsl(${hueFor(message.username)} 70% 55%)` }}>
-                      <span className="truncate">{message.username}</span>
+                    <p className="mb-0.5 flex min-w-0 items-center gap-1 text-[11px] font-extrabold" style={{ color: `hsl(${hueFor(message.username)} 70% 55%)` }}>
+                      <span className="min-w-0 truncate">{message.username}</span>
                       {verified && <VerifiedBadge size={13} />}
                     </p>
                   )}

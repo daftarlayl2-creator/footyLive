@@ -146,9 +146,20 @@ describe('pickNextServer', () => {
     expect(pickNextServer(keys, 0, ['a'], {}, kinds)).toBe(2);
     // A direct backup that already failed earlier loses to a fresh embed.
     expect(pickNextServer(keys, 0, ['a'], { c: 'network', d: 'media' }, kinds)).toBe(1);
-    // After a direct stream fails, the normal order applies.
-    expect(pickNextServer(keys, 2, ['c'], {}, kinds)).toBe(3);
+  });
+
+  it('switches to an embedded web player after a restricted or offline direct stream', () => {
+    const kinds = { a: 'embed', b: 'embed', c: 'hls', d: 'mp4' } as const;
+    // Direct HLS failed: the next *web player* wins over the next direct stream.
+    expect(pickNextServer(keys, 2, ['c'], {}, kinds)).toBe(0);
     expect(pickNextServer(keys, 3, ['c', 'd'], {}, kinds)).toBe(0);
+    // An embed that already failed earlier loses to a fresh direct stream.
+    expect(pickNextServer(keys, 2, ['c'], { a: 'embed', b: 'reported' }, kinds)).toBe(3);
+    // Without embeds the normal order applies.
+    expect(pickNextServer(keys, 2, ['c'], {}, { a: 'hls', b: 'hls', c: 'hls', d: 'mp4' })).toBe(3);
+    // Health-offline web players are never picked.
+    const offline = { status: 'offline' as const, latencyMs: null, checkedAt: Date.now(), successRate: 0, samples: 1 };
+    expect(pickNextServer(keys, 2, ['c'], {}, kinds, { a: offline, b: offline })).toBe(3);
   });
 });
 
@@ -313,6 +324,20 @@ describe('failoverReducer: embed failures and viewer reports', () => {
 
   it('serverKinds maps every key to its stream kind', () => {
     expect(Object.values(kinds)).toEqual(['embed', 'embed', 'hls']);
+  });
+
+  it('alternates delivery paths: a failed direct stream hands over to the next web player', () => {
+    const mixed = buildServerList([
+      { url: 'https://cdn.example.com/live/1.m3u8' },
+      { url: 'https://cdn.example.com/live/2.m3u8' },
+      { url: 'https://provider-a.example.com/embed/3' },
+    ]);
+    const mixedKeys = mixed.map((server) => server.key);
+    const s = run(initFailoverState(mixedKeys, true, serverKinds(mixed)), { type: 'fail', attempt: 1, reason: 'network' });
+    expect(s).toMatchObject({ active: 2, phase: 'connecting', attempt: 2 });
+    expect(s.switched).toEqual({ from: 0, to: 2, reason: 'network' });
+    // The web player fails too → back to the untried direct stream before giving up.
+    expect(run(s, { type: 'fail', attempt: 2, reason: 'timeout' })).toMatchObject({ active: 1, phase: 'connecting' });
   });
 
   it('jumps straight to the HLS backup when an embed refuses to load', () => {

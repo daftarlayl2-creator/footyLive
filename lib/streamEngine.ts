@@ -16,9 +16,9 @@ import {
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
 import { IptvOrgProvider } from './providers/iptvOrg';
-import { selectVerifiedIptvOrgChannels } from './broadcast/iptvOrg';
-import { LiveFeedProvider, findMatchFeedChannels, selectActiveFeedChannels } from './providers/liveFeed';
+import { LiveFeedProvider, findMatchFeedChannels } from './providers/liveFeed';
 import { getLiveChannels, toPlaybackUrl } from './broadcast/feeds';
+import { backupProvider, isFeedProvider, selectLiveBackups, type LiveBackup } from './broadcast/backups';
 import type { LiveChannel } from './broadcast/types';
 import { getCacheManager } from './cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
@@ -142,15 +142,12 @@ export async function attachLiveFeedPreviews(matches: Match[], channels: LiveCha
   const needsFallback = unlinked.some((m) => !exactById.get(m.id)?.length);
   // A single shared sports-pool check bounds dashboard work; fixture-specific
   // broadcaster selection happens when opening the player/Multi-View tile.
-  const [fallback, iptvFallback] = needsFallback ? await Promise.all([
-    selectActiveFeedChannels(channels),
-    selectVerifiedIptvOrgChannels(channels, { title: '' }),
-  ]) : [[], []];
+  const fallback = needsFallback ? await selectLiveBackups(channels, { title: '' }) : [];
 
   return matches.map((match) => {
     const exact = exactById.get(match.id);
     if (!exact) return match;
-    const count = exact.length || fallback.length + iptvFallback.length;
+    const count = exact.length || fallback.length;
     return count
       ? { ...match, feedStreamCount: count, feedStreamIsFallback: exact.length === 0 }
       : match;
@@ -188,6 +185,19 @@ export async function getLiveMatches(): Promise<Match[]> {
   return matches.filter(m => m.status === 'live');
 }
 
+/** A selected feed backup as a player server (signed proxy link, network name kept). */
+function toBackupServer(backup: LiveBackup): Channel {
+  return {
+    name: backup.channel.name,
+    url: backup.channel.url,
+    proxiedUrl: toPlaybackUrl(backup.channel),
+    provider: backupProvider(backup),
+    coverage: backup.coverage,
+    ...(backup.health ? { health: backup.health } : {}),
+    quality: inferStreamQuality(backup.channel.name, backup.channel.quality, backup.channel.tvgId),
+  };
+}
+
 export async function resolveAllStreams(
   matchTitle: string,
   matchId: string,
@@ -217,20 +227,20 @@ export async function resolveAllStreams(
       }
     }
 
-    // An ESPN-live fixture without a matching M3U event can still try the top
-    // active channels. Add them *after* any match-specific provider servers as
-    // clearly labelled backups, not as a claim that they carry this fixture.
-    if (isEspnMatchId(matchId) && preFetchedMatch?.status === 'live' &&
-        !allServers.some((server) => server.provider === 'livefeed' || server.provider === 'iptv-org')) {
+    // Every live fixture is mapped against the active HLS/M3U8 backups of all
+    // feed families (Live-events, IPTV-Org, Guovin). They are added *after*
+    // any match-specific provider servers as clearly labelled backups — so a
+    // geo-blocked or expired fixture link fails over instead of dead-ending —
+    // never as a claim that they carry this fixture.
+    if (preFetchedMatch?.status === 'live') {
       try {
-        const backups = await selectActiveFeedChannels(await getLiveChannels());
-        allServers.push(...backups.map((ch) => ({
-          name: ch.name,
-          url: ch.url,
-          proxiedUrl: toPlaybackUrl(ch),
-          provider: 'livefeed-fallback',
-          quality: inferStreamQuality(ch.name),
-        })));
+        const backups = await selectLiveBackups(await getLiveChannels(), {
+          title: matchTitle,
+          homeTeam: { name: homeTeam },
+          awayTeam: { name: awayTeam },
+          broadcasters: preFetchedMatch.broadcasters,
+        }, { exclude: allServers.map((server) => server.url) });
+        allServers.push(...backups.map(toBackupServer));
       } catch (err) {
         logger.warn('Live channel backups unavailable', { matchId, error: String(err) });
       }
@@ -253,10 +263,10 @@ export async function resolveAllStreams(
         const proxiedUrl = server.proxiedUrl || getProxiedStreamUrl(server.url);
         uniqueServers.push({
           ...server,
-          name: server.provider?.startsWith('iptv-org') ? server.name : `Server ${serverIndex}`,
+          name: /^(?:iptv-org|guovin)/.test(server.provider || '') ? server.name : `Server ${serverIndex}`,
           // Labels remain positional in the player; preserve network names in tooltips.
           // Feed streams carry signed proxy links; never expose their raw upstream URL.
-          url: /^(?:livefeed|iptv-org)/.test(server.provider || '') ? proxiedUrl : server.url,
+          url: isFeedProvider(server.provider) ? proxiedUrl : server.url,
           proxiedUrl,
           kind: detectStreamKind(proxiedUrl) ?? 'embed',
         });

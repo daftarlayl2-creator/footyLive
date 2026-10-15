@@ -6,6 +6,20 @@ import { isImageAvatar, presetFor } from '@/lib/auth/avatar';
 import VerifiedBadge from './VerifiedBadge';
 
 /**
+ * Corner seal geometry for an avatar of `size` px: the seal's backing disc is
+ * centred on the avatar circle's edge at 45° (bottom-right), i.e. at
+ * r·(1 + cos 45°), so it hugs the frame at every size instead of drifting off
+ * small avatars or covering the face on large ones.
+ */
+export function avatarSealLayout(size) {
+  const seal = Math.max(12, Math.round(size * 0.36));
+  const pad = Math.max(1, Math.round(seal * 0.08));
+  const box = seal + pad * 2;
+  const offset = Math.round(size * (1 - Math.SQRT1_2) / 2 - box / 2);
+  return { seal, pad, box, offset };
+}
+
+/**
  * Fan avatar: uploaded picture, brand preset or initials disc, with the
  * verified seal pinned to the corner for registered fans.
  */
@@ -15,9 +29,10 @@ export default function UserAvatar({ name, avatarUrl, size = 32, verified = fals
   const showImage = isImageAvatar(avatarUrl) && failedSrc !== avatarUrl;
   const hue = hueFor(name || '?');
   const ringClass = ring ? 'ring-1 ring-white/15' : '';
+  const seal = verified ? avatarSealLayout(size) : null;
 
   return (
-    <span className={`relative inline-flex shrink-0 ${className}`} style={{ width: size, height: size }} data-user-avatar="">
+    <span className={`relative isolate inline-flex shrink-0 ${className}`} style={{ width: size, height: size }} data-user-avatar="">
       {showImage ? (
         <img
           src={avatarUrl}
@@ -44,9 +59,13 @@ export default function UserAvatar({ name, avatarUrl, size = 32, verified = fals
           {initialsFor(name || '?')}
         </span>
       )}
-      {verified && (
-        <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-navy-950 p-[1px]">
-          <VerifiedBadge size={Math.max(12, Math.round(size * 0.4))} />
+      {seal && (
+        <span
+          className="avatar-seal"
+          style={{ width: seal.box, height: seal.box, padding: seal.pad, right: seal.offset, bottom: seal.offset }}
+          data-avatar-seal=""
+        >
+          <VerifiedBadge size={seal.seal} />
         </span>
       )}
     </span>

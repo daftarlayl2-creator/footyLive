@@ -134,7 +134,7 @@ export default function ApiHubPage() {
       name: 'Resolve Match Streams',
       path: '/api/streams/[matchId]',
       method: 'GET',
-      description: 'Returns match-specific servers via signed proxy links. When a live ESPN match has no matching M3U event, additional verified/standby feed channels are offered as unverified backups; they may show another fixture.',
+      description: 'Returns match-specific servers via signed proxy links. Every live match is also mapped against active backups from Live-events, IPTV-Org and Guovin (media-verified for the IPTV feeds), listed after match-specific servers; backups may show another fixture. While no server answers, it returns 503 with Retry-After and matchStatus so clients can keep re-resolving.',
       sampleResponse: `{
   "matchTitle": "Arsenal vs Chelsea",
   "matchStatus": "live",

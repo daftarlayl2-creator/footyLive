@@ -1058,7 +1058,11 @@ export default function StreamPlayer({
       </div>
 
       {activeServer?.provider?.includes('fallback') && (
-        <p role="status" className="border-t border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold text-amber-200" data-unverified-backup="">Unverified backup channel — this source may show a different fixture.</p>
+        <p role="status" className="border-t border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold text-amber-200" data-unverified-backup="">
+          {activeServer.health?.mediaVerified
+            ? 'Live backup channel — confirmed on air, but it may show a different fixture.'
+            : 'Unverified backup channel — this source may show a different fixture.'}
+        </p>
       )}
 
       {/* Screen-reader announcements for failures and automatic switches */}

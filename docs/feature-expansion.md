@@ -169,12 +169,29 @@ append the official URL to enable both. `LIVE_FEED_URLS=''` disables feeds.
   from a team's league. Numbered channels and ESPN+/Deportes/Premium, beIN XTRA,
   Canal+ Sport, etc. are not silently conflated. Explicit other-game listings
   are excluded from the generic pool.
-- Automatic selection checks **at most 24 candidates per pool**, pins the top
-  twelve and rotates the remaining window every 30 seconds on subsequent
-  resolutions. Identical concurrent pools share work. This is bounded discovery,
-  not an exhaustive scan of every listed stream or a background cron job.
-- Only a fresh `live` result with **`mediaVerified: true`** enters the official
-  automatic pool (maximum three sources). Strong probes follow up to two HLS
+- Live-match backups are selected from **one pool across every feed family**
+  (Live-events, IPTV-Org, Guovin — `lib/broadcast/backups.ts`). Ranking:
+  two-team evidence → broadcaster hints → football channels woven with
+  football-carrying networks (two to one) → general sports. Other sports,
+  general TV, generator metadata and standby channels are never match backups.
+  Each evidence tier is interleaved by feed family, near-duplicate editions of
+  one brand wait until other brands had a turn, and `[Geo-blocked]` /
+  `[Not 24/7]` listings sort last.
+- Automatic selection checks **at most 24 candidates per resolution**, pins the
+  top twelve and rotates the remaining window every 30 seconds — and
+  immediately after a window that produced no backup, so the next resolution
+  (e.g. the watch page's automatic re-check) explores unprobed channels instead
+  of failing on the same dead entries. Identical concurrent pools share work.
+  This is bounded discovery, not an exhaustive scan or a background cron job.
+- No live fixture dead-ends: when nothing answers, `/api/streams/[matchId]`
+  returns `503` with `Retry-After` and `matchStatus`, and the watch page keeps
+  re-resolving (6 s → 12 s → 20 s → 30 s → 45 s → 60 s, visible time only),
+  stopping at full time. Player failover alternates delivery paths: embed →
+  direct HLS/MP4 first, restricted/offline direct stream → embedded web player
+  first.
+- Only a fresh `live` result with **`mediaVerified: true`** lets an IPTV-Org or
+  Guovin entry enter the automatic pool (maximum six backups per fixture; event
+  feeds may add up to three blocked-but-not-offline entries). Strong probes follow up to two HLS
   playlist levels and sample a segment (eight KiB per response) within the same
   3.5-second deadline. Bare playlist headers, HTML/JSON errors and inaccessible
   segments do not pass. DRM/key-dependent playlists remain unverified; no
@@ -184,7 +201,8 @@ append the official URL to enable both. `LIVE_FEED_URLS=''` disables feeds.
   strong-probe history is retained. Up to five observations measure recent
   reliability; a single success is not a sustained-playback guarantee. Latency
   includes manifest/segment startup from the application server.
-- `coverage: 'broadcaster' | 'sports'` uses an `iptv-org-fallback-*` provider,
+- `coverage: 'broadcaster' | 'sports'` uses an `iptv-org-fallback-*` /
+  `guovin-fallback-*` (or `livefeed-fallback`) provider,
   preserves the network name, displays the existing different-fixture warning,
   and ranks behind viable fixture-specific sources. Working broadcaster hints
   beat unrelated sports channels; speed/reliability outweigh resolution within

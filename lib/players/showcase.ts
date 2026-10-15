@@ -53,6 +53,7 @@ export function withShowcaseSnapshot(player: PlayerProfile): PlayerProfile {
   if (!snapshot) return player;
   return {
     ...player,
+    featured: true,
     marketValue: player.marketValue ?? { amount: snapshot.value, currency: 'EUR', asOf: '2024-10-21', source: snapshot.source },
     honors: player.honors.length ? player.honors : snapshot.honors,
     honorsNote: player.honors.length ? 'Honors reported by the data provider.' : 'Selected honors through 2024 — not a complete or live career tally.',

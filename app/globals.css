@@ -13,6 +13,10 @@
   --color-surface: #280713;
   --color-border: #3D0B1D;
 
+  /* EVIV brand marks (verified seal, player cards). */
+  --color-eviv-lime: #CCFF00;
+  --color-eviv-burgundy: #2A0813;
+
   /* Burgundy neutrals. 950 = page, 900/800 = card, 750 = border. */
   --color-navy-50: #fff6f8;
   --color-navy-100: #fbe6eb;
@@ -823,5 +827,93 @@ select,
   a:hover > .crest-drop,
   a:focus-visible > .crest-drop {
     animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   Verified fan seal (components/auth/VerifiedBadge.jsx).
+   A fixed, non-shrinking 1:1 box: it never stretches in flex/grid rows, never
+   shifts the text baseline and keeps its glow inside its own stacking context.
+   The scalloped Deep Burgundy rosette turns slowly behind an upright Lime
+   check while a soft lime halo breathes. Sizes scale from --vb-size.
+   ========================================================================== */
+@layer components {
+  .verified-badge {
+    --vb-size: 16px;
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    width: var(--vb-size);
+    height: var(--vb-size);
+    min-width: var(--vb-size);
+    line-height: 0;
+    vertical-align: middle;
+  }
+  .verified-badge__seal {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    overflow: visible;
+    filter: drop-shadow(0 1px 1.5px rgb(24 3 10 / 0.65));
+  }
+  .verified-badge__rosette {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: subtle-spin 12s linear infinite;
+  }
+  .verified-badge__glow {
+    position: absolute;
+    inset: -16%;
+    z-index: 0;
+    border-radius: 9999px;
+    background: conic-gradient(
+      from 0deg,
+      rgb(204 255 0 / 0) 0deg,
+      rgb(204 255 0 / 0.55) 80deg,
+      rgb(204 255 0 / 0) 170deg,
+      rgb(204 255 0 / 0.3) 260deg,
+      rgb(204 255 0 / 0) 360deg
+    );
+    filter: blur(calc(var(--vb-size) * 0.1));
+    opacity: 0.6;
+    pointer-events: none;
+    animation: subtle-spin 12s linear infinite, badge-glow 3.6s ease-in-out infinite;
+  }
+
+  /* Corner seal pinned to an avatar frame (components/auth/UserAvatar.jsx). */
+  .avatar-seal {
+    position: absolute;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    border-radius: 9999px;
+    background: #18030A;
+    box-shadow: 0 0 0 1px rgb(204 255 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.45);
+    pointer-events: none;
+  }
+}
+
+@keyframes subtle-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes badge-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verified-badge__rosette,
+  .verified-badge__glow {
+    animation: none;
   }
 }

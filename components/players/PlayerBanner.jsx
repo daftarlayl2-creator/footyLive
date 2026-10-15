@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Flag, UserRound } from 'lucide-react';
+import { ArrowUpRight, Flag } from 'lucide-react';
 import TeamLogo from '@/components/clubs/TeamLogo';
 import { clubHref } from '@/lib/clubs/links';
 
@@ -10,21 +10,94 @@ function Fact({ label, children }) {
   return <div className="glass-dark-tile min-w-0 rounded-2xl px-4 py-3"><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{label}</dt><dd className="mt-1 flex items-center gap-2 text-sm font-extrabold text-white">{children}</dd></div>;
 }
 
+/** Portrait candidates: provider-ordered list, or the single ESPN headshot of older payloads. */
+function portraitCandidates(player) {
+  if (Array.isArray(player.portraits) && player.portraits.length) return player.portraits;
+  return player.portrait ? [{ src: player.portrait, kind: 'headshot', credit: 'ESPN' }] : [];
+}
+
+/** Branded stand-in when no provider portrait loads: burgundy bust, lime keyline, shirt number. */
+function PlayerSilhouette({ name, jersey }) {
+  const id = useId().replace(/:/g, '');
+  return (
+    <svg viewBox="0 0 120 120" className="relative z-10 h-full w-full" role="img" aria-label={`${name} — portrait not published`} data-player-silhouette="">
+      <defs>
+        <linearGradient id={`ps-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#5C1531" />
+          <stop offset="1" stopColor="#2A0813" />
+        </linearGradient>
+      </defs>
+      <circle cx="60" cy="43" r="19" fill={`url(#ps-${id})`} stroke="#CCFF00" strokeOpacity="0.45" strokeWidth="1.2" />
+      <path d="M20 121c2-27 19-42 40-42s38 15 40 42Z" fill={`url(#ps-${id})`} stroke="#CCFF00" strokeOpacity="0.45" strokeWidth="1.2" />
+      {jersey && (
+        <text x="60" y="110" textAnchor="middle" fontSize="20" fontWeight="900" fill="#CCFF00" fillOpacity="0.9" fontFamily="Inter, system-ui, sans-serif">
+          {jersey}
+        </text>
+      )}
+    </svg>
+  );
+}
+
 export default function PlayerBanner({ player }) {
-  const [failedPortrait, setFailedPortrait] = useState(null);
+  const [failedPortraits, setFailedPortraits] = useState([]);
   const [failedFlag, setFailedFlag] = useState(null);
   const href = clubHref(player.club);
   const value = player.marketValue;
   const historical = value && player.updatedAt - Date.parse(value.asOf) > 365 * 86_400_000;
   const amount = value ? new Intl.NumberFormat('en', { style: 'currency', currency: value.currency, notation: 'compact', minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(value.amount) : null;
+  // Walk the candidates on load errors (keyed by URL, so a new player never inherits failures).
+  const portrait = portraitCandidates(player).find((candidate) => !failedPortraits.includes(candidate.src)) ?? null;
+  const flag = player.flag && failedFlag !== player.flag ? player.flag : null;
+  const onFlagError = () => setFailedFlag(player.flag);
+
   return (
-    <section className="glass-dark relative overflow-hidden rounded-3xl p-5 sm:p-8" aria-labelledby="player-heading" data-player-banner="">
+    <section className="glass-dark relative isolate overflow-hidden rounded-3xl p-5 sm:p-8" aria-labelledby="player-heading" data-player-banner="">
+      {/* Depth, as on club cards: a faint national-flag watermark, a scrim and a lime glow. */}
+      {flag && (
+        <img
+          src={flag}
+          alt=""
+          aria-hidden="true"
+          onError={onFlagError}
+          className="pointer-events-none absolute -left-16 top-1/2 -z-10 h-[150%] w-auto max-w-none -translate-y-1/2 select-none object-contain opacity-[0.09] blur-[2px] [mask-image:linear-gradient(to_right,black_45%,transparent_90%)]"
+          data-player-flag-wash=""
+        />
+      )}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-black/0 via-black/10 to-black/40" aria-hidden="true" />
       <div className="pointer-events-none absolute -right-20 -top-32 h-96 w-96 rounded-full bg-lime-400/10 blur-3xl" aria-hidden="true" />
+
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center">
-        <div className="flex h-28 w-28 shrink-0 items-end justify-center overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-white/10 to-black/30 shadow-xl sm:h-36 sm:w-36">
-          {player.portrait && failedPortrait !== player.portrait
-            ? <img src={player.portrait} alt={player.name} onError={() => setFailedPortrait(player.portrait)} className="h-full w-full object-contain object-bottom" />
-            : <UserRound className="mb-4 h-20 w-20 text-zinc-400" strokeWidth={1} aria-hidden="true" />}
+        {/* Player card header: cutout in front of a semi-transparent national flag. */}
+        <div
+          className="relative isolate h-32 w-32 shrink-0 overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-navy-750/60 to-navy-950 shadow-xl ring-1 ring-lime-400/10 sm:h-40 sm:w-40"
+          data-player-portrait={portrait?.kind || 'silhouette'}
+        >
+          {flag && (
+            <img
+              src={flag}
+              alt=""
+              aria-hidden="true"
+              onError={onFlagError}
+              className="pointer-events-none absolute inset-0 h-full w-full scale-150 select-none object-cover opacity-[0.28]"
+              data-player-flag-overlay=""
+            />
+          )}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-navy-950/25 via-navy-950/30 to-navy-950/85" aria-hidden="true" />
+          <div className="pointer-events-none absolute inset-x-5 bottom-0 h-1/2 rounded-full bg-lime-400/20 blur-2xl" aria-hidden="true" />
+          {portrait ? (
+            <img
+              key={portrait.src}
+              src={portrait.src}
+              alt={player.name}
+              onError={() => setFailedPortraits((failed) => [...failed, portrait.src])}
+              className={portrait.kind === 'photo'
+                ? 'relative z-10 h-full w-full object-cover'
+                : 'relative z-10 h-full w-full object-contain object-bottom drop-shadow-[0_14px_22px_rgba(0,0,0,0.6)]'}
+              data-portrait-credit={portrait.credit}
+            />
+          ) : (
+            <PlayerSilhouette name={player.name} jersey={player.jersey} />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-lime-300">Player showcase {player.jersey ? `· #${player.jersey}` : ''}</p>
@@ -44,7 +117,7 @@ export default function PlayerBanner({ player }) {
         <Fact label="Age">{player.age !== undefined ? `${player.age} years` : 'Not reported'}</Fact>
         <Fact label="Position">{player.position}</Fact>
         <Fact label="Nationality">
-          {player.flag && failedFlag !== player.flag ? <img src={player.flag} alt="" onError={() => setFailedFlag(player.flag)} className="h-4 w-6 shrink-0 rounded-sm object-contain" /> : <Flag className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden="true" />}
+          {flag ? <img src={flag} alt="" onError={onFlagError} className="h-4 w-6 shrink-0 rounded-sm object-contain" /> : <Flag className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden="true" />}
           <span>{player.nationality || 'Not reported'}</span>
         </Fact>
         <Fact label="Market value estimate">
@@ -52,6 +125,7 @@ export default function PlayerBanner({ player }) {
         </Fact>
       </dl>
       {value?.source && <p className="relative mt-3 text-[10px] text-zinc-400">Market value is a dated estimate, not a live valuation or transfer fee. <a href={value.source} target="_blank" rel="noopener noreferrer" className="text-zinc-200 underline underline-offset-2">Valuation source</a></p>}
+      {portrait?.credit === 'TheSportsDB' && <p className="relative mt-1 text-[10px] text-zinc-400" data-portrait-attribution="">Player image: TheSportsDB.</p>}
     </section>
   );
 }
