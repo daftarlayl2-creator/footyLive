@@ -67,6 +67,17 @@
   --animate-live-pulse: livePulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-float: float 6s ease-in-out infinite;
 
+  /* Native-app motion: a springy overshoot for presses, a calm decelerate for reveals. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Layered depth (Material-style elevation tuned for the burgundy surfaces). */
+  --shadow-app: 0 1px 2px rgb(24 3 10 / 0.05), 0 12px 30px -16px rgb(24 3 10 / 0.3);
+  --shadow-app-dark: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 2px 6px -2px rgb(0 0 0 / 0.45),
+    0 20px 44px -24px rgb(0 0 0 / 0.9);
+  --shadow-app-raised: 0 2px 4px rgb(24 3 10 / 0.06), 0 22px 44px -18px rgb(24 3 10 / 0.38);
+  --shadow-glow-lime: 0 10px 28px -10px rgb(198 255 0 / 0.55);
+
   /* Font family */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Space Grotesk', 'Inter', sans-serif;
@@ -179,12 +190,13 @@ html:not(.dark) {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid #efc2cf;
+  box-shadow: 0 1px 2px rgba(24, 3, 10, 0.04), 0 12px 28px -18px rgba(24, 3, 10, 0.28);
 }
 
 .dark .glass-panel {
   background: #280713;
   border: 1px solid #3D0B1D;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 18px 40px -26px rgba(0, 0, 0, 0.95);
 }
 
 .glass-panel-hover {
@@ -429,9 +441,191 @@ iframe[src*="czernik.org"] {
   color-scheme: dark;
 }
 
-/* Reserve room for the mobile sticky footer ad so it never covers content. */
+/* ==========================================================================
+   Native-app feel (Flutter / iOS-style): tactile presses, depth, glass.
+   ========================================================================== */
+
+/* No grey tap flash and no double-tap-zoom delay on anything interactive. */
+a,
+button,
+summary,
+label,
+select,
+[role='button'],
+[role='tab'],
+[role='switch'] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Springy press: scale down fast, overshoot back on release. */
+.tactile,
+.tactile-soft {
+  transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+  transition-duration: 240ms;
+  transition-timing-function: var(--ease-spring);
+}
+.tactile:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.95);
+  transition-duration: 90ms;
+}
+/* Large surfaces (cards, rows) press in more subtly. */
+.tactile-soft:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.98);
+  transition-duration: 90ms;
+}
+
+/* Elevated app card: rounded-3xl with layered depth in both themes. */
+.app-card {
+  border-radius: 1.5rem;
+  background: #ffffff;
+  border: 1px solid rgba(239, 194, 207, 0.9);
+  box-shadow: var(--shadow-app);
+}
+.dark .app-card {
+  background: linear-gradient(180deg, #2c0815 0%, #250611 100%);
+  border-color: #3d0b1d;
+  box-shadow: var(--shadow-app-dark);
+}
+
+/* Glassmorphism accent for floating chrome (nav bars, sheets, overlays). */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+}
+.dark .glass {
+  background: rgba(33, 5, 15, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Pop-in confirmation (vote check marks, badges). */
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop-in {
+  animation: popIn 420ms var(--ease-spring) both;
+}
+
+/* One-shot lime ring burst around a freshly selected control. */
+@keyframes ringPulse {
+  0% { box-shadow: 0 0 0 0 rgba(198, 255, 0, 0.6); }
+  100% { box-shadow: 0 0 0 16px rgba(198, 255, 0, 0); }
+}
+.animate-ring-pulse {
+  animation: ringPulse 700ms ease-out 1;
+}
+
+/* Emoji reactions drifting up out of the chat. */
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { transform: translateY(-12px) scale(1.2); opacity: 1; }
+  100% { transform: translateY(-170px) scale(1); opacity: 0; }
+}
+.animate-float-up {
+  animation: floatUp 1.6s var(--ease-out-expo) forwards;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-slide-up {
+  animation: slideUpFade 320ms var(--ease-out-expo) both;
+}
+
+/* Skeleton shimmer for loading rows. */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(24, 3, 10, 0.07);
+}
+.dark .skeleton {
+  background: rgba(255, 255, 255, 0.05);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: shimmer 1.4s infinite;
+}
+.dark .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tactile,
+  .tactile:active,
+  .tactile-soft:active {
+    transform: none !important;
+  }
+  .animate-pop-in,
+  .animate-ring-pulse,
+  .animate-slide-up,
+  .skeleton::after {
+    animation: none !important;
+  }
+  .animate-float-up {
+    animation-duration: 1ms !important;
+  }
+}
+
+/* === Mobile chrome: bottom tab bar + sticky ad ===
+   The tab bar sits on the home indicator (safe area aware); the 320x50 ad
+   floats directly above it. Body padding reserves room for both so neither
+   ever covers content. */
+:root {
+  --bottom-nav-height: 0px;
+  --mobile-ad-height: 0px;
+}
+
 @media (max-width: 767px) {
+  :root {
+    --bottom-nav-height: 64px;
+    --mobile-ad-height: 60px;
+  }
   body {
-    padding-bottom: 60px;
+    padding-bottom: calc(var(--bottom-nav-height) + var(--mobile-ad-height) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* The mobile ad banner docks directly above the bottom tab bar. */
+.mobile-ad-dock {
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Sticky in-page toolbars sit flush under the sticky app header
+   (64px bar + 1px border on phones; the larger logo makes it 75.5px + 1px from sm). */
+:root {
+  --app-header-height: 65px;
+}
+@media (min-width: 640px) {
+  :root {
+    --app-header-height: 76.5px;
+  }
+}
+.sticky-below-header {
+  position: sticky;
+  top: calc(var(--app-header-height) + env(safe-area-inset-top, 0px));
+}
+
+/* Like a native tab bar, the bottom chrome slides away while the keyboard is up
+   (some mobile browsers resize the layout viewport and would float it over inputs). */
+.mobile-bottom-nav,
+.mobile-ad-dock {
+  transition: transform 220ms var(--ease-out-expo);
+}
+@media (max-width: 767px) {
+  body:has(:is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']), textarea, [contenteditable='true']):focus)
+    :is(.mobile-bottom-nav, .mobile-ad-dock) {
+    transform: translateY(calc(100% + var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px)));
   }
 }

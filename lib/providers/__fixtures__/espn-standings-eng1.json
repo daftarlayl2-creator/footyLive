@@ -1,0 +1,82 @@
+{
+  "uid": "s:600~l:700",
+  "id": "23",
+  "name": "English Premier League",
+  "abbreviation": "Premier League",
+  "children": [
+    {
+      "uid": "s:600~l:700~g:1",
+      "id": "1",
+      "name": "2026-27 English Premier League",
+      "abbreviation": "2026-2027",
+      "standings": {
+        "id": "0",
+        "name": "overall",
+        "displayName": "Standings",
+        "season": 2026,
+        "seasonType": 1,
+        "seasonDisplayName": "2026-27 English Premier League",
+        "entries": [
+          {
+            "team": {
+              "id": "382",
+              "uid": "s:600~t:382",
+              "location": "Manchester City",
+              "name": "Manchester City",
+              "abbreviation": "MNC",
+              "displayName": "Manchester City",
+              "shortDisplayName": "Man City",
+              "isActive": true,
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png", "width": 500, "height": 500, "alt": "", "rel": ["full", "default"] }],
+              "isNational": false
+            },
+            "note": { "color": "#81D6AC", "description": "Champions League", "rank": 1 },
+            "stats": [
+              { "name": "gamesPlayed", "abbreviation": "GP", "value": 6.0, "displayValue": "6" },
+              { "name": "losses", "abbreviation": "L", "value": 0.0, "displayValue": "0" },
+              { "name": "pointDifferential", "abbreviation": "GD", "value": 11.0, "displayValue": "+11" },
+              { "name": "points", "abbreviation": "P", "value": 18.0, "displayValue": "18" },
+              { "name": "pointsAgainst", "abbreviation": "A", "value": 5.0, "displayValue": "5" },
+              { "name": "pointsFor", "abbreviation": "F", "value": 16.0, "displayValue": "16" },
+              { "name": "ties", "abbreviation": "D", "value": 0.0, "displayValue": "0" },
+              { "name": "wins", "abbreviation": "W", "value": 6.0, "displayValue": "6" },
+              { "name": "deductions", "abbreviation": "PD", "value": 0.0, "displayValue": "" },
+              { "name": "rank", "abbreviation": "R", "value": 1.0, "displayValue": "1" },
+              { "name": "rankChange", "abbreviation": "RC", "value": 0.0, "displayValue": "0" },
+              { "id": "0", "name": "overall", "abbreviation": "Total", "type": "total", "summary": "6-0-0", "displayValue": "6-0-0" }
+            ]
+          },
+          {
+            "team": {
+              "id": "359",
+              "uid": "s:600~t:359",
+              "location": "Arsenal",
+              "name": "Arsenal",
+              "abbreviation": "ARS",
+              "displayName": "Arsenal",
+              "shortDisplayName": "Arsenal",
+              "isActive": true,
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/359.png", "width": 500, "height": 500, "alt": "", "rel": ["full", "default"] }],
+              "isNational": false
+            },
+            "note": { "color": "#81D6AC", "description": "Champions League", "rank": 2 },
+            "stats": [
+              { "name": "gamesPlayed", "abbreviation": "GP", "value": 6.0, "displayValue": "6" },
+              { "name": "losses", "abbreviation": "L", "value": 1.0, "displayValue": "1" },
+              { "name": "pointDifferential", "abbreviation": "GD", "value": 5.0, "displayValue": "+5" },
+              { "name": "points", "abbreviation": "P", "value": 15.0, "displayValue": "15" },
+              { "name": "pointsAgainst", "abbreviation": "A", "value": 5.0, "displayValue": "5" },
+              { "name": "pointsFor", "abbreviation": "F", "value": 10.0, "displayValue": "10" },
+              { "name": "ties", "abbreviation": "D", "value": 0.0, "displayValue": "0" },
+              { "name": "wins", "abbreviation": "W", "value": 5.0, "displayValue": "5" },
+              { "name": "deductions", "abbreviation": "PD", "value": 0.0, "displayValue": "" },
+              { "name": "rank", "abbreviation": "R", "value": 2.0, "displayValue": "2" },
+              { "name": "rankChange", "abbreviation": "RC", "value": 0.0, "displayValue": "0" },
+              { "id": "0", "name": "overall", "abbreviation": "Total", "type": "total", "summary": "5-0-1", "displayValue": "5-0-1" }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

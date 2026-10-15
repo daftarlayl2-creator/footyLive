@@ -71,7 +71,7 @@ export default function HighlightCard({ highlight, onPlay, featured = false, cla
   return (
     <article
       data-highlight-id={highlight.id}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border border-navy-750 bg-navy-900/80 shadow-md backdrop-blur-sm transition-all duration-300 ease-out hover:-translate-y-2 hover:border-lime-500/60 hover:shadow-[0_0_15px_#C6FF00] ${featured ? 'sm:col-span-2' : ''} ${className}`}
+      className={`tactile-soft group relative flex flex-col overflow-hidden rounded-3xl border border-navy-750 bg-navy-900/80 shadow-md backdrop-blur-sm transition-all duration-300 ease-out hover:-translate-y-2 hover:border-lime-500/60 hover:shadow-[0_0_15px_#C6FF00] ${featured ? 'sm:col-span-2' : ''} ${className}`}
     >
       <button
         type="button"
@@ -110,7 +110,7 @@ export default function HighlightCard({ highlight, onPlay, featured = false, cla
       </div>
 
       {/* Hover sheen: a soft lime wash sweeping the card top */}
-      <span className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(120%_90%_at_50%_0%,rgba(198,255,0,0.08),transparent_60%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <span className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,rgba(198,255,0,0.08),transparent_60%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
     </article>
   );
 }

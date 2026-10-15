@@ -1,0 +1,121 @@
+{
+  "status": "success",
+  "season": { "year": 2026, "displayName": "2026-27 English Premier League", "type": 14308, "name": "2026-27 English Premier League" },
+  "league": {
+    "id": "700",
+    "name": "English Premier League",
+    "abbreviation": "Premier League",
+    "slug": "eng.1",
+    "logos": [
+      { "href": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png", "width": 500, "height": 500, "rel": ["full", "default"] },
+      { "href": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png", "width": 500, "height": 500, "rel": ["full", "dark"] }
+    ]
+  },
+  "stats": [
+    {
+      "name": "goalsLeaders",
+      "displayName": "Goals",
+      "shortDisplayName": "Goals",
+      "abbreviation": "G",
+      "leaders": [
+        {
+          "displayValue": "Matches: 6, Goals: 6",
+          "shortDisplayValue": "M: 6, G: 6: A: 0",
+          "value": 6.0,
+          "athlete": {
+            "id": "253989",
+            "uid": "s:600~a:253989",
+            "displayName": "Erling Haaland",
+            "shortName": "E. Haaland",
+            "jersey": "9",
+            "team": {
+              "id": "382",
+              "name": "Manchester City",
+              "abbreviation": "MNC",
+              "displayName": "Manchester City",
+              "color": "99c5ea",
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png", "width": 500, "height": 500, "rel": ["full", "default"] }]
+            }
+          }
+        },
+        {
+          "displayValue": "Matches: 6, Goals: 1",
+          "shortDisplayValue": "M: 6, G: 1: A: 0",
+          "value": 1.0,
+          "athlete": {
+            "id": "231863",
+            "uid": "s:600~a:231863",
+            "displayName": "James Justin",
+            "shortName": "J. Justin",
+            "jersey": "24",
+            "team": {
+              "id": "357",
+              "name": "Leeds United",
+              "abbreviation": "LEE",
+              "displayName": "Leeds United",
+              "color": "ffffff",
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/357.png", "width": 500, "height": 500, "rel": ["full", "default"] }]
+            },
+            "statistics": [
+              { "name": "appearances", "abbreviation": "APP", "value": 6.0, "displayValue": "6" },
+              { "name": "totalGoals", "abbreviation": "G", "value": 1.0, "displayValue": "1" },
+              { "name": "goalAssists", "abbreviation": "A", "value": 0.0, "displayValue": "0" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "assistsLeaders",
+      "displayName": "Assists",
+      "shortDisplayName": "Assists",
+      "abbreviation": "A",
+      "leaders": [
+        {
+          "displayValue": "Matches: 6, Assists: 4",
+          "shortDisplayValue": "M: 6, G: 3: A: 4",
+          "value": 4.0,
+          "athlete": {
+            "id": "132659",
+            "uid": "s:600~a:132659",
+            "displayName": "Pascal Gross",
+            "shortName": "P. Gross",
+            "jersey": "13",
+            "team": {
+              "id": "331",
+              "name": "Brighton & Hove Albion",
+              "abbreviation": "BHA",
+              "displayName": "Brighton & Hove Albion",
+              "color": "0606fa",
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/331.png", "width": 500, "height": 500, "rel": ["full", "default"] }]
+            },
+            "statistics": [
+              { "name": "appearances", "abbreviation": "APP", "value": 6.0, "displayValue": "6" },
+              { "name": "totalGoals", "abbreviation": "G", "value": 3.0, "displayValue": "3" },
+              { "name": "goalAssists", "abbreviation": "A", "value": 4.0, "displayValue": "4" }
+            ]
+          }
+        },
+        {
+          "displayValue": "Matches: 6, Assists: 3",
+          "shortDisplayValue": "M: 6, G: 2: A: 3",
+          "value": 3.0,
+          "athlete": {
+            "id": "273292",
+            "uid": "s:600~a:273292",
+            "displayName": "Antoine Semenyo",
+            "shortName": "A. Semenyo",
+            "jersey": "42",
+            "team": {
+              "id": "382",
+              "name": "Manchester City",
+              "abbreviation": "MNC",
+              "displayName": "Manchester City",
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png", "width": 500, "height": 500, "rel": ["full", "default"] }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

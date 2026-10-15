@@ -1,267 +1,456 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useSupabase } from '@/lib/supabase';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowDown, Check, CheckCheck, MessageCircle, Pencil, RotateCw, SendHorizontal, X } from 'lucide-react';
+import { createRowId, getLocalSupabase, useSupabase } from '@/lib/supabase';
+import { useLocalValue, writeLocal } from '@/lib/hooks/useLocalValue';
+import {
+  CHAT_HISTORY_LIMIT,
+  MAX_MESSAGE_LENGTH,
+  MAX_NICKNAME_LENGTH,
+  NICKNAME_STORAGE_KEY,
+  generateFanName,
+  hueFor,
+  initialsFor,
+  isChatMessage,
+  mergeMessages,
+  normalizeMessageText,
+  sanitizeNickname,
+  upsertMessage,
+} from '@/lib/chat';
+import { playSound } from '@/lib/sound/uiSound';
 
-const REACTION_MAP = {
-  '⚽': { id: 'ball', color: '#C6FF00', icon: '⚽' },
-  '🔥': { id: 'fire', color: '#ff6b6b', icon: '🔥' },
-  '😱': { id: 'shock', color: '#ff6b6b', icon: '😱' },
-  '🟥': { id: 'red', color: '#ff4757', icon: '🟥' },
-  '👏': { id: 'clap', color: '#4ecdc4', icon: '👏' },
-};
+const TABLE = 'match_messages';
 
-function getReactionAnimation(type) {
-  return REACTION_MAP[type] || { id: 'generic', color: '#C6FF00', icon: '⚽' };
+const REACTIONS = [
+  { emoji: '⚽', title: 'Celebrate goal' },
+  { emoji: '🔥', title: 'Highlight moment' },
+  { emoji: '😱', title: 'What a chance' },
+  { emoji: '🟥', title: 'Red card' },
+  { emoji: '👏', title: 'Great play' },
+];
+
+/** Horizontal launch point (%) for a floating reaction; only called from event handlers. */
+function randomBurstOffset() {
+  return 12 + Math.random() * 70;
 }
 
+function formatTime(iso) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function Avatar({ name }) {
+  const hue = hueFor(name);
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white shadow-sm"
+      style={{ background: `linear-gradient(135deg, hsl(${hue} 65% 42%), hsl(${(hue + 40) % 360} 70% 30%))` }}
+    >
+      {initialsFor(name)}
+    </span>
+  );
+}
+
+const STATUS_PILL = {
+  connecting: { label: 'Connecting…', dot: 'bg-amber-400 animate-pulse', text: 'text-amber-600 dark:text-amber-400' },
+  live: { label: 'Live', dot: 'bg-lime-500 live-dot', text: 'text-lime-700 dark:text-lime-400' },
+  device: { label: 'On this device', dot: 'bg-sky-400', text: 'text-sky-700 dark:text-sky-300' },
+  offline: { label: 'Offline', dot: 'bg-zinc-400', text: 'text-zinc-500 dark:text-zinc-400' },
+};
+
 /**
- * Match Chat Panel - persistent real-time chat via Supabase (with local fallback in mock mode).
+ * Live match chat.
  *
- * Messages are stored in the `match_messages` table and persist across refreshes.
- * Emoji reactions trigger floating animations inside the panel.
+ * The input is never disabled: messages appear instantly (optimistic) with a
+ * delivery tick, failed sends offer a one-tap retry, Enter sends and focus
+ * stays in the field so the mobile keyboard never collapses between
+ * messages. History loads from `match_messages`, new messages stream in over
+ * the realtime channel, and the list auto-scrolls unless the reader has
+ * scrolled up (then a "new messages" pill appears).
  */
-export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAvatar }) {
+export default function MatchChatPanel({ matchId, userName }) {
+  const id = String(matchId);
+  const { supabase } = useSupabase();
+  const [offline, setOffline] = useState(false);
+  const client = offline ? getLocalSupabase() : supabase;
+
+  const storedName = useLocalValue(NICKNAME_STORAGE_KEY);
+  const displayName = storedName || userName || '';
+
   const [messages, setMessages] = useState([]);
+  const [connection, setConnection] = useState('connecting');
   const [input, setInput] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [reactionAnimations, setReactionAnimations] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [bursts, setBursts] = useState([]);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
 
-  const { supabase, isMockMode } = useSupabase();
+  const listRef = useRef(null);
+  const inputRef = useRef(null);
+  const atBottomRef = useRef(true);
+  const sentIdsRef = useRef(new Set());
 
-  const triggerReactionAnimation = useCallback((type) => {
-    setReactionAnimations((prev) => {
-      const newAnim = getReactionAnimation(type);
-      return [...prev.filter((a) => a.id !== newAnim.id), newAnim];
-    });
-  }, []);
-
-  // Load existing messages from Supabase on mount
+  // History + realtime subscription.
   useEffect(() => {
-    if (!supabase) return;
+    let cancelled = false;
 
-    const loadMessages = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('match_messages')
-          .select('*')
-          .eq('match_id', matchId)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        setMessages(data || []);
-        setIsConnected(true);
-      } catch (err) {
-        console.error('Failed to load chat messages:', err);
-        setIsConnected(false);
+    const load = async () => {
+      const { data, error } = await client
+        .from(TABLE)
+        .select('*')
+        .eq('match_id', id)
+        .order('created_at', { ascending: false })
+        .limit(CHAT_HISTORY_LIMIT);
+      if (cancelled) return;
+      if (error) {
+        if (client.mode === 'remote') {
+          // Shared chat unreachable: keep the conversation going on this device.
+          setOffline(true);
+          return;
+        }
+        setConnection('offline');
+        return;
       }
+      const history = (data || []).filter(isChatMessage).reverse();
+      setMessages((current) => mergeMessages(history, current));
+      setConnection(client.mode === 'remote' ? 'live' : offline ? 'offline' : 'device');
     };
 
-    loadMessages();
+    load();
 
-    // Set up real-time subscription for new messages
-    const channel = supabase
-      .channel(`match-chat-${matchId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'match_messages',
-          filter: `match_id=eq.${matchId}`,
-        },
-        (payload) => {
-          const newMessage = payload.new;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMessage.id)) return prev;
-            return [...prev, newMessage].slice(-100);
-          });
-          triggerReactionAnimation('message');
-        }
-      )
-      .subscribe();
+    const channel = client
+      .channel(`match-chat-${id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE, filter: `match_id=eq.${id}` }, (payload) => {
+        const message = payload.new;
+        if (!isChatMessage(message)) return;
+        setMessages((current) => upsertMessage(current, { ...message, _status: 'sent' }));
+        if (!sentIdsRef.current.has(message.id) && !atBottomRef.current) setUnread((n) => n + 1);
+      })
+      .subscribe((status) => {
+        if (cancelled || client.mode !== 'remote') return;
+        if (status === 'SUBSCRIBED') setConnection('live');
+        else if (status === 'CHANNEL_ERROR') setConnection('connecting');
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      client.removeChannel(channel);
     };
-  }, [supabase, matchId, triggerReactionAnimation]);
+  }, [client, id, offline]);
 
-  // Send new message
-  const handleSend = async (e) => {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || !supabase) return;
+  // Keep the newest message in view unless the reader scrolled up.
+  useEffect(() => {
+    const list = listRef.current;
+    if (list && atBottomRef.current) list.scrollTop = list.scrollHeight;
+  }, [messages]);
 
+  const handleScroll = () => {
+    const list = listRef.current;
+    if (!list) return;
+    const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 48;
+    atBottomRef.current = atBottom;
+    if (atBottom && unread) setUnread(0);
+  };
+
+  const jumpToLatest = () => {
+    const list = listRef.current;
+    atBottomRef.current = true;
+    setUnread(0);
+    if (list) list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+  };
+
+  const deliver = async (record) => {
+    let error = null;
+    try {
+      ({ error } = await client.from(TABLE).insert(record));
+    } catch (err) {
+      error = err;
+    }
+    setMessages((current) =>
+      current.map((m) => (m.id === record.id && m._status !== 'sent' ? { ...m, _status: error ? 'failed' : 'sent' } : m))
+    );
+    if (error) playSound('error');
+  };
+
+  const send = () => {
+    const text = normalizeMessageText(input);
+    if (!text) {
+      inputRef.current?.focus();
+      return;
+    }
+    let name = displayName;
+    if (!name) {
+      name = generateFanName();
+      writeLocal(NICKNAME_STORAGE_KEY, name);
+    }
     const record = {
-      id: `msg-${Date.now()}`,
-      match_id: matchId,
-      username: userName,
-      avatar: userAvatar || '/icon.svg',
+      id: createRowId(),
+      match_id: id,
+      username: name,
+      avatar: '/icon.svg',
       message: text,
       created_at: new Date().toISOString(),
     };
-
-    if (isMockMode) {
-      setMessages((prev) => [...prev, record].slice(-100));
-      setInput('');
-      triggerReactionAnimation('⚽');
-      return;
-    }
-
-    try {
-      const { error } = await supabase.from('match_messages').insert({
-        match_id: record.match_id,
-        username: record.username,
-        avatar: record.avatar,
-        message: record.message,
-        created_at: record.created_at,
-      });
-
-      if (error) throw error;
-      setInput('');
-    } catch (err) {
-      console.error('Failed to send message:', err);
-    }
+    sentIdsRef.current.add(record.id);
+    atBottomRef.current = true;
+    setMessages((current) => upsertMessage(current, { ...record, _status: 'sending' }));
+    setInput('');
+    setUnread(0);
+    playSound('send');
+    // Keep focus (and the mobile keyboard) in the field for the next message.
+    inputRef.current?.focus();
+    deliver(record);
   };
 
-  // Handle emoji reaction
-  const handleReaction = (emoji) => {
-    triggerReactionAnimation(emoji);
+  const retry = (message) => {
+    setMessages((current) => current.map((m) => (m.id === message.id ? { ...m, _status: 'sending' } : m)));
+    deliver({
+      id: message.id,
+      match_id: message.match_id,
+      username: message.username,
+      avatar: message.avatar || '/icon.svg',
+      message: message.message,
+      created_at: message.created_at,
+    });
   };
 
-  // Clear old animations
-  useEffect(() => {
-    if (reactionAnimations.length === 0) return undefined;
-    const timer = setTimeout(() => {
-      setReactionAnimations([]);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [reactionAnimations]);
+  const react = (emoji) => {
+    const burst = { id: createRowId(), emoji, left: randomBurstOffset() };
+    setBursts((current) => [...current.slice(-11), burst]);
+    playSound('pop');
+  };
+
+  const startEditingName = () => {
+    setNameDraft(displayName);
+    setEditingName(true);
+  };
+
+  const saveName = (event) => {
+    event.preventDefault();
+    const clean = sanitizeNickname(nameDraft);
+    if (clean) writeLocal(NICKNAME_STORAGE_KEY, clean);
+    setEditingName(false);
+    playSound('success');
+  };
+
+  const pill = STATUS_PILL[connection] || STATUS_PILL.connecting;
+  const remaining = MAX_MESSAGE_LENGTH - input.length;
 
   return (
-    <div className="chat-panel relative flex h-[400px] w-full flex-col rounded-2xl border border-navy-750 bg-navy-950/90 p-4 backdrop-blur-md shadow-xl">
-      {/* Chat header */}
-      <div className="flex items-center justify-between border-b border-navy-750 pb-3 mb-3">
-        <h3 className="font-extrabold text-zinc-100 text-xs uppercase tracking-wider">
-          Live Match Chat
-        </h3>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-lime-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-lime-500 live-dot" />
-          Online
+    <section
+      aria-label="Live Match Chat"
+      data-sound="none"
+      className="chat-panel app-card relative flex h-[460px] w-full flex-col overflow-hidden"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 border-b border-navy-200/70 px-4 py-3 dark:border-navy-750">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-lime-500/15 text-lime-600 dark:text-lime-400">
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <h3 className="truncate text-xs font-extrabold uppercase tracking-wider text-navy-900 dark:text-zinc-100">
+            Live Match Chat
+          </h3>
+        </div>
+        <span
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-navy-200 bg-navy-50 px-2.5 py-1 text-[10px] font-bold dark:border-navy-750 dark:bg-navy-950 ${pill.text}`}
+          title={connection === 'device' ? 'Messages are saved in this browser and sync across your open tabs' : undefined}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />
+          {pill.label}
         </span>
       </div>
 
-      {/* Floating reaction badges */}
-      {reactionAnimations.length > 0 && (
-        <div className="pointer-events-none absolute right-4 bottom-24 z-20 flex flex-col gap-1.5">
-          {reactionAnimations.map((anim) => (
-            <span
-              key={anim.id}
-              className="animate-bounce rounded-full border border-lime-500/40 bg-navy-900/90 px-2 py-1 text-sm shadow-lg"
-            >
-              {anim.icon}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Messages list */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-        {messages.map((msg, idx) => (
-          <div
-            key={msg.id || idx}
-            className={`flex items-start gap-2.5 px-2.5 py-2 rounded-lg bg-navy-900/60 text-zinc-300 text-xs ${
-              idx === messages.length - 1 ? 'border border-lime-500/30' : 'border border-navy-800/60'
-            }`}
-          >
-            <img
-              src={msg.avatar || '/icon.svg'}
-              alt={msg.username || 'User'}
-              className="h-5 w-5 rounded-full object-cover shrink-0 bg-navy-950"
+      {/* Identity */}
+      <div className="flex items-center justify-between gap-2 px-4 pt-2 text-[11px]">
+        {editingName ? (
+          <form onSubmit={saveName} className="flex w-full items-center gap-1.5">
+            <label htmlFor={`chat-name-${id}`} className="sr-only">
+              Chat nickname
+            </label>
+            <input
+              id={`chat-name-${id}`}
+              autoFocus
+              value={nameDraft}
+              maxLength={MAX_NICKNAME_LENGTH}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="Your nickname"
+              className="min-w-0 flex-1 rounded-lg border border-navy-200 bg-white px-2 py-1 text-base text-navy-900 outline-none focus:border-lime-500 sm:text-xs dark:border-navy-750 dark:bg-navy-950 dark:text-zinc-100"
             />
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-lime-400 text-[11px]">{msg.username}</p>
-              <p className="mt-0.5 break-words text-zinc-200">{msg.message}</p>
-            </div>
-          </div>
-        ))}
-
-        {messages.length === 0 && (
-          <p className="text-zinc-500 text-xs py-8 text-center">
-            No messages yet. Be the first to chat!
-          </p>
+            <button type="submit" data-sound="none" className="tactile rounded-lg bg-lime-500 p-1.5 text-navy-950" aria-label="Save nickname">
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              data-sound="tap"
+              onClick={() => setEditingName(false)}
+              className="tactile rounded-lg border border-navy-200 p-1.5 text-navy-500 dark:border-navy-750 dark:text-zinc-400"
+              aria-label="Cancel"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            data-sound="tap"
+            onClick={startEditingName}
+            className="tactile inline-flex items-center gap-1.5 rounded-full px-1 py-0.5 font-semibold text-navy-500 hover:text-lime-700 dark:text-zinc-400 dark:hover:text-lime-400"
+          >
+            Chatting as <span className="font-extrabold text-navy-800 dark:text-zinc-200">{displayName || 'a new fan'}</span>
+            <Pencil className="h-3 w-3" aria-hidden="true" />
+          </button>
         )}
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-navy-750 pt-3 mt-3">
-        <form onSubmit={handleSend} className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            className="min-w-0 flex-1 rounded-lg bg-navy-900 border border-navy-750 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-lime-500/40"
-            disabled={!isConnected}
-            aria-label="Chat message"
-          />
-          <button
-            type="submit"
-            disabled={!isConnected || !input.trim()}
-            className="rounded-lg bg-lime-500 px-3 py-1.5 text-xs font-bold text-navy-950 hover:bg-lime-400 transition-colors disabled:opacity-50 cursor-pointer"
-            aria-label="Send message"
+      {/* Floating reactions */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 h-0" aria-hidden="true">
+        {bursts.map((burst) => (
+          <span
+            key={burst.id}
+            className="animate-float-up absolute bottom-0 text-2xl drop-shadow-lg"
+            style={{ left: `${burst.left}%` }}
+            onAnimationEnd={() => setBursts((current) => current.filter((b) => b.id !== burst.id))}
           >
-            Send
-          </button>
-        </form>
+            {burst.emoji}
+          </span>
+        ))}
       </div>
 
-      {/* Reaction bar below chat */}
-      <div className="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-navy-800/60">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">React</span>
-        <div className="flex gap-1.5">
+      {/* Messages */}
+      <div className="relative min-h-0 flex-1">
+        <ol
+          ref={listRef}
+          onScroll={handleScroll}
+          aria-live="polite"
+          aria-relevant="additions"
+          className="h-full space-y-2 overflow-y-auto overscroll-contain px-3 py-3"
+        >
+          {messages.map((message) => {
+            const mine = Boolean(displayName) && message.username === displayName;
+            return (
+              <li key={message.id} className={`animate-slide-up flex items-end gap-2 ${mine ? 'justify-end' : ''}`}>
+                {!mine && <Avatar name={message.username} />}
+                <div
+                  className={`max-w-[78%] rounded-2xl px-3 py-2 text-[13px] leading-snug shadow-sm ${
+                    mine
+                      ? 'rounded-br-md bg-lime-500 text-navy-950'
+                      : 'rounded-bl-md border border-navy-200/70 bg-navy-50 text-navy-900 dark:border-navy-750 dark:bg-navy-950/80 dark:text-zinc-100'
+                  } ${message._status === 'failed' ? 'opacity-70 ring-1 ring-red-500/60' : ''}`}
+                >
+                  {!mine && (
+                    <p className="mb-0.5 text-[11px] font-extrabold" style={{ color: `hsl(${hueFor(message.username)} 70% 55%)` }}>
+                      {message.username}
+                    </p>
+                  )}
+                  <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                  <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${mine ? 'text-navy-900/60' : 'text-navy-500 dark:text-zinc-500'}`}>
+                    {formatTime(message.created_at)}
+                    {mine && message._status === 'sending' && <Check className="h-3 w-3 opacity-60" aria-label="Sending" />}
+                    {mine && message._status === 'sent' && <CheckCheck className="h-3 w-3" aria-label="Delivered" />}
+                  </p>
+                  {message._status === 'failed' && (
+                    <button
+                      type="button"
+                      data-sound="tap"
+                      onClick={() => retry(message)}
+                      className="tactile mt-1 inline-flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-bold text-white"
+                    >
+                      <RotateCw className="h-3 w-3" aria-hidden="true" /> Not sent · Retry
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+
+          {messages.length === 0 && (
+            <li className="flex h-full flex-col items-center justify-center gap-2 py-8 text-center">
+              <span className="text-3xl" aria-hidden="true">
+                💬
+              </span>
+              <p className="text-xs font-semibold text-navy-500 dark:text-zinc-500">No messages yet. Be the first to chat!</p>
+            </li>
+          )}
+        </ol>
+
+        {unread > 0 && (
           <button
             type="button"
-            onClick={() => handleReaction('⚽')}
-            className={`px-2 py-1 rounded-md border border-transparent hover:bg-lime-500/20 transition-colors cursor-pointer ${
-              reactionAnimations.some((a) => a.id === 'ball') ? 'border-lime-500 bg-lime-500/10' : ''
-            }`}
-            title="Celebrate goal"
+            data-sound="tap"
+            onClick={jumpToLatest}
+            className="tactile animate-pop-in absolute bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-lime-500 px-3 py-1 text-[11px] font-extrabold text-navy-950 shadow-glow-lime"
           >
-            ⚽
+            <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+            {unread} new {unread === 1 ? 'message' : 'messages'}
           </button>
-          <button
-            type="button"
-            onClick={() => handleReaction('🔥')}
-            className={`px-2 py-1 rounded-md border border-transparent hover:bg-lime-500/20 transition-colors cursor-pointer ${
-              reactionAnimations.some((a) => a.id === 'fire') ? 'border-lime-500 bg-lime-500/10' : ''
-            }`}
-            title="Highlight moment"
-          >
-            🔥
-          </button>
-          <button
-            type="button"
-            onClick={() => handleReaction('🟥')}
-            className={`px-2 py-1 rounded-md border border-transparent hover:bg-lime-500/20 transition-colors cursor-pointer ${
-              reactionAnimations.some((a) => a.id === 'red') ? 'border-lime-500 bg-lime-500/10' : ''
-            }`}
-            title="Red card"
-          >
-            🟥
-          </button>
-          <button
-            type="button"
-            onClick={() => handleReaction('👏')}
-            className={`px-2 py-1 rounded-md border border-transparent hover:bg-lime-500/20 transition-colors cursor-pointer ${
-              reactionAnimations.some((a) => a.id === 'clap') ? 'border-lime-500 bg-lime-500/10' : ''
-            }`}
-            title="Great play"
-          >
-            👏
-          </button>
-        </div>
+        )}
       </div>
-    </div>
+
+      {/* Reactions */}
+      <div className="flex items-center gap-1.5 border-t border-navy-200/70 px-3 pt-2 dark:border-navy-750">
+        {REACTIONS.map((reaction) => (
+          <button
+            key={reaction.emoji}
+            type="button"
+            title={reaction.title}
+            aria-label={reaction.title}
+            onClick={() => react(reaction.emoji)}
+            className="tactile flex h-9 flex-1 cursor-pointer items-center justify-center rounded-xl border border-navy-200 bg-white text-base hover:border-lime-500/50 hover:bg-lime-500/10 dark:border-navy-750 dark:bg-navy-950/60"
+          >
+            {reaction.emoji}
+          </button>
+        ))}
+      </div>
+
+      {/* Composer */}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          send();
+        }}
+        className="flex items-center gap-2 p-3"
+      >
+        <label htmlFor={`chat-input-${id}`} className="sr-only">
+          Chat message
+        </label>
+        <div className="relative min-w-0 flex-1">
+          <input
+            ref={inputRef}
+            id={`chat-input-${id}`}
+            type="text"
+            value={input}
+            onChange={(event) => setInput(event.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+            placeholder="Type a message…"
+            maxLength={MAX_MESSAGE_LENGTH}
+            autoComplete="off"
+            enterKeyHint="send"
+            aria-label="Chat message"
+            className="w-full rounded-2xl border border-navy-200 bg-navy-50 py-2.5 pl-3.5 pr-12 text-base text-navy-900 placeholder-navy-400 outline-none transition-colors focus:border-lime-500 focus:bg-white focus:ring-2 focus:ring-lime-500/25 sm:text-sm dark:border-navy-750 dark:bg-navy-950 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:bg-navy-950"
+          />
+          {input.length > MAX_MESSAGE_LENGTH - 60 && (
+            <span
+              className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold tabular-nums ${
+                remaining <= 10 ? 'text-red-500' : 'text-navy-400 dark:text-zinc-500'
+              }`}
+            >
+              {remaining}
+            </span>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={!input.trim()}
+          aria-label="Send message"
+          // Keep the input focused on touch devices (no blur → keyboard stays up).
+          onPointerDown={(event) => event.preventDefault()}
+          className="tactile flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-lime-500 text-navy-950 shadow-glow-lime hover:bg-lime-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+        >
+          <SendHorizontal className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </form>
+    </section>
   );
 }

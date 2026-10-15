@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Play, Clock, ShieldAlert, Star, Flag, Timer } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { isTeamFavorited, toggleFavoriteTeam } from '@/lib/utils/favorites';
+import ClubLink from '@/components/clubs/ClubLink';
 
 function TeamBadge({ team, size = 'h-9 w-9' }) {
   const [imgError, setImgError] = useState(false);
@@ -117,15 +118,23 @@ export default function MatchCard({ match, tab }) {
   const isMatchFavorited = homeFav || awayFav;
   const showScores = status === 'live' || status === 'finished';
 
+  const watchHref = `/watch/${id}?tab=${tab || 'live'}`;
+
   return (
-    <Link
-      href={`/watch/${id}?tab=${tab || 'live'}`}
-      className={`group relative flex w-full min-w-0 flex-col rounded-xl glass-panel glass-panel-hover p-4 shadow-md overflow-hidden ${
+    <article
+      className={`group tactile-soft relative flex w-full min-w-0 flex-col rounded-3xl glass-panel glass-panel-hover p-4 overflow-hidden ${
         isMatchFavorited
           ? 'border-lime-300 bg-gradient-to-br from-lime-50/40 via-white/80 to-lime-50/20 ring-1 ring-lime-200/50 shadow-[0_10px_30px_rgba(198,255,0,0.1)] dark:border-lime-500/35 dark:bg-gradient-to-br dark:from-lime-950/25 dark:via-navy-850/65 dark:to-navy-950/85 dark:ring-1 dark:ring-lime-500/25 dark:shadow-[0_0_30px_rgba(198,255,0,0.2)]'
           : ''
       }`}
     >
+      {/* Whole-card link (stretched overlay). Club links and favourite buttons sit above it (z-20). */}
+      <Link
+        href={watchHref}
+        aria-label={`${homeTeam?.name || 'Home'} vs ${awayTeam?.name || 'Away'} — open match`}
+        className="absolute inset-0 z-10 rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-2"
+      />
+
       {/* Lime sheen sweep on hover */}
       <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(198,255,0,0.12),transparent_60%)]" />
 
@@ -169,8 +178,13 @@ export default function MatchCard({ match, tab }) {
         {/* Home Team */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <TeamBadge team={homeTeam} />
-            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{homeTeam?.name}</span>
+            <ClubLink
+              team={homeTeam}
+              className="relative z-20 flex min-w-0 items-center gap-2.5 rounded-xl pr-1 hover:[&>span]:text-lime-600 dark:hover:[&>span]:text-lime-400"
+            >
+              <TeamBadge team={homeTeam} />
+              <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{homeTeam?.name}</span>
+            </ClubLink>
             <CardChips cards={cards.home} />
             <button
               onClick={(e) => {
@@ -178,14 +192,15 @@ export default function MatchCard({ match, tab }) {
                 e.stopPropagation();
                 toggleFavoriteTeam(homeTeam?.name);
               }}
-              className="p-1 rounded-md hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+              data-sound="toggle"
+              className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
               title={homeFav ? "Unfavorite Team" : "Favorite Team"}
             >
               <Star className={`h-3.5 w-3.5 transition-all ${homeFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
             </button>
           </div>
           {showScores && displayHomeScore !== undefined && (
-            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-md border shadow-sm transition-colors ${
+            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-xl border shadow-sm transition-colors ${
               status === 'live'
                 ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
                 : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
@@ -196,8 +211,13 @@ export default function MatchCard({ match, tab }) {
         {/* Away Team */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <TeamBadge team={awayTeam} />
-            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{awayTeam?.name}</span>
+            <ClubLink
+              team={awayTeam}
+              className="relative z-20 flex min-w-0 items-center gap-2.5 rounded-xl pr-1 hover:[&>span]:text-lime-600 dark:hover:[&>span]:text-lime-400"
+            >
+              <TeamBadge team={awayTeam} />
+              <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{awayTeam?.name}</span>
+            </ClubLink>
             <CardChips cards={cards.away} />
             <button
               onClick={(e) => {
@@ -205,14 +225,15 @@ export default function MatchCard({ match, tab }) {
                 e.stopPropagation();
                 toggleFavoriteTeam(awayTeam?.name);
               }}
-              className="p-1 rounded-md hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+              data-sound="toggle"
+              className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
               title={awayFav ? "Unfavorite Team" : "Favorite Team"}
             >
               <Star className={`h-3.5 w-3.5 transition-all ${awayFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
             </button>
           </div>
           {showScores && displayAwayScore !== undefined && (
-            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-md border shadow-sm transition-colors ${
+            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-xl border shadow-sm transition-colors ${
               status === 'live'
                 ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
                 : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
@@ -276,7 +297,7 @@ export default function MatchCard({ match, tab }) {
       </div>
 
       {status === 'upcoming' && timeLeft && (
-        <div className="relative mt-3 rounded-lg bg-navy-100/80 border border-navy-200 dark:bg-navy-950/70 dark:border-navy-750 px-3 py-2 text-center text-xs font-bold text-navy-700 dark:text-zinc-300 shadow-inner">
+        <div className="relative mt-3 rounded-2xl bg-navy-100/80 border border-navy-200 dark:bg-navy-950/70 dark:border-navy-750 px-3 py-2 text-center text-xs font-bold text-navy-700 dark:text-zinc-300 shadow-inner">
           {timeLeft.toLowerCase().trim().includes('starting soon') ? (
             <span className="text-lime-600 dark:text-lime-400 font-black animate-pulse">Starting soon</span>
           ) : (
@@ -289,11 +310,11 @@ export default function MatchCard({ match, tab }) {
       )}
 
       {status === 'finished' && (
-        <div className="relative mt-3 rounded-lg bg-navy-100/70 border border-navy-200 dark:bg-navy-950/60 dark:border-navy-750 px-3 py-2 text-center text-[11px] font-bold text-navy-600 dark:text-zinc-400">
+        <div className="relative mt-3 rounded-2xl bg-navy-100/70 border border-navy-200 dark:bg-navy-950/60 dark:border-navy-750 px-3 py-2 text-center text-[11px] font-bold text-navy-600 dark:text-zinc-400">
           Full time · stats &amp; highlights available
         </div>
       )}
-    </Link>
+    </article>
   );
 }
 

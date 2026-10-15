@@ -196,7 +196,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
       <Trophy className="fixed right-6 top-32 h-20 w-20 opacity-40 rotate-45 hidden xl:block animate-pulse-slow" />
 
       {/* Dynamic event-driven hero banner */}
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-navy-750/80 shadow-md dark:shadow-xl transition-all duration-350" style={{ minHeight: 180 }}>
+      <div className="relative overflow-hidden rounded-3xl border border-zinc-200/80 dark:border-navy-750/80 shadow-app dark:shadow-app-dark transition-all duration-350" style={{ minHeight: 180 }}>
         <div
           className="absolute inset-0 bg-cover bg-center ken-burns"
           style={{ backgroundImage: `url(${banner?.backgroundImage || 'https://images.unsplash.com/photo-1459865264687-595d652de67e?auto=format&fit=crop&w=1920&q=80'})` }}
@@ -234,49 +234,61 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
       )}
 
       {/* Control panel & Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-5 rounded-xl shadow-md dark:shadow-lg border border-zinc-200/80 dark:border-navy-750/60">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-4 sm:p-5 rounded-3xl border border-zinc-200/80 dark:border-navy-750/60">
         
         {/* Sliding Tabs — scroll horizontally inside their own container on small screens */}
-        <div className="tabs-scroll flex w-full flex-nowrap rounded-lg bg-zinc-200/60 dark:bg-navy-950 p-1 border border-zinc-300/45 dark:border-navy-750/80 md:max-w-xs">
+        <div role="tablist" aria-label="Match status" className="tabs-scroll scrollbar-none flex w-full flex-nowrap gap-1 rounded-2xl bg-zinc-200/60 dark:bg-navy-950 p-1 border border-zinc-300/45 dark:border-navy-750/80 md:w-auto md:max-w-none">
           <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'live'}
             onClick={() => setTab('live')}
-            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`tactile flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider cursor-pointer ${
               tab === 'live'
-                ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
-                : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'bg-lime-500 text-navy-950 shadow-glow-lime'
+                : 'text-zinc-700 dark:text-zinc-400 hover:bg-white/60 dark:hover:bg-navy-900 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
             <span className={`inline-flex h-2 w-2 rounded-full bg-red-500 ${tab === 'live' ? 'live-dot' : ''}`} />
             Live Now ({live.length})
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'upcoming'}
             onClick={() => setTab('upcoming')}
-            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`tactile flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider cursor-pointer ${
               tab === 'upcoming'
-                ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
-                : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'bg-lime-500 text-navy-950 shadow-glow-lime'
+                : 'text-zinc-700 dark:text-zinc-400 hover:bg-white/60 dark:hover:bg-navy-900 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
             <Calendar className="h-3.5 w-3.5" />
             Upcoming ({upcoming.length})
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'finished'}
             onClick={() => setTab('finished')}
-            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`tactile flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider cursor-pointer ${
               tab === 'finished'
-                ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
-                : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'bg-lime-500 text-navy-950 shadow-glow-lime'
+                : 'text-zinc-700 dark:text-zinc-400 hover:bg-white/60 dark:hover:bg-navy-900 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
             <CheckCircle className="h-3.5 w-3.5" />
             Finished ({finished.length})
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'highlights'}
             onClick={() => setTab('highlights')}
-            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`tactile flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider cursor-pointer ${
               tab === 'highlights'
-                ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
-                : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'bg-lime-500 text-navy-950 shadow-glow-lime'
+                : 'text-zinc-700 dark:text-zinc-400 hover:bg-white/60 dark:hover:bg-navy-900 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
             <Video className="h-3.5 w-3.5" />
@@ -295,7 +307,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
               placeholder="Search teams or leagues..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full sm:w-56 rounded-lg border border-zinc-200 bg-white dark:border-navy-750 dark:bg-navy-950 py-2 pl-9 pr-4 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 outline-none focus:border-lime-500 focus:ring-1 focus:ring-lime-500/20 transition-all"
+              className="w-full sm:w-56 rounded-2xl border border-zinc-200 bg-white dark:border-navy-750 dark:bg-navy-950 py-2.5 pl-9 pr-4 text-sm sm:text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all"
             />
           </div>
 
@@ -356,7 +368,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
                 {/* "All Leagues" Pill */}
                 <button
                   onClick={() => setSelectedLeagues([])}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold tracking-wide transition-all cursor-pointer border shrink-0 ${
+                  className={`tactile flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide cursor-pointer border shrink-0 ${
                     isAllSelected
                       ? 'bg-lime-500 text-navy-950 border-lime-400 shadow-md shadow-lime-600/25 scale-[1.02]'
                       : 'bg-white dark:bg-navy-950 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-navy-750/80 hover:bg-zinc-100 dark:hover:bg-navy-900/60 hover:scale-[1.01]'
@@ -385,7 +397,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
                             : [...prev, l.name]
                         );
                       }}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold tracking-wide transition-all cursor-pointer border shrink-0 ${
+                      className={`tactile flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide cursor-pointer border shrink-0 ${
                         isActive
                           ? 'bg-lime-500 text-navy-950 border-lime-400 shadow-md shadow-lime-600/25 scale-[1.02]'
                           : 'bg-white dark:bg-navy-950 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-navy-750/80 hover:bg-zinc-100 dark:hover:bg-navy-900/60 hover:scale-[1.01]'
@@ -452,7 +464,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
           )}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 glass-panel rounded-xl shadow-md">
+        <div className="flex flex-col items-center justify-center py-20 glass-panel rounded-3xl">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 border border-zinc-200 dark:bg-navy-950 dark:border-navy-750 shadow-inner">
             <svg className="h-6 w-6 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <circle cx="12" cy="12" r="10" />

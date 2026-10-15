@@ -160,6 +160,52 @@ export default function ApiHubPage() {
 Cache-Control: public, max-age=86400, s-maxage=86400]`
     },
     {
+      id: 'standings',
+      name: 'League Standings & Leaders',
+      path: '/api/standings?league=eng.1',
+      method: 'GET',
+      description: 'Official league table (sorted by the published rank, with qualification/relegation zones) plus top scorers and top assists for one league: eng.1, esp.1, ita.1, ger.1, fra.1, uefa.champions, mar.1 (Botola Pro via TheSportsDB, top of table only), uefa.europa, ned.1, por.1, ksa.1, usa.1. Cached for 5 minutes.',
+      sampleResponse: `{
+  "league": { "slug": "eng.1", "name": "Premier League", "country": "England" },
+  "season": "2026-27",
+  "source": "espn",
+  "partial": false,
+  "groups": [{
+    "name": null,
+    "rows": [{
+      "position": 1,
+      "team": { "id": "382", "name": "Manchester City", "shortName": "Man City" },
+      "played": 6, "won": 6, "drawn": 0, "lost": 0,
+      "goalsFor": 16, "goalsAgainst": 5, "goalDifference": 11, "points": 18,
+      "zone": { "color": "#81D6AC", "label": "Champions League" }
+    }]
+  }],
+  "scorers": [{ "rank": 1, "player": { "name": "Erling Haaland" }, "team": { "id": "382", "name": "Manchester City" }, "value": 6, "appearances": 6 }],
+  "assists": [{ "rank": 1, "player": { "name": "Pascal Gross" }, "team": { "id": "331", "name": "Brighton & Hove Albion" }, "value": 4 }]
+}`
+    },
+    {
+      id: 'club',
+      name: 'Club Profile',
+      path: '/api/club/[id]',
+      method: 'GET',
+      description: 'Club profile for an ESPN team id ("359"), id + slug ("359-arsenal") or a name slug ("real-madrid", resolved via ESPN search): colours, league, standing, results across all competitions, upcoming fixtures, squad and form, plus Wikipedia bio and Wikidata facts (founded, stadium, current manager).',
+      sampleResponse: `{
+  "club": {
+    "espnId": "359", "name": "Arsenal", "nickname": "Gunners",
+    "color": "#e20520", "alternateColor": "#003399",
+    "league": { "slug": "eng.1", "name": "Premier League" },
+    "standingSummary": "2nd in English Premier League",
+    "record": { "played": 6, "wins": 5, "draws": 0, "losses": 1, "points": 15 }
+  },
+  "form": ["W", "W"],
+  "results": [{ "id": "401915417", "competition": "UEFA Champions League", "opponent": { "name": "Lille", "score": 0 }, "result": "W" }],
+  "fixtures": [{ "id": "401878769", "date": "2026-10-18T15:30Z", "isHome": false, "venue": "The City Ground", "opponent": { "name": "Nottingham Forest" } }],
+  "squad": [{ "id": "169532", "name": "Kepa Arrizabalaga", "jersey": "13", "group": "Goalkeepers", "nationality": "Spain" }],
+  "facts": { "founded": 1886, "stadium": "Emirates Stadium", "summary": { "title": "Arsenal F.C.", "url": "https://en.wikipedia.org/wiki/Arsenal_F.C." } }
+}`
+    },
+    {
       id: 'live-channels',
       name: 'Live Channels + Status',
       path: '/api/live-channels',

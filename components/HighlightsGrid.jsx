@@ -9,7 +9,7 @@ import HighlightPlayerModal from '@/components/HighlightPlayerModal';
 
 function SkeletonCard() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-navy-750 bg-navy-900/60">
+    <div className="overflow-hidden rounded-3xl border border-navy-750 bg-navy-900/60">
       <div className="aspect-video w-full animate-pulse bg-navy-850" />
       <div className="space-y-2.5 p-4">
         <div className="h-3.5 w-4/5 animate-pulse rounded bg-navy-850" />
@@ -53,7 +53,7 @@ export default function HighlightsGrid({ highlights = [], loading = false }) {
         </div>
       ) : list.length === 0 ? (
         <div className="w-full" data-highlights-grid="empty">
-          <div className="rounded-2xl border border-navy-750 bg-navy-900/60 p-10 text-center">
+          <div className="rounded-3xl border border-navy-750 bg-navy-900/60 p-10 text-center">
             <Clapperboard className="mx-auto h-8 w-8 text-lime-500/70" aria-hidden="true" />
             <p className="mt-3 text-sm font-bold text-zinc-200">No recent highlights</p>
             <p className="mt-1 text-xs text-zinc-500">

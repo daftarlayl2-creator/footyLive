@@ -20,6 +20,11 @@
 * 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback, alongside iframe embeds with togglable sandbox shields.
 * 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls, plus a **Retry all** that re-signs fresh links.
 * 🖥️ **Multistream Arena**: up to four matches side by side in a drag-to-resize grid with per-tile volume.
+* 🏆 **Standings, Top Scorers & Top Assists**: `/standings` has a scrollable league pill selector (Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Botola Pro, Europa League, Eredivisie, Primeira Liga, Saudi Pro League, MLS) and Table / Top Scorers / Top Assists tabs. Tables show Pos, Team, P, W, D, L, GF, GA, GD, Pts with qualification/relegation zones; phones get a combined `GF:GA` column so points never scroll off-screen. The league and tab live in the URL (`?league=esp.1&view=scorers`), so views can be shared.
+* 🛡️ **Club Pages (`/club/[id]`)**: every crest and club name (match cards, scoreboard, standings, leaderboards, fixtures) links to a club page. It has a hero in the official club colours with a high-res crest, plus founding year, stadium and current manager. Below that come the Wikipedia history/bio and tabs for **Form & Results**, **Fixtures** and **Squad**. ESPN data renders first; the Wikidata facts and bio stream in afterwards.
+* 💬 **Live Chat & One-Tap Predictions**: the chat input is never disabled. Messages appear instantly with delivery ticks and a one-tap retry, Enter sends, and focus stays in the field. Votes register on tap with a check-mark pop, ring pulse and chime; the tally updates immediately and a vote can be changed. Both sync through Supabase when it is configured. Without it they still work, stored in the browser and live-synced across tabs.
+* 🔊 **Tactile Feedback**: tiny Web Audio sounds are synthesised in real time (no audio files): taps, tab switches, votes, sends and reactions. Phones also get matching haptic ticks. One switch in the header controls both, and the setting is saved.
+* 📱 **Native-App Feel**: a mobile bottom tab bar (Matches · Live Channels · Standings · Multi-View) in Flutter/Material-3 style, safe-area aware, with the ad banner docked above it. Cards use `rounded-3xl` with layered depth, glass chrome and springy `active:scale` presses, and sticky in-page toolbars.
 * 🌓 **Dark mode by default** (light mode remains optional), slow-network resilience (SWR caching, retry/recovery, skeletons) and an installable PWA with a branded offline fallback.
 
 ---
@@ -36,7 +41,8 @@
 | **Lucide React** | 1.16.0 | Icon library |
 | **Upstash Redis** | 1.38.0 | Optional distributed caching |
 | **Vitest** | 5.0.4 | Unit + server-render component tests |
-| **SWR** | 2.5.1 | Client-side data fetching on `/standings` |
+| **SWR** | 2.5.1 | Client-side standings fetching, league prefetch on hover |
+| **Web Audio API** | — | Synthesised UI sounds (no audio assets) |
 
 ---
 
@@ -64,6 +70,24 @@ ESPN scoreboard (all/scoreboard?dates=YYYYMMDD)        ← fixtures, scores, min
 
 **Caching:** scoreboards 15 s upstream / 20 s in-app, summaries 45 s, feeds 5 min, probe results 90 s (in-memory SWR, or Upstash Redis when configured). The home page and `/api/matches` render dynamically so a visitor never sees a stale static snapshot.
 
+### Standings & club data
+
+```
+/standings (?league=eng.1&view=table|scorers|assists)
+   ├── ESPN  apis/v2/sports/soccer/{league}/standings        ← table, rank, zones (sorted by published rank)
+   ├── ESPN  apis/site/v2/sports/soccer/{league}/statistics  ← goalsLeaders / assistsLeaders
+   └── TheSportsDB lookuptable.php?l=4520                     ← Botola Pro (free tier: top of table only, flagged)
+
+/club/{espnId}-{slug}   (or /club/{slug} → ESPN search resolves the id)
+   ├── ESPN  all/teams/{id}                      ← name, colours, crest, league, standing, record
+   ├── ESPN  all/teams/{id}/schedule[?fixture=true] ← results + fixtures across every competition
+   ├── ESPN  {league}/teams/{id}/roster          ← squad (ESPN's stale `coach` field is ignored)
+   ├── Wikipedia search + REST summary           ← history / bio (CC BY-SA attribution shown)
+   └── Wikidata P571 / P115 / P286               ← founded, home venue, current head coach (no end date)
+```
+
+Standings are cached for 5 minutes, club core data for 10 minutes and Wikipedia/Wikidata facts for 24 hours. If a source is down, the page shows a retryable "temporarily unavailable" screen (HTTP 503 from the API), not a misleading 404.
+
 ---
 
 ## 🏗️ Architecture & Directory Structure
@@ -78,12 +102,16 @@ footylive/
 │   │   ├── stream-redirect    # HMAC-validated redirect for iframe embeds
 │   │   ├── proxy              # Signed HLS relay (playlist rewriting, Range/206, CORS)
 │   │   ├── live-channels      # Feed channels + best-effort status (never hides a channel)
+│   │   ├── standings          # League table + top scorers + top assists (?league=slug)
+│   │   ├── club/[id]          # Club profile: ESPN core + Wikipedia/Wikidata facts
 │   │   └── v1/                # 24h image proxies: league-logo, team-logo, poster
 │   ├── api-hub/               # Developer docs: endpoints, real-data pipeline, upstream APIs
 │   ├── channels/              # Server-rendered channel grid (all statuses shown)
 │   ├── channel/[id]/          # Proxied playback for one channel + bounded status check
 │   ├── watch/[matchId]/       # Live scoreboard, real stats, play-by-play, player + failover
 │   ├── multistream/           # Up to 4 simultaneous players
+│   ├── standings/             # League pills + Table / Top Scorers / Top Assists tabs
+│   ├── club/[id]/             # Club hero, streamed facts + bio, Results / Fixtures / Squad tabs
 │   ├── layout.js              # Responsive SVG lockup in the header/footer, dark mode default
 │   ├── globals.css            # Tailwind v4 @theme: burgundy & lime palettes, glass, animations
 │   └── page.js                # Home dashboard (dynamic, live data)
@@ -95,7 +123,14 @@ footylive/
 │   ├── LiveScoreboard.jsx     # Burgundy/lime scoreboard, cards and scorers
 │   ├── LiveChannelsGrid.jsx   # Channels with Live / Standby / Unreachable statuses
 │   ├── StreamPlayer.jsx       # hls.js/native playback, failover, sandbox toggle
-│   └── ServerSelector.jsx     # Server 1 … Backup selector + in-player menu
+│   ├── ServerSelector.jsx     # Server 1 … Backup selector + in-player menu
+│   ├── chat/MatchChatPanel.jsx      # Optimistic live chat (never-disabled input, retry, auto-scroll)
+│   ├── predictions/VotingBar.jsx    # One-tap votes, instant tallies, confirmation animation
+│   ├── standings/StandingsView.jsx  # Standings UI (sticky pills + segmented tabs)
+│   ├── club/                  # ClubHero, ClubFacts (streamed), ClubTabs, FormStrip
+│   ├── clubs/                 # ClubLink (→ /club/[id]) and resilient TeamLogo
+│   ├── nav/                   # MobileBottomNav (phones) + HeaderNav (active states)
+│   └── ui/                    # SoundEffects (delegated tap sounds), SoundToggle, LocalDateTime
 ├── lib/
 │   ├── providers/espn.ts      # ★ Real ESPN fixture/statistics provider (pure normalisers)
 │   ├── providers/             # WatchFooty, CDNLive, StreamedPk, LiveFeed (stream sources)
@@ -103,6 +138,11 @@ footylive/
 │   ├── cache/                 # In-memory SWR + optional Upstash Redis
 │   ├── player/                # Server labels, stream-kind detection, failover machine
 │   ├── utils/matching.ts      # Fuzzy team and league matching
+│   ├── standings.ts           # League catalogue + ESPN / TheSportsDB table & leader normalisers
+│   ├── providers/standingsProvider.ts # Cached standings bundles
+│   ├── clubs/                 # Club links, ESPN team/schedule/roster normalisers, Wikipedia/Wikidata, colours
+│   ├── supabase/client.ts     # Supabase-compatible client: PostgREST (remote) or localStorage + BroadcastChannel (local)
+│   ├── sound/uiSound.ts       # Web Audio synth + haptics with a persisted mute switch
 │   └── streamEngine.ts        # Merges real fixtures with stream sources; HMAC URL signing
 └── public/                    # manifest.json, icon.svg (eagle), offline.html, sw.js
 ```
@@ -142,7 +182,47 @@ STREAM_SECRET="default_stream_hmac_secret_key_123_abc"
 # Optional: Redis caching (Upstash) — falls back to in-memory caching when omitted
 # UPSTASH_REDIS_REST_URL=""
 # UPSTASH_REDIS_REST_TOKEN=""
+
+# Optional: shared live chat + predictions (Supabase). Without these, chat and votes still
+# work but are stored in each visitor's browser (synced live across that browser's tabs).
+# NEXT_PUBLIC_SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=""
 ```
+
+<details>
+<summary>Supabase tables for chat & predictions</summary>
+
+```sql
+create table match_messages (
+  id uuid primary key,
+  match_id text not null,
+  username text not null,
+  avatar text,
+  message text not null check (char_length(message) <= 280),
+  created_at timestamptz not null default now()
+);
+create index on match_messages (match_id, created_at);
+
+create table match_predictions (
+  id uuid primary key,              -- one row per device/vote; updated when the vote changes
+  match_id text not null,
+  username text,
+  prediction text not null check (prediction in ('home', 'draw', 'away')),
+  created_at timestamptz not null default now()
+);
+create index on match_predictions (match_id);
+
+alter table match_messages enable row level security;
+alter table match_predictions enable row level security;
+create policy "read chat" on match_messages for select using (true);
+create policy "post chat" on match_messages for insert with check (true);
+create policy "read votes" on match_predictions for select using (true);
+create policy "cast votes" on match_predictions for insert with check (true);
+create policy "change votes" on match_predictions for update using (true);
+```
+
+The client talks to PostgREST directly (no SDK in the bundle). New chat messages arrive by polling for new rows every 4 s while the tab is visible, and vote tallies refresh every 20 s. If the shared backend is unreachable, both widgets fall back to the browser store instead of failing.
+</details>
 
 > The default feed is `playlist.m3u`; `live.m3u8` currently returns 404 in that repository.
 > When a GitHub raw fetch fails or returns HTML, the matching Contents API file is base64-decoded.
@@ -176,7 +256,12 @@ The suite runs on Vitest 5 (Vitest 4.1 crashes npm's dependency resolver — see
 It covers the ESPN normalisers (live/upcoming/finished, minutes, cards, scorers, stats),
 GitHub raw-to-Contents fallback, the signed and transparently labelled live-channel backups,
 the channel probe policy (blocked → Standby, 404 → offline, HEAD-blocked → GET retry), the proxy
-signing, the failover machine and server-rendered brand/live UI assertions.
+signing, the failover machine and server-rendered brand/live UI assertions. It also covers the
+standings/leaders normalisers and the club normalisers (team, schedule, roster, search,
+Wikipedia/Wikidata), all against fixtures captured from the live APIs in `lib/providers/__fixtures__/`.
+Further suites cover the Supabase-compatible client (chained queries, local realtime, cross-tab
+BroadcastChannel delivery, PostgREST URLs and polling), the Web Audio sound engine, vote and chat
+helpers, and the server-rendered overhaul UI (club links, tab bar, chat, voting, standings, club page).
 
 ---
 
@@ -192,6 +277,8 @@ Interactive documentation lives at [`/api-hub`](https://eviv.si/api-hub).
 | `/api/stream-redirect` | GET | HMAC-validated redirect to upstream embed URLs |
 | `/api/proxy` | GET | Signed HLS relay: playlists rewritten server-side, segments streamed, `Range`/`206`/CORS preserved |
 | `/api/live-channels` | GET | Feed channels + best-effort status (`live`, `unknown` → “Standby”, `offline`); never hides channels |
+| `/api/standings?league={slug}` | GET | League table (zones, ranks), top scorers and top assists; `mar.1` (Botola Pro) via TheSportsDB |
+| `/api/club/[id]` | GET | Club profile (`359`, `359-arsenal` or `real-madrid`): colours, standing, results, fixtures, squad, form + Wikipedia/Wikidata facts |
 | `/api/v1/league-logo/[id]` | GET | Cached league logo proxy (24h) |
 | `/api/v1/team-logo/[id]` | GET | Cached team badge proxy (24h) |
 | `/api/v1/poster/[id]` | GET | Cached match poster proxy (24h) |
@@ -222,6 +309,8 @@ Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL re
 * **Responsive Design**: every component must work on mobile, tablet and ultrawide screens.
 * **Sandbox Integrity**: keep third-party ads and redirects isolated inside the player sandbox.
 * **Tests**: normalisers and probe policy changes come with `vitest` cases (`npm run test`).
+* **Tactile UI**: use `tactile` / `tactile-soft` for pressable surfaces, `app-card` for elevated cards, and `role="tab"` for tab controls (they get the tab sound automatically). Use `data-sound="none"` to silence a region, or `data-sound="vote"` (etc.) to pick a specific sound.
+* **Club links**: render team names and crests through `components/clubs/ClubLink.jsx` so they always point to `/club/[id]`.
 
 ---
 

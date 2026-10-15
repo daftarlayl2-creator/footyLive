@@ -88,7 +88,7 @@ export default async function WatchPage({ params, searchParams }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href={`/?tab=${backTab}`}
-          className="inline-flex items-center gap-2 rounded-lg bg-navy-950/70 border border-navy-750 px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 hover:shadow-md transition-all group"
+          className="tactile inline-flex items-center gap-2 rounded-2xl bg-navy-950/70 border border-navy-750 px-3.5 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 hover:shadow-md transition-all group"
         >
           <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
           Back to Fixtures
@@ -113,6 +113,8 @@ export default async function WatchPage({ params, searchParams }) {
           currentMinuteNumber: match.currentMinuteNumber,
           homeName: match.homeTeam?.name,
           awayName: match.awayTeam?.name,
+          homeId: match.homeTeam?.id,
+          awayId: match.awayTeam?.id,
           homeBadge: match.homeTeam?.badge,
           awayBadge: match.awayTeam?.badge,
           tournament: match.tournament,
@@ -127,27 +129,27 @@ export default async function WatchPage({ params, searchParams }) {
 
       {/* Special notifications banners — driven by the real upstream state */}
       {match.status === 'finished' && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-center shadow-md">
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-center shadow-md">
           <p className="text-xs font-bold text-amber-400 uppercase tracking-widest">⚠️ Full Time</p>
           <p className="mt-0.5 text-xs text-zinc-500">The fixture has ended. Statistics and the play-by-play log below stay available.</p>
         </div>
       )}
 
       {match.status === 'live' && (match.currentMinute === 'HT' || match.currentMinuteNumber === 45) && (
-        <div className="rounded-xl border border-lime-500/20 bg-lime-500/5 px-4 py-3 text-center shadow-md">
+        <div className="rounded-2xl border border-lime-500/20 bg-lime-500/5 px-4 py-3 text-center shadow-md">
           <p className="text-xs font-bold text-lime-400 uppercase tracking-widest">⚽ Halftime Interval</p>
           <p className="mt-0.5 text-xs text-zinc-500">Teams are in the locker room. The live stream will return shortly.</p>
         </div>
       )}
 
       {match.note && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-center shadow-md">
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-center shadow-md">
           <p className="text-xs font-bold text-amber-400 uppercase tracking-widest">{match.note}</p>
         </div>
       )}
 
       {channels.some((ch) => ch.provider === 'livefeed-fallback') && (
-        <p role="status" className="rounded-xl border border-lime-500/30 bg-navy-900 px-4 py-3 text-xs text-zinc-300">
+        <p role="status" className="rounded-2xl border border-lime-500/30 bg-navy-900 px-4 py-3 text-xs text-zinc-300">
           No match-specific M3U channel was found. The extra live channels below are best-effort backups and may show a different fixture.
         </p>
       )}
@@ -162,7 +164,7 @@ export default async function WatchPage({ params, searchParams }) {
           {channels.length > 0 || (streamUrl && !errorMsg) ? (
             <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-2xl border border-navy-750 bg-navy-950 p-6 shadow-2xl">
+            <div className="flex aspect-video items-center justify-center rounded-3xl border border-navy-750 bg-navy-950 p-6 shadow-2xl">
               <div className="text-center space-y-3 max-w-xs">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-900 border border-navy-750">
                   <RefreshCw className="h-5 w-5 text-zinc-500 animate-spin" />
@@ -178,13 +180,13 @@ export default async function WatchPage({ params, searchParams }) {
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
                   <a
                     href="/channels"
-                    className="inline-flex items-center gap-1.5 rounded-lg lime-cta px-3 py-1.5 text-[11px] font-bold"
+                    className="tactile inline-flex items-center gap-1.5 rounded-xl lime-cta px-3 py-1.5 text-[11px] font-bold"
                   >
                     Browse live channels
                   </a>
                   <a
                     href={`/watch/${matchId}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-navy-750 px-3 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white hover:border-lime-500/40 transition-all"
+                    className="tactile inline-flex items-center gap-1.5 rounded-xl border border-navy-750 px-3 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white hover:border-lime-500/40 transition-all"
                   >
                     <RefreshCw className="h-3 w-3" />
                     Retry servers
@@ -203,7 +205,7 @@ export default async function WatchPage({ params, searchParams }) {
 
         {/* Sidebar: match info panel + live chat + 300x250 banner */}
         <aside className="flex w-full flex-col gap-6">
-          <div className="glass-panel rounded-xl p-4 shadow-md">
+          <div className="glass-panel rounded-3xl p-4 sm:p-5">
             <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
               <Trophy className="h-3.5 w-3.5 text-lime-500" aria-hidden="true" />
               Match Info

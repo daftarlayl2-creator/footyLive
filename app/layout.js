@@ -2,9 +2,12 @@ import './globals.css';
 import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import AdSlot from '@/components/ads/AdSlot';
+import HeaderNav from '@/components/nav/HeaderNav';
+import MobileBottomNav from '@/components/nav/MobileBottomNav';
+import SoundEffects from '@/components/ui/SoundEffects';
+import SoundToggle from '@/components/ui/SoundToggle';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import Link from 'next/link';
-import { Layers, Play, Radio, Star } from 'lucide-react';
 
 export const metadata = {
   title: 'EVIV Live — Real-Time Football Scores & Live Streams',
@@ -18,6 +21,8 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  // Draw edge-to-edge; the header and bottom tab bar pad themselves with the safe-area insets.
+  viewportFit: 'cover',
   themeColor: '#18030A',
 };
 
@@ -69,45 +74,15 @@ export default function RootLayout({ children }) {
         <div className="glow-orb glow-orb-lime w-[600px] h-[600px] -bottom-[220px] left-[10%] opacity-[0.05] dark:opacity-[0.14] transition-opacity duration-300" />
 
         {/* The complete SVG lockup stays legible at mobile and desktop sizes. */}
-        <header className="sticky top-0 z-50 flex w-full justify-center border-b border-navy-750 bg-navy-950/90 backdrop-blur-md">
+        <header className="sticky top-0 z-50 flex w-full justify-center border-b border-navy-750 bg-navy-950/85 pt-[env(safe-area-inset-top)] text-zinc-100 backdrop-blur-xl backdrop-saturate-150">
           <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-2 px-3 py-1 sm:px-6 lg:px-8">
-            <Link href="/" aria-label="EVIV Live — home" className="group shrink-0">
+            <Link href="/" aria-label="EVIV Live — home" className="tactile group shrink-0">
               <BrandLogo className="block h-auto w-[106px] transition-transform duration-300 group-hover:scale-105 sm:w-36" />
             </Link>
 
-            <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-              <Link
-                href="/channels"
-                aria-label="Live Channels"
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
-              >
-                <Radio className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Live Channels</span>
-              </Link>
-              <Link
-                href="/highlights"
-                aria-label="Highlights"
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
-              >
-                <Play className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Highlights</span>
-              </Link>
-              <Link
-                href="/multistream"
-                aria-label="Multi-View"
-                className="lime-cta inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold sm:px-3.5"
-              >
-                <Layers className="h-4 w-4 sm:hidden" aria-hidden="true" />
-                <span className="hidden sm:inline">Multi-View</span>
-              </Link>
-              <Link
-                href="/standings"
-                aria-label="League Standings"
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
-              >
-                <Star className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Standings</span>
-              </Link>
+            <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <HeaderNav />
+              <SoundToggle />
               <ThemeToggle />
             </nav>
           </div>
@@ -133,13 +108,20 @@ export default function RootLayout({ children }) {
           </div>
         </footer>
 
-        {/* Mobile sticky footer banner (320x50) — the fixed bar reserves its space via body padding */}
+        {/* Mobile sticky footer banner (320x50), docked just above the bottom tab bar.
+            Body padding (globals.css) reserves room for both so neither covers content. */}
         <div
-          className="fixed inset-x-0 bottom-0 z-[60] flex w-full justify-center overflow-hidden border-t border-navy-750 bg-navy-950/95 py-1 backdrop-blur-md md:hidden"
+          className="mobile-ad-dock fixed inset-x-0 z-[60] flex w-full justify-center overflow-hidden border-t border-navy-750 bg-navy-950/95 py-1 backdrop-blur-md md:hidden"
           data-ad-slot-wrapper="mobile-sticky-footer"
         >
           <AdSlot variant="banner" banner={AD_PLACEMENTS.mobileStickyFooter} label="Advertisement" />
         </div>
+
+        {/* Native-style bottom tab bar (phones only) */}
+        <MobileBottomNav />
+
+        {/* App-wide tap / tab sounds + haptics */}
+        <SoundEffects />
 
         {/* Adsterra Social Bar — page-level overlay, injected once after hydration */}
         <AdSlot variant="social" />
