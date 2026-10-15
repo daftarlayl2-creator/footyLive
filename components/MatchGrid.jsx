@@ -10,6 +10,8 @@ import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import { fetchHighlightsSafely } from '@/lib/utils/highlightsClient';
 import { useRouter } from 'next/navigation';
 import { getFavoriteTeams } from '@/lib/utils/favorites';
+import FavoritesHub from '@/components/favorites/FavoritesHub';
+import useGoalAudio from '@/lib/hooks/useGoalAudio';
 
 function Ball({ className }) {
   return (
@@ -121,10 +123,16 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
     };
     updateFavs();
     window.addEventListener('favorites-updated', updateFavs);
+    window.addEventListener('storage', updateFavs);
     return () => {
       window.removeEventListener('favorites-updated', updateFavs);
+      window.removeEventListener('storage', updateFavs);
     };
   }, []);
+
+  useGoalAudio(matches, (match) => favorites.some((name) =>
+    name.toLowerCase() === match.homeTeam?.name?.toLowerCase() || name.toLowerCase() === match.awayTeam?.name?.toLowerCase()
+  ));
 
   const enrichedMatches = useMemo(() => promoteCatalogueMatches(matches), [matches]);
 
@@ -190,7 +198,8 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
   }, [filtered, favorites]);
 
   return (
-    <div className="space-y-8 relative w-full max-w-full overflow-x-hidden">
+    <div className="space-y-8 relative w-full max-w-full overflow-x-clip">
+      <FavoritesHub favorites={favorites} matches={matches} />
       {/* Decorative desktop illustrations */}
       <Ball className="fixed left-6 top-28 h-20 w-20 opacity-40 rotate-12 hidden xl:block animate-pulse-slow" />
       <Trophy className="fixed right-6 top-32 h-20 w-20 opacity-40 rotate-45 hidden xl:block animate-pulse-slow" />

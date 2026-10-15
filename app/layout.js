@@ -89,7 +89,7 @@ export default function RootLayout({ children }) {
         </header>
 
         {/* Content wrapper */}
-        <main className="relative z-10 w-full max-w-full flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8 flex-1 overflow-x-hidden">
+        <main className="relative z-10 w-full max-w-full flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8 flex-1 overflow-x-clip">
           <div className="w-full max-w-6xl mx-auto flex flex-col items-stretch">
             {children}
           </div>

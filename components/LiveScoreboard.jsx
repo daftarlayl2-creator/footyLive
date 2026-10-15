@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import useLiveMatch from '@/lib/hooks/useLiveMatch';
 import { RefreshCw } from 'lucide-react';
 import LiveMinute from './LiveMinute';
 import ClubLink from '@/components/clubs/ClubLink';
@@ -35,29 +35,9 @@ function CardChips({ cards }) {
 }
 
 export default function LiveScoreboard({ matchId, initial }) {
-  const [data, setData] = useState(initial);
-  const [loading, setLoading] = useState(false);
+  const { data, refresh, loading } = useLiveMatch(matchId, initial);
   const t = THEME;
   const isFinished = data.status === 'finished';
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/match/${matchId}`, { cache: 'no-store' });
-      const json = await res.json();
-      if (json.match) setData((prev) => ({ ...prev, ...json.match }));
-    } catch (e) {
-      // Silent catch — the next poll retries.
-    } finally {
-      setLoading(false);
-    }
-  }, [matchId]);
-
-  useEffect(() => {
-    if (data.status !== 'live') return;
-    const interval = setInterval(refresh, 30000);
-    return () => clearInterval(interval);
-  }, [data.status, refresh]);
 
   const homeScorers = data.scorers?.home || [];
   const awayScorers = data.scorers?.away || [];
@@ -190,7 +170,7 @@ export default function LiveScoreboard({ matchId, initial }) {
         {data.status === 'live' && (
           <span className="inline-flex items-center gap-1.5 bg-lime-500/10 border border-lime-500/25 px-3 py-1 rounded-full text-lime-400 font-bold">
             <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
-            Live data · refreshed every 30s
+            Live data · refreshed every 20s
           </span>
         )}
         {data.note && (

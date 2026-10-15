@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { playSound, warmUpSound } from '@/lib/sound/uiSound';
+import { warmUpGoalAudio } from '@/lib/sound/goalAlert';
 
 /**
  * App-wide tactile audio. One delegated listener gives every button, link and
@@ -42,11 +43,9 @@ export function soundForElement(element) {
 
 export default function SoundEffects() {
   useEffect(() => {
-    let warmed = false;
     const warm = () => {
-      if (warmed) return;
-      warmed = true;
       warmUpSound();
+      warmUpGoalAudio();
     };
 
     const onClick = (event) => {

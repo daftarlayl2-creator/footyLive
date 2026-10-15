@@ -319,3 +319,40 @@ Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL re
 EVIV Live is an open-source aggregator. It reads public sports data and public third-party link networks
 for research and educational purposes. EVIV Live does not host, upload or own any media streams, video
 channels or sports network content.
+
+## Match-day feature expansion
+
+- **Retro goal audio:** Open the speaker icon in the header for Sound settings.
+  Interface sounds/haptics and retro goal alerts have independent switches;
+  **Test goal sound** previews the latter. The effect is an original Web Audio
+  formant/vowel synthesis with a crowd swell and a broadcast-style stinger, not
+  a licensed commentator recording. Alerts follow positive live score changes
+  for starred teams on the fixtures page and for the actively viewed match.
+  Initial scores, unchanged polls, missing scores and downward VAR corrections
+  do not trigger a sound. Dashboard/card observers deduplicate the same goal.
+  Browsers require a user gesture before audio can play; blocked goals are not
+  queued to play later. Monitoring runs while the page is open, not as a
+  background push service. Desktop notifications remain separately opt-in.
+- **H2H & AI Win Probability:** Available on `/watch/[matchId]` and the new
+  `/match/[id]` alias. A separate, non-blocking insights request combines the
+  last five results (55%), current official league points (30%, normalised per
+  game when possible) and up to ten available prior meetings (15%), with a
+  modest home advantage and a draw baseline. Missing factors are omitted and
+  weights rebalanced. This is a transparent lightweight statistical heuristic,
+  **not a trained AI, calibrated betting odds or live-score odds**. Coverage
+  chips, factual quick insights, loading/retry and insufficient-data states
+  keep missing upstream data explicit. Both schedules exclude the current
+  fixture and later results; league points reflect the current table.
+- **Favorites hub:** A sticky, horizontally scrollable shelf above the matches
+  content shows starred club crests. Tap a crest to open its club profile,
+  results and fixtures; tap **Add Favorite Teams** to choose from the day's
+  clubs. Team stars on match cards also update the hub. Legacy `fav_teams`
+  name lists remain supported; new favorites store crest/id metadata beside
+  that list in `fav_team_details`, so the hub survives days without fixtures.
+  Changes sync within the page and across browser tabs. Crests request retina
+  resolution where supported and fall back to club initials.
+
+Validation: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
+The feature tests cover real mounted score polling, notification-independent
+sound, duplicate suppression, preference persistence, favorites interactions,
+H2H orientation/de-duplication, probability totals and provider outages.
