@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { 
   Database, 
   Terminal, 
@@ -216,14 +217,14 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
         {/* Navigation & Header */}
         <div className="flex flex-col gap-4">
           <div>
-            <a 
+            <Link 
               href="/" 
               id="back-home-btn"
               className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-navy-750 bg-white/50 dark:bg-navy-900/30 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 active:scale-95 transition-all"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Back to Fixtures</span>
-            </a>
+            </Link>
           </div>
           
           <div className="space-y-2">
@@ -255,7 +256,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                   To protect streaming servers from third-party hotlinking and scrape abuses, all resolved stream URLs are passed through a local proxy resolver: <code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-navy-900 font-mono text-[10px] text-lime-600 dark:text-lime-400">/api/stream-redirect</code>.
                 </p>
                 <p>
-                  This router enforces a cryptographic signature signature verification protocol. The stream URL is base64url encoded, appended with an expiration timestamp, and signed using an HMAC-SHA256 signature generated with the server's secret key (<code className="font-mono">STREAM_SECRET</code>). Requests with expired timestamps or incorrect signatures are instantly blocked (returns 403 Forbidden).
+                  This router enforces a cryptographic signature signature verification protocol. The stream URL is base64url encoded, appended with an expiration timestamp, and signed using an HMAC-SHA256 signature generated with the server&apos;s secret key (<code className="font-mono">STREAM_SECRET</code>). Requests with expired timestamps or incorrect signatures are instantly blocked (returns 403 Forbidden).
                 </p>
                 <p>
                   Direct HLS sources (<code className="font-mono">.m3u8</code>) instead use the streaming proxy <code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-navy-900 font-mono text-[10px] text-lime-600 dark:text-lime-400">/api/proxy?url=&amp;exp=&amp;sig=</code>. Playlists are fetched server-side and every segment, variant, <code className="font-mono">#EXT-X-KEY</code> and <code className="font-mono">#EXT-X-MAP</code> URI is rewritten to a freshly signed relative proxy link, so the browser never performs a cross-origin request. Media segments are relayed chunk-by-chunk as they arrive (no buffering), with the upstream <code className="font-mono">Content-Type</code>, <code className="font-mono">Range</code>/<code className="font-mono">206</code> responses and CORS headers preserved.
@@ -285,7 +286,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                   3. Team Matching & Fuzzy Alignment
                 </h3>
                 <p>
-                  Matches are aggregated from multiple scraping channels (WatchFooty, CDNLive, etc.) in real-time. Since names differ across networks (e.g., "Manchester United" vs "Man Utd"), the backend leverages a strategy pattern orchestrator:
+                  Matches are aggregated from multiple scraping channels (WatchFooty, CDNLive, etc.) in real-time. Since names differ across networks (e.g., &quot;Manchester United&quot; vs &quot;Man Utd&quot;), the backend leverages a strategy pattern orchestrator:
                 </p>
                 <p>
                   The engine applies a fuzzy team-name similarity check (<code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-navy-900 font-mono text-[10px] text-lime-600 dark:text-lime-400">lib/utils/matching.ts</code>). Matches are enriched only when both teams align; ESPN remains authoritative for the score and status. If no M3U title matches a live ESPN fixture, the player can also offer clearly labelled, unverified live-channel backups.

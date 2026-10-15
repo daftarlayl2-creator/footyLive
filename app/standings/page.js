@@ -1,4 +1,5 @@
-import { getMatches } from '@/lib/streamEngine';
+'use client';
+
 import useSWR from 'swr';
 import Link from 'next/link';
 
@@ -78,7 +79,7 @@ export default function StandingsPage() {
                       </td>
                       <td className="p-2 text-center">{team.played || 0}</td>
                       <td className="p-2 text-center">{team.won || 0}</td>
-                      <td className="p-2 text-center">{team.draw || 0}</td>
+                      <td className="p-2 text-center">{team.drawn || 0}</td>
                       <td className="p-2 text-center">{team.lost || 0}</td>
                       <td className="p-2 text-center">{team.goalsFor || 0}</td>
                       <td className="p-2 text-center">{team.goalsAgainst || 0}</td>
@@ -97,7 +98,7 @@ export default function StandingsPage() {
         <h2 className="text-2xl font-bold text-navy-800 dark:text-zinc-100 mb-4">Top 10 Scorers</h2>
         <ol className="space-y-2">
           {topScorers.map((scorer, idx) => (
-            <li key={scorer.id} className="flex items-center gap-3">
+            <li key={scorer.name} className="flex items-center gap-3">
               <span className="text-[10px] font-bold text-lime-400">{idx + 1}</span>
               <span className="text-navy-800 dark:text-zinc-100">{scorer.name}</span>
               <span className="text-navy-600 dark:text-zinc-400 w-16 text-right">{scorer.goals} goals</span>
@@ -112,15 +113,8 @@ export default function StandingsPage() {
 
 /** Compute league tables from match data. */
 function computeLeagueTables(matches) {
-  const leagueData = new Map<string, {
-    played: number;
-    won: number;
-    drawn: number;
-    lost: number;
-    goalsFor: number;
-    goalsAgainst: number;
-    points: number;
-  }>();
+  /** @type {Map<string, { played: number, won: number, drawn: number, lost: number, goalsFor: number, goalsAgainst: number, points: number }>} */
+  const leagueData = new Map();
 
   // Initialize known leagues
   LEAGUES_TO_SHOW.forEach((league) => {
@@ -197,7 +191,8 @@ function computeLeagueTables(matches) {
 
 /** Compute top scorers from match data. */
 function computeTopScorers(matches) {
-  const goalCount = new Map<string, number>();
+  /** @type {Map<string, number>} */
+  const goalCount = new Map();
 
   matches.forEach((m) => {
     const homeScorers = m.live?.scorers?.home || m.scorers?.home || [];

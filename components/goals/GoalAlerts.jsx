@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Bell } from 'lucide-react';
 
 /**
  * Goal Alerts - Web Push API integration.
@@ -71,7 +72,7 @@ export default function GoalAlerts({ matchId, homeTeam, awayTeam }) {
 
       {enabled && (
         <p className="text-zinc-300 text-sm mt-2">
-          Goal alerts active. You'll be notified when a goal is scored.
+          Goal alerts active. You&apos;ll be notified when a goal is scored.
         </p>
       )}
 

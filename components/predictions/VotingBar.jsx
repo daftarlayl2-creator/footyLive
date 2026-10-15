@@ -1,14 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useSupabase } from '@/lib/supabase';
-import { 
-  VoteYes, 
-  VoteNo, 
-  VoteHorizontalLeft, 
-  VoteHorizontalRight, 
-  XMark 
-} from 'lucide-react';
 
 /** 
  * Prediction Voting Bar - appears above the StreamPlayer on /watch.
@@ -20,7 +13,8 @@ import {
  */
 export default function VotingBar({ matchId, homeTeam, awayTeam }) {
   const [votes, setVotes] = useState({ home: 0, draw: 0, away: 0 });
-  const [myVote, setMyVote] = useState<'home' | 'draw' | 'away'>(null);
+  /** @type {['home' | 'draw' | 'away' | null, (v: 'home' | 'draw' | 'away' | null) => void]} */
+  const [myVote, setMyVote] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const { supabase, isMockMode } = useSupabase();
 
@@ -32,16 +26,16 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
       try {
         const { data, error } = await supabase
           .from('match_predictions')
-          .select('prediction, count')
+          .select('prediction')
           .eq('match_id', matchId);
 
         if (error) throw error;
-        
-        // Initialize vote counts
+
+        // Tally one row per cast prediction (`match_predictions` stores no count column).
         const counts = { home: 0, draw: 0, away: 0 };
-        data?.forEach(row => {
-          counts[row.prediction] = (row.count || 0);
-        });
+        for (const row of data || []) {
+          if (row?.prediction in counts) counts[row.prediction] += 1;
+        }
         setVotes(counts);
       } catch (err) {
         console.error('Failed to load predictions:', err);
@@ -64,12 +58,11 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
           filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
-          const newVote = payload.new as any;
+          const newVote = payload.new;
           setVotes((prev) => {
-            const key = newVote.prediction as keyof typeof prev;
-            const updated = { ...prev };
-            updated[key] = (updated[key] || 0) + 1;
-            return updated;
+            const key = newVote?.prediction;
+            if (!(key in prev)) return prev;
+            return { ...prev, [key]: prev[key] + 1 };
           });
         }
       )
@@ -86,10 +79,8 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
       // Mock: just update local state
       setMyVote(prediction);
       setVotes((prev) => {
-        const key = prediction as keyof typeof prev;
-        const updated = { ...prev };
-        updated[key] = (updated[key] || 0) + 1;
-        return updated;
+        if (!(prediction in prev)) return prev;
+        return { ...prev, [prediction]: prev[prediction] + 1 };
       });
       return;
     }

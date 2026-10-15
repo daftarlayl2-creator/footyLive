@@ -3,7 +3,8 @@ import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import AdSlot from '@/components/ads/AdSlot';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
-import { Layers, Play, Radio } from 'lucide-react';
+import Link from 'next/link';
+import { Layers, Play, Radio, Star } from 'lucide-react';
 
 export const metadata = {
   title: 'EVIV Live — Real-Time Football Scores & Live Streams',
@@ -70,43 +71,43 @@ export default function RootLayout({ children }) {
         {/* The complete SVG lockup stays legible at mobile and desktop sizes. */}
         <header className="sticky top-0 z-50 flex w-full justify-center border-b border-navy-750 bg-navy-950/90 backdrop-blur-md">
           <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-2 px-3 py-1 sm:px-6 lg:px-8">
-            <a href="/" aria-label="EVIV Live — home" className="group shrink-0">
+            <Link href="/" aria-label="EVIV Live — home" className="group shrink-0">
               <BrandLogo className="block h-auto w-[106px] transition-transform duration-300 group-hover:scale-105 sm:w-36" />
-            </a>
+            </Link>
 
             <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-              <a
+              <Link
                 href="/channels"
                 aria-label="Live Channels"
                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
               >
                 <Radio className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Live Channels</span>
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/highlights"
                 aria-label="Highlights"
                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Highlights</span>
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/multistream"
                 aria-label="Multi-View"
                 className="lime-cta inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold sm:px-3.5"
               >
                 <Layers className="h-4 w-4 sm:hidden" aria-hidden="true" />
                 <span className="hidden sm:inline">Multi-View</span>
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/standings"
                 aria-label="League Standings"
                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
               >
                 <Star className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Standings</span>
-              </a>
+              </Link>
               <ThemeToggle />
             </nav>
           </div>

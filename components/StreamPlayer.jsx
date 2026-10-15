@@ -13,10 +13,14 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  ArrowLeft,
+  ArrowRight,
   ArrowRightLeft,
+  Clock,
   Cpu,
   Maximize,
   Pause,
+  PictureInPicture,
   Play,
   RefreshCw,
   ShieldAlert,
@@ -24,10 +28,13 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import ServerSelector, { ServerMenu } from '@/components/ServerSelector';
-import BrandLogo from '@/components/BrandLogo';
-import { useId } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import ServerSelector from '@/components/ServerSelector';
+import {
+  buildServerList,
+  describeFailure,
+  failoverReducer,
+  initFailoverState,
+} from '@/lib/player/servers';
 
 /* Failover timing. Watchdogs only count time while the tab is visible. */
 /** No first frame within this long (restarted once the HLS manifest parses) → the server is dead. */
@@ -42,6 +49,8 @@ const STABLE_PLAYBACK_MS = 20_000;
 const MAX_MEDIA_RECOVERIES = 2;
 const SWITCH_NOTICE_MS = 6_000;
 const AUTO_SWITCH_STORAGE_KEY = 'evivlive:auto-switch';
+/** Within this many seconds of the seekable end counts as watching live. */
+const LIVE_EDGE_TOLERANCE_S = 15;
 
 const HLS_CONFIG = {
   maxBufferLength: 20,
@@ -65,11 +74,14 @@ const HLS_CONFIG = {
   },
 };
 
-/** hls.js is code-split and downloaded once, the first time an HLS server plays. */
+/** Shared, memoised hls.js chunk: downloaded once, the first time an HLS server plays. */
+let hlsModule = null;
+
 function loadHls() {
-  const hlsModule ??= import('hls.js')
+  hlsModule ??= import('hls.js')
     .then((mod) => mod.default)
     .catch((err) => {
+      // Let the next attempt try the network again instead of caching a rejection.
       hlsModule = null;
       throw err;
     });
@@ -117,15 +129,15 @@ function startVisibleTimer(ms, onExpire) {
  * next server that has not been tried yet, and shows "all servers unavailable" with a
  * retry once every server has failed instead of spinning forever.
  *
- * NEW - DVR Rewind / Fast-Forward:
- *   - "-" button rewinds the video by 1 minute (delta passed via window.eviv:dvr event).
+ * DVR Rewind / Fast-Forward:
+ *   - "-" button rewinds the video by 1 minute (delta passed via the window eviv:dvr event,
+ *     the same channel <LiveMinute> uses).
  *   - "+" button fast-forwards by 1 minute.
  *   - "LIVE" pulsing button jumps back to real-time (seek to seekable.end()).
  *   Status pill: `WATCHING: 66'` vs `LIVE: 75'`.
  *
- * NEW - Picture-in-Picture (PiP):
- *   - PiP button shrinks the video into a floating window.
- *   - Browser PiP API is used when available.
+ * Picture-in-Picture (PiP):
+ *   - PiP button shrinks the video into a floating window when the browser supports it.
  */
 export default function StreamPlayer({
   streamUrl,
@@ -163,13 +175,14 @@ export default function StreamPlayer({
 
   const playerRef = useRef(null);
   const videoRef = useRef(null);
+  const frameRef = useRef(null);
 
   const router = useRouter();
   const [isRefreshing, startRefresh] = useTransition();
-  const retryAfterRefresh = useRef(false);
 
-  // DVR state: current playback minute and whether we're in live lag or real-time
+  // DVR state: playback minute, how far through the seekable window we are, live vs. lagged.
   const [dvrMinute, setDvrMinute] = useState(0);
+  const [progressPct, setProgressPct] = useState(100);
   const [isWatchingLive, setIsWatchingLive] = useState(true);
   const [dvrEnabled, setDvrEnabled] = useState(false);
 
@@ -187,28 +200,46 @@ export default function StreamPlayer({
     }
   }, []);
 
+  // The "switched server" notice disappears on its own.
+  useEffect(() => {
+    if (!switched) return undefined;
+    const id = setTimeout(() => dispatch({ type: 'dismissSwitch' }), SWITCH_NOTICE_MS);
+    return () => clearTimeout(id);
+  }, [switched]);
+
   // Latest values for the playback effect, read without restarting playback.
   const readServer = useEffectEvent((key) => servers.find((s) => s.key === key) ?? null);
   const readAudio = useEffectEvent(() => ({ volume, muted: isMuted }));
-  const readAutoSwitch = useEffectEvent(() => autoSwitch);
   const onAutoplayMuted = useEffectEvent(() => {
     setIsMuted(true);
     setAutoMuted(true);
   });
 
-  // DVR / rewind controls dispatched from the scoreboard timer.
+  // Keep the element in step with the volume/mute controls after the source is attached.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = isMuted;
+    if (!isMuted) video.volume = volume;
+  }, [isMuted, volume]);
+
+  // DVR / rewind controls, shared with <LiveMinute> through window events.
   useEffect(() => {
     const onDvr = (e) => {
       const video = videoRef.current;
       if (!video) return;
       const delta = (e?.detail?.deltaMinutes || 0) * 60;
       try {
-        const newTime = Math.max(0, (video.currentTime || 0) + delta);
+        const seekable = video.seekable;
+        const end = seekable?.length ? seekable.end(seekable.length - 1) : Number.POSITIVE_INFINITY;
+        const newTime = Math.max(0, Math.min((video.currentTime || 0) + delta, end));
         video.currentTime = newTime;
         // Update the displayed minute when seeking
-        const absMinute = Math.floor(newTime / 60);
-        setDvrMinute(absMinute);
-      } catch {}
+        setDvrMinute(Math.floor(newTime / 60));
+        setIsWatchingLive(end - newTime < LIVE_EDGE_TOLERANCE_S);
+      } catch {
+        /* this stream does not allow seeking */
+      }
     };
     const onLive = () => {
       const video = videoRef.current;
@@ -220,8 +251,9 @@ export default function StreamPlayer({
           video.currentTime = video.duration;
         }
         setIsWatchingLive(true);
-        setDvrMinute(0);
-      } catch {}
+      } catch {
+        /* this stream does not allow seeking */
+      }
     };
     window.addEventListener('eviv:dvr', onDvr);
     window.addEventListener('eviv:dvr-live', onLive);
@@ -237,44 +269,64 @@ export default function StreamPlayer({
   useEffect(() => {
     if (!isHydrated || isUpcoming || !activeKey) return undefined;
     const server = readServer(activeKey);
+    if (!server) return undefined;
+
+    const isEmbed = server.kind === 'embed';
     const video = videoRef.current;
-    if (!server || server.kind === 'embed' || !video) return undefined;
+    const frame = frameRef.current;
+    // The media element for this kind mounts in the same commit as this effect.
+    if (isEmbed ? !frame : !video) return undefined;
 
     let disposed = false;
-    let settled = false;
-    let loaded = false;
+    let ready = false;
+    let failureSent = false;
+    let recoveries = 0;
     let hls = null;
-    let ticker = null;
+    const stops = [];
     const listeners = [];
 
-    const teardown = () => {
-      clearInterval(ticker);
-      for (const [event, handler] of listeners) video.removeEventListener(event, handler);
+    const stopAll = () => {
+      while (stops.length) stops.pop()();
+      for (const [target, event, handler] of listeners) target.removeEventListener(event, handler);
       listeners.length = 0;
       if (hls) {
         hls.destroy();
         hls = null;
       }
-      video.removeAttribute('src');
-      video.load();
     };
 
     const fail = (reason) => {
-      if (disposed || settled) return;
-      settled = true;
-      teardown();
+      if (disposed || failureSent) return;
+      failureSent = true;
+      stopAll();
       dispatch({ type: 'fail', attempt, reason });
     };
 
-    const listen = (event, handler) => {
-      video.addEventListener(event, handler);
-      listeners.push([event, handler]);
+    const listen = (target, event, handler) => {
+      target.addEventListener(event, handler);
+      listeners.push([target, event, handler]);
     };
 
+    if (!isEmbed) {
+      const audio = readAudio();
+      video.muted = audio.muted;
+      video.volume = audio.volume;
+    }
+
+    // No first frame within this long → the server is dead.
+    const stopConnectWatchdog = startVisibleTimer(
+      isEmbed ? EMBED_TIMEOUT_MS : CONNECT_TIMEOUT_MS,
+      () => fail('timeout')
+    );
+    stops.push(stopConnectWatchdog);
+
     const markReady = () => {
-      if (loaded || disposed || settled) return;
-      loaded = true;
+      if (disposed || ready) return;
+      ready = true;
+      stopConnectWatchdog();
       dispatch({ type: 'ready', attempt });
+      // Played long enough without trouble → servers that failed earlier get another chance.
+      stops.push(startVisibleTimer(STABLE_PLAYBACK_MS, () => dispatch({ type: 'stable', attempt })));
     };
 
     // Called right after the source is attached: iOS only buffers native HLS once play() runs.
@@ -292,157 +344,271 @@ export default function StreamPlayer({
       });
     };
 
-    listen('loadeddata', markReady);
-    listen('error', () => {
-      if (hls) return; // hls.js reports its own, more precise errors
-      const code = 'network';
-      fail(code);
-    });
+    // Native HLS (Safari) and plain media files: let the element do the work.
+    const startNative = () => {
+      video.src = server.url || streamUrl;
+      video.load();
+      autoplay();
+    };
 
-    // Attach HLS if supported
-    const Hls = loadHls();
-    if (Hls && Hls.isSupported()) {
-      hls = new Hls(HLS_CONFIG);
-      listen('hlcLoad', () => {
-        // HLS loaded successfully
-        markReady();
+    if (isEmbed) {
+      listen(frame, 'load', markReady);
+    } else {
+      listen(video, 'loadeddata', markReady);
+      listen(video, 'playing', () => {
+        setPlayingAttempt(attempt);
+        setBufferingAttempt(0);
       });
-      hls.loadSource(server.url || streamUrl);
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-        autoplay();
+      listen(video, 'waiting', () => setBufferingAttempt(attempt));
+      listen(video, 'pause', () => {
+        setPlayingAttempt(0);
+        setBufferingAttempt(0);
       });
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        const reason = hlsFailureReason(hls, data);
-        if (reason === 'timeout' || reason === 'network') {
-          fail(reason);
-        } else if (reason === 'media') {
-          // Media error — try one recovery, then fail
-          hls.startLoad();
+      listen(video, 'timeupdate', () => {
+        const current = video.currentTime || 0;
+        setDvrMinute(Math.floor(current / 60));
+        const seekable = video.seekable;
+        if (seekable?.length) {
+          const start = seekable.start(0);
+          const end = seekable.end(seekable.length - 1);
+          const span = end - start;
+          // A window longer than a minute means the stream is rewindable (DVR).
+          setDvrEnabled(span > 60);
+          setProgressPct(span > 0 ? Math.min(100, Math.max(0, ((current - start) / span) * 100)) : 100);
+          setIsWatchingLive(end - current < LIVE_EDGE_TOLERANCE_S);
+        } else if (Number.isFinite(video.duration) && video.duration > 0) {
+          setDvrEnabled(true);
+          setProgressPct(Math.min(100, (current / video.duration) * 100));
+          setIsWatchingLive(true);
+        } else {
+          // Straight-to-live stream with no seekable window: the bar stays full.
+          setDvrEnabled(false);
+          setProgressPct(100);
+          setIsWatchingLive(true);
         }
       });
-      hls.on(Hls.Events.LEVEL_LOADING, () => {
-        // Level loading — keep going
+      listen(video, 'error', () => {
+        if (hls) return; // hls.js reports its own, more precise errors
+        fail('network');
       });
-    } else {
-      // Native HLS or plain media file
-      video.src = server.url || streamUrl;
-      autoplay();
-      listen('play', () => {
-        setIsWatchingLive(true);
-        setDvrMinute(0);
-      });
-      listen('pause', () => {
-        setIsWatchingLive(false);
-      });
-      listen('timeupdate', () => {
-        // Update DVR minute display while playing
-        if (!isPlaying) return;
-        const minute = Math.floor(video.currentTime / 60);
-        setDvrMinute(minute);
-      });
+
+      // Playing but the clock has not moved for a while → treat the server as dead.
+      let lastTime = -1;
+      let stalledMs = 0;
+      const ticker = setInterval(() => {
+        if (disposed || !ready || document.hidden) return;
+        if (video.paused || video.seeking) {
+          lastTime = video.currentTime;
+          stalledMs = 0;
+          return;
+        }
+        if (video.currentTime === lastTime) {
+          stalledMs += 1000;
+          if (stalledMs >= STALL_TIMEOUT_MS) fail('stalled');
+        } else {
+          stalledMs = 0;
+          lastTime = video.currentTime;
+        }
+      }, 1000);
+      stops.push(() => clearInterval(ticker));
+
+      if (kind === 'hls') {
+        loadHls()
+          .then((Hls) => {
+            if (disposed || failureSent) return;
+            if (Hls?.isSupported()) {
+              hls = new Hls(HLS_CONFIG);
+              hls.attachMedia(video);
+              hls.loadSource(server.url || streamUrl);
+              hls.on(Hls.Events.MEDIA_ATTACHED, autoplay);
+              hls.on(Hls.Events.MANIFEST_PARSED, markReady);
+              hls.on(Hls.Events.ERROR, (_event, data) => {
+                if (disposed || !data?.fatal) return;
+                const reason = hlsFailureReason(Hls, data);
+                if (reason === 'media' && recoveries < MAX_MEDIA_RECOVERIES) {
+                  // Media error — try a recovery before giving up on this server.
+                  recoveries += 1;
+                  hls.startLoad();
+                  return;
+                }
+                fail(reason);
+              });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+              startNative();
+            } else {
+              fail('unsupported');
+            }
+          })
+          .catch(() => {
+            // The hls.js chunk itself could not be fetched.
+            if (!disposed) fail('network');
+          });
+      } else {
+        startNative();
+      }
     }
 
-    // Return cleanup
     return () => {
-      teardown();
+      disposed = true;
+      stopAll();
+      if (!isEmbed && video) {
+        video.removeAttribute('src');
+        video.load();
+      }
     };
-  }, [isHydrated, isUpcoming, activeKey, attempt]);
+  }, [isHydrated, isUpcoming, activeKey, attempt, kind, streamUrl]);
 
-  // -------------------------------------------------------------------------
-  /*  DVR Rewind / Fast-Forward UI
-  /* ------------------------------------------------------------------------- */
-  const handleDvrRewind = () => {
-    dispatch({ type: 'dvr', deltaMinutes: -1 });
+  /* ------------------------------------------------------------------------ */
+  /*  DVR Rewind / Fast-Forward handlers (same window events as <LiveMinute>) */
+  /* ------------------------------------------------------------------------ */
+  const seekByMinutes = (deltaMinutes) => {
+    window.dispatchEvent(new CustomEvent('eviv:dvr', { detail: { deltaMinutes } }));
   };
 
-  const handleDvrForward = () => {
-    dispatch({ type: 'dvr', deltaMinutes: 1 });
-  };
+  const handleDvrRewind = () => seekByMinutes(-1);
+  const handleDvrForward = () => seekByMinutes(1);
+  const handleGoLive = () => window.dispatchEvent(new CustomEvent('eviv:dvr-live'));
 
-  const handleGoLive = () => {
-    dispatch({ type: 'dvr-live' });
-  };
-
-  // -------------------------------------------------------------------------
-  /*  Picture-in-Picture (PiP) toggle
-  /* ------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /*  Picture-in-Picture (PiP) toggle                                         */
+  /* ------------------------------------------------------------------------ */
   const handlePiPToggle = () => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (document.pictureInPictureEnabled) {
-      if (document.pictureInPictureElement === video) {
-        document.exitPictureInPicture();
-      } else {
-        requestPictureInPicture().catch((err) => {
-          console.log('PiP not supported or failed:', err);
-        });
-      }
+    if (document.pictureInPictureElement === video) {
+      document.exitPictureInPicture?.().catch(() => {});
+      return;
+    }
+    video.requestPictureInPicture?.().catch((err) => {
+      console.warn('Picture-in-Picture failed:', err);
+    });
+  };
+
+  // Read after hydration only: the server render has no `document`.
+  const pipSupported = isHydrated && typeof document !== 'undefined' && Boolean(document.pictureInPictureEnabled);
+
+  /* ------------------------------------------------------------------------ */
+  /*  Transport, audio and layout controls                                    */
+  /* ------------------------------------------------------------------------ */
+  const handlePlayPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) video.play()?.catch(() => {});
+    else video.pause();
+  };
+
+  const handleMuteToggle = () => {
+    setIsMuted((prev) => !prev);
+    setAutoMuted(false);
+  };
+
+  const handleVolumeChange = (e) => {
+    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    setVolume(value === 0 ? 0 : Math.min(1, Math.max(0, value)));
+    setIsMuted(value === 0);
+    setAutoMuted(false);
+  };
+
+  const toggleFullscreen = () => {
+    const root = playerRef.current;
+    if (!root) return;
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      document.exitFullscreen?.() ?? document.webkitExitFullscreen?.();
+      return;
+    }
+    if (root.requestFullscreen) root.requestFullscreen();
+    else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
+  };
+
+  /** Restart the active server. */
+  const reloadStream = () => dispatch({ type: 'reload' });
+
+  /** Forget every failure, start again from Server 1 and re-sign fresh links. */
+  const retryAllServers = () => {
+    dispatch({ type: 'retryAll' });
+    startRefresh(() => router.refresh());
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*  Server status helper                                                    */
+  /* ------------------------------------------------------------------------ */
+  const statusOf = (server) => {
+    if (server.key === activeKey) {
+      if (phase === 'ready') return 'playing';
+      if (phase === 'connecting') return 'connecting';
+      return 'failed';
+    }
+    return failed[server.key] ? 'failed' : 'idle';
+  };
+
+  const selectServer = (server) => dispatch({ type: 'select', index: server.index });
+
+  const toggleAutoSwitch = () => {
+    const enabled = !autoSwitch;
+    dispatch({ type: 'setAutoSwitch', enabled });
+    try {
+      localStorage.setItem(AUTO_SWITCH_STORAGE_KEY, enabled ? 'on' : 'off');
+    } catch {
+      /* storage unavailable */
     }
   };
 
-  const pipSupported = typeof document !== 'undefined' && document.pictureInPictureEnabled;
-
-  // -------------------------------------------------------------------------
-  /*  Status pill: WATCHING vs LIVE
-  /* ------------------------------------------------------------------------- */
-  const statusLabel = isWatchingLive
-    ? `LIVE: ${dvrMinute || '75'}'`
-    : `WATCHING: ${dvrMinute || '66'}'`;
-
-  // -------------------------------------------------------------------------
-  /*  Server status helper
-  /* ------------------------------------------------------------------------- */
-  const statusOf = (key: string) => {
-    const server = servers.find((s) => s.key === key);
-    if (!server) return 'unavailable';
-    if (server.key === activeKey) return phase;
-    if (failed.includes(key)) return 'failed';
-    return 'ready';
-  };
-
-  // -------------------------------------------------------------------------
-  /*  Announcements for failures and automatic switches
-  /* ------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /*  Announcements for failures and automatic switches                       */
+  /* ------------------------------------------------------------------------ */
   const announcement = useMemo(() => {
-    if (!switched) return '';
-    return `Switched to server ${activeServer?.label || 'unknown'} · previous server was unavailable`;
-  }, [switched, activeServer]);
+    if (switched) {
+      return `Switched to ${activeServer?.label || 'another server'} · previous server was unavailable`;
+    }
+    if (phase === 'exhausted') return 'All servers unavailable';
+    if (phase === 'failed') return describeFailure(activeKey ? failed[activeKey] : null);
+    return '';
+  }, [switched, phase, activeServer, activeKey, failed]);
 
-  // -------------------------------------------------------------------------
-  /*  Server list builder (from lib/player/servers)
+  /* ------------------------------------------------------------------------ */
+  /*  Server list for the selector (marks the one currently playing)          */
+  /* ------------------------------------------------------------------------ */
+  const serversEnriched = useMemo(
+    () =>
+      servers.map((s) => ({
+        ...s,
+        label: s.key === activeKey ? `${s.label} ●` : s.label,
+      })),
+    [servers, activeKey]
+  );
+
+  const isDown = phase === 'failed' || phase === 'exhausted';
+  const statusLabel = isWatchingLive ? `LIVE: ${dvrMinute}'` : `WATCHING: ${dvrMinute}'`;
+
   /* ------------------------------------------------------------------------- */
-  const serversEnriched = useMemo(() => {
-    const enriched = buildServerList(channels, streamUrl);
-    // Add DVR indicator to each server label
-    return enriched.map((s) => ({
-      ...s,
-      label: `${s.label} ${s.key === activeKey ? '●' : ''}`,
-    }));
-  }, [servers, activeKey]);
-
-  // -------------------------------------------------------------------------
-  /*  Render
+  /*  Render                                                                    */
   /* ------------------------------------------------------------------------- */
-  const isPlaying2 = playingAttempt === attempt;
-
   return (
-    <div className="rounded-2xl overflow-hidden shadow-2xl">
+    <div ref={playerRef} className="group relative rounded-2xl overflow-hidden shadow-2xl">
       {/* Video element */}
       {isUpcoming ? (
         <div className="p-8 text-center text-zinc-400">
           <Clock className="h-12 w-12 mx-auto mb-2" />
           <p className="font-medium">Upcoming match</p>
-          <p className="text-sm">Kickoff: {matchTitle || ''}</p>
+          <p className="text-sm">{matchTitle || ''}</p>
         </div>
       ) : isVideo && isHydrated && activeKey ? (
         <video
           ref={videoRef}
           playsInline
           muted={isMuted}
-          className="w-full h-[350lg] object-cover"
-          onCanPlay={() => setIsWatchingLive(true)}
-          onTimeUpdate={() => setDvrMinute(Math.floor(video.currentTime / 60))}
+          className={`w-full h-[350px] object-cover bg-black ${isTheaterMode ? 'lg:h-[70vh]' : ''}`}
+        />
+      ) : kind === 'embed' && isHydrated && activeServer ? (
+        <iframe
+          ref={frameRef}
+          src={activeServer.url}
+          title={matchTitle || 'Embedded player'}
+          className="aspect-video w-full border-0"
+          allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+          allowFullScreen
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
         />
       ) : (
         <div className="p-8 text-center text-zinc-400">
@@ -450,54 +616,130 @@ export default function StreamPlayer({
         </div>
       )}
 
+      {/* Failure overlay: one server down, or every server exhausted */}
+      {isHydrated && !isUpcoming && isDown && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-navy-950/92 p-6 text-center backdrop-blur-sm">
+          <ShieldAlert className="h-8 w-8 text-red-400" aria-hidden="true" />
+          <p className="text-sm font-bold text-zinc-100">
+            {phase === 'exhausted' ? 'All servers unavailable' : 'This server is unavailable'}
+          </p>
+          <p className="max-w-sm text-xs text-zinc-400">
+            {activeKey ? describeFailure(failed[activeKey]) : 'No stream resolved for this match yet.'}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={reloadStream}
+              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/40 bg-lime-500/10 px-3 py-1.5 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 active:scale-95"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Retry
+            </button>
+            {hasMultiple && phase === 'failed' && (
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'next' })}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300/40 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300 transition-all hover:bg-white/10 active:scale-95"
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                Try next server
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={retryAllServers}
+              disabled={isRefreshing}
+              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300/40 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-60"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+              {isRefreshing ? 'Re-signing links…' : 'Retry all'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Automatic switch notice */}
+      {switched && (
+        <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-lime-500/30 bg-navy-900/95 px-3 py-1.5 text-[10px] font-bold text-lime-300 shadow-lg">
+          <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>
+            {`Switched to ${serversEnriched[switched.to]?.label || 'another server'} · ${describeFailure(switched.reason)}`}
+          </span>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'dismissSwitch' })}
+            className="cursor-pointer rounded px-1 text-zinc-400 transition-colors hover:text-zinc-100"
+            aria-label="Dismiss notice"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Custom controls overlay */}
-      {isVideo && isHydrated && activeKey && (
+      {isVideo && isHydrated && activeKey && !isDown && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col gap-2.5 bg-gradient-to-t from-black/95 via-black/40 to-transparent p-4 transition-opacity duration-300 ${isPlaying2 ? 'opacity-0 focus-within:opacity-100 group-hover:opacity-100' : 'opacity-100'}`}
+          className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col gap-2.5 bg-gradient-to-t from-black/95 via-black/40 to-transparent p-4 transition-opacity duration-300 ${isPlaying ? 'opacity-0 focus-within:opacity-100 group-hover:opacity-100' : 'opacity-100'}`}
         >
           {/* Live timeline indicator */}
           <div className="flex items-center gap-3">
             <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800/80">
-              <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-gradient-to-r from-lime-500 to-lime-400" style={{ width: `${isWatchingLive ? Math.min((video?.readyState || 1 / 0 ? video.currentTime / 60 : 0) * 100 : 30) % , 100}%` }} />
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-lime-500 to-lime-400"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
             <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-lime-500 dark:text-lime-400">
               <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
-              {isWatchingLive ? 'Live' : 'Buffering'}
+              {isBuffering ? 'Buffering' : isWatchingLive ? 'Live' : 'Watching'}
             </span>
           </div>
 
           <div className="flex items-center justify-between">
-            {/* DVR Controls */}
+            {/* Transport + DVR controls */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={handlePlayPause}
+                className="cursor-pointer rounded-md border border-white/15 bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-90"
+                title={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                type="button"
                 onClick={handleDvrRewind}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 dark:text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90${
+                disabled={!dvrEnabled}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40${
                   dvrEnabled ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
-}`}
+                }`}
                 title="Rewind 1 minute"
               >
-                <span className="ArrowLeft className="h-3.5 w-3.5" />{-1}
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>{'-1'}</span>
               </button>
               <button
                 type="button"
                 onClick={handleDvrForward}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 dark:text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90${
+                disabled={!dvrEnabled}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40${
                   dvrEnabled ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
-}`}
+                }`}
                 title="Fast-forward 1 minute"
               >
-                <span className="ArrowRight className="h-3.5 w-3.5" />{+1}
+                <ArrowRight className="h-3.5 w-3.5" />
+                <span>{'+1'}</span>
               </button>
               <button
                 type="button"
                 onClick={handleGoLive}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 dark:text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90${
+                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90${
                   isWatchingLive ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
-}`}
+                }`}
                 title="Jump to live"
               >
-                <span className="Pulse className="h-3.5 w-3.5 animate-pulse bg-lime-500" />LIVE
+                <span className="h-2 w-2 animate-pulse rounded-full bg-lime-500" />
+                LIVE
               </button>
             </div>
 
@@ -506,7 +748,7 @@ export default function StreamPlayer({
               <button
                 type="button"
                 onClick={handlePiPToggle}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 dark:text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90`}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90"
                 title="Picture in Picture"
               >
                 <PictureInPicture className="h-3.5 w-3.5" />
@@ -514,20 +756,29 @@ export default function StreamPlayer({
             )}
 
             {/* Volume control */}
-            <div className="flex items-center gap-2">
+            <div className="group/volume flex items-center gap-2">
+              {autoMuted && isMuted && (
+                <button
+                  type="button"
+                  onClick={handleMuteToggle}
+                  className="cursor-pointer rounded-md border border-lime-500/40 bg-lime-500/15 px-2 py-1 text-[10px] font-bold text-lime-300 transition-colors hover:bg-lime-500/25"
+                >
+                  Tap to unmute
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleMuteToggle}
-                className="rounded-lg bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-90"
+                className="cursor-pointer rounded-lg bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-90"
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
                 {isMuted ? (
-                  <VolumeX className="h-3.5 w-3.5 text-zinc-450" />
+                  <VolumeX className="h-3.5 w-3.5 text-zinc-350" />
                 ) : volume < 0.4 ? (
                   <Volume1 className="h-3.5 w-3.5" />
                 ) : (
                   <Volume2 className="h-3.5 w-3.5" />
-                )
+                )}
               </button>
               <input
                 type="range"
@@ -563,7 +814,7 @@ export default function StreamPlayer({
           <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-750/60 dark:bg-navy-950/40 lg:w-auto">
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-flex bg-lime-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-lime-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-lime-600 dark:text-lime-400">
                   Embedded Player Active
                 </span>
@@ -593,7 +844,7 @@ export default function StreamPlayer({
             className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
             title="Reload Stream Connection"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isPlaying2 ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isBuffering ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
 
@@ -626,123 +877,11 @@ export default function StreamPlayer({
 
       {/* DVR status pill - always visible at top when video is playing */}
       {isVideo && isHydrated && activeKey && (
-        <div
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-navy-800/80 border border-lime-500/30 px-4 py-1.5 text-xs font-bold text-lime-400 dark:text-lime-300 transition-colors"
-        >
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-navy-800/80 border border-lime-500/30 px-4 py-1.5 text-xs font-bold text-lime-400 dark:text-lime-300 transition-colors">
           <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500 mr-1" />
           {statusLabel}
         </div>
       )}
     </div>
   );
-}
-
-/* ------------------------------------------------------------------------- */
-/*  DVR Rewind Fast-Forward Reducer
-/* ------------------------------------------------------------------------- */
-function failoverReducer(state, action) {
-  const type = action.type;
-
-  if (type === 'sync') {
-    return {
-      ...state,
-      keys: action.keys,
-    };
-  }
-
-  if (type === 'setAutoSwitch') {
-    return {
-      ...state,
-      autoSwitch: { enabled: action.enabled },
-    };
-  }
-
-  if (type === 'fail') {
-    const { attempt } = action;
-    return {
-      ...state,
-      active: state.active + 1,
-      attempt,
-    };
-  }
-
-  if (type === 'ready') {
-    const { attempt } = action;
-    return {
-      ...state,
-      attempt,
-    };
-  }
-
-  if (type === 'dvr') {
-    const { deltaMinutes } = action;
-    return {
-      ...state,
-      dvrMinute: (state.dvrMinute || 0) + deltaMinutes,
-      isWatchingLive: deltaMinutes === 0 ? state.isWatchingLive : state.isWatchingLive,
-    };
-  }
-
-  if (type === 'dvr-live') {
-    return {
-      ...state,
-      dvrMinute: 0,
-      isWatchingLive: true,
-    };
-  }
-
-  return state;
-}
-
-function initFailoverState(keys) {
-  return {
-    keys,
-    active: 0,
-    attempt: 0,
-    phase: 'connecting',
-    failed: [],
-    autoSwitch: { enabled: true },
-    switched: false,
-  };
-}
-
-/* ------------------------------------------------------------------------- */
-/*  Server selection actions
-/* ------------------------------------------------------------------------- */
-function selectServer(key) {
-  // Dispatch a sync action to update the server list
-  // This is handled by the reducer
-}
-
-function toggleAutoSwitch(enabled) {
-  try {
-    localStorage.setItem(AUTO_SWITCH_STORAGE_KEY, enabled ? 'on' : 'off');
-  } catch {}
-}
-
-/* ------------------------------------------------------------------------- */
-/*  Player event handlers
-/* ------------------------------------------------------------------------- */
-function handleMuteToggle() {
-  setIsMuted((prev) => !prev);
-}
-
-function handleVolumeChange(e) {
-  const value = e.target.value === '' ? 0 : Number(e.target.value);
-  setVolume(value === 0 ? 0 : Math.min(1, Math.max(0, value)));
-  setIsMuted(value === 0);
-}
-
-function reloadStream() {
-  dispatch({ type: 'sync', keys: [...new Set(servers.map((s) => s.key)]) });
-}
-
-function toggleFullscreen() {
-  const video = videoRef.current;
-  if (!video) return;
-  if (video.requestFullscreen) {
-    video.requestFullscreen();
-  } else if (video.webkitRequestFullscreen) {
-    video.webkitRequestFullscreen();
-  }
 }

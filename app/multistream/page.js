@@ -500,14 +500,14 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     };
   }, [streamUrl, isDirectHls, hlsLoaded, muted]);
 
-  // Volume toggle
-  const toggleMute = () => {
+  // Volume toggle (hoisted: the keyboard-shortcut effect above calls it)
+  function toggleMute() {
     const nextMute = !muted;
     setMuted(nextMute);
     if (videoRef.current) {
       videoRef.current.muted = nextMute;
     }
-  };
+  }
 
   const handlePlayPause = () => {
     if (!videoRef.current) return;
@@ -526,7 +526,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     if (el.requestFullscreen) el.requestFullscreen();
   };
 
-  const reloadFeed = () => {
+  function reloadFeed() {
     if (videoRef.current && isDirectHls) {
       if (hlsRef.current) {
         hlsRef.current.loadSource(streamUrl);

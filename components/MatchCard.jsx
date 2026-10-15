@@ -54,8 +54,9 @@ function CardChips({ cards, align = 'left' }) {
 export default function MatchCard({ match, tab }) {
   const { id, status, timestamp, homeTeam, awayTeam, sources, tournament, homeScore, awayScore, currentMinuteNumber, note, live } = match;
   const feedCount = status === 'live' && match.source === 'espn' ? match.feedStreamCount || 0 : 0;
-  const serverCount = sources.length || feedCount;
-  const unverifiedFeed = !sources.length && feedCount > 0 && match.feedStreamIsFallback;
+  // `sources` is optional in practice: feed-only matches arrive without a resolved list.
+  const serverCount = sources?.length || feedCount;
+  const unverifiedFeed = !sources?.length && feedCount > 0 && match.feedStreamIsFallback;
   const hasHighlight = Boolean(match.highlight || match.highlightUrl || match.highlightVideo || match.hasHighlight || (Array.isArray(match.highlights) && match.highlights.length));
 
   const [liveData, setLiveData] = useState(null);
@@ -168,13 +169,13 @@ export default function MatchCard({ match, tab }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <TeamBadge team={homeTeam} />
-            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{homeTeam.name}</span>
+            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{homeTeam?.name}</span>
             <CardChips cards={cards.home} />
             <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleFavoriteTeam(homeTeam.name);
+                toggleFavoriteTeam(homeTeam?.name);
               }}
               className="p-1 rounded-md hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
               title={homeFav ? "Unfavorite Team" : "Favorite Team"}
@@ -195,13 +196,13 @@ export default function MatchCard({ match, tab }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <TeamBadge team={awayTeam} />
-            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{awayTeam.name}</span>
+            <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{awayTeam?.name}</span>
             <CardChips cards={cards.away} />
             <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleFavoriteTeam(awayTeam.name);
+                toggleFavoriteTeam(awayTeam?.name);
               }}
               className="p-1 rounded-md hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
               title={awayFav ? "Unfavorite Team" : "Favorite Team"}
