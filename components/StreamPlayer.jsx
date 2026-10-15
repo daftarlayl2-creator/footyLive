@@ -19,7 +19,6 @@ import {
   Pause,
   Play,
   RefreshCw,
-  Shield,
   ShieldAlert,
   Volume1,
   Volume2,
@@ -154,7 +153,6 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [autoMuted, setAutoMuted] = useState(false);
-  const [sandboxShield, setSandboxShield] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
 
   const playerRef = useRef(null);
@@ -442,11 +440,6 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
     }
   };
 
-  const toggleShield = () => {
-    setSandboxShield((on) => !on);
-    if (kind === 'embed') dispatch({ type: 'reload' }); // the embed reloads under the new sandbox
-  };
-
   const handlePlayPause = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -572,14 +565,13 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             />
           ) : (
             <iframe
-              key={`${attempt}-${sandboxShield ? 'shield' : 'compat'}`}
+              key={attempt}
               src={activeServer.url}
               title={`${matchTitle} — ${activeServer.label}`}
               className="absolute inset-0 h-full w-full"
               allowFullScreen
               allow="autoplay; fullscreen"
               onLoad={handleEmbedLoad}
-              sandbox={sandboxShield ? 'allow-scripts allow-same-origin allow-forms allow-presentation' : undefined}
             />
           ))}
 
@@ -798,7 +790,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
                 </div>
 
                 <span className="hidden items-center gap-1.5 rounded-md border border-lime-500/20 bg-lime-500/10 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-lime-400 sm:inline-flex">
-                  Native Player (Ad-Free)
+                  Native Player
                 </span>
               </div>
 
@@ -838,56 +830,21 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
         />
       )}
 
-      {/* Ad-Shield explainer */}
-      {kind === 'embed' && sandboxShield && (
-        <div className="animate-fade-in space-y-2.5 rounded-xl border border-lime-200 bg-lime-50 p-4 text-xs leading-relaxed text-zinc-650 shadow-sm dark:border-lime-500/20 dark:bg-lime-950/15 dark:text-zinc-400">
-          <div className="flex items-center gap-2 font-bold text-lime-700 dark:text-lime-400">
-            <Shield className="h-4 w-4 text-lime-600 dark:text-lime-500" />
-            <span>Ad-Shield Active (Intrusive Ad & Popup Blocker)</span>
-          </div>
-          <p className="text-[11.5px] leading-normal text-zinc-600 dark:text-zinc-400">
-            <strong>What this does:</strong> The stream is loaded inside a secure sandbox that strictly blocks malicious scripts, auto-downloads, tracking cookies, and aggressive popup advertisement redirects.
-          </p>
-          <p className="text-[11.5px] leading-normal text-zinc-600 dark:text-zinc-400">
-            <strong>What could happen:</strong> Some external stream hosts detect sandboxing and will block playback with an <strong>&quot;Embed Blocked&quot;</strong> or black screen.
-          </p>
-          <p className="text-[11.5px] leading-normal text-zinc-600 dark:text-zinc-400">
-            <strong>Why it happens:</strong> These third-party stream hosts make revenue through aggressive ad redirects. They block sandboxed players to force you to view their popups. Turn Ad-Shield <strong>OFF</strong> below if the stream refuses to load.
-          </p>
-        </div>
-      )}
-
-      {/* Action toolbar (Ad-Shield / native status, Refresh, Theater, Fullscreen) */}
+      {/* Action toolbar (player status, Refresh, Theater, Fullscreen) */}
       <div className="glass-panel flex flex-col justify-between gap-4 rounded-xl p-4 shadow-md lg:flex-row lg:items-center">
         {kind === 'embed' ? (
-          <div className="flex w-full items-center gap-3 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-2.5 shadow-inner dark:border-navy-750/60 dark:bg-navy-950/60 lg:w-auto">
+          <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-750/60 dark:bg-navy-950/40 lg:w-auto">
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${sandboxShield ? 'bg-lime-500' : 'animate-pulse bg-red-400'}`} />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-                  Ad-Shield {sandboxShield ? 'ON' : 'OFF'}
+                <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-lime-500" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-lime-600 dark:text-lime-400">
+                  Embedded Player Active
                 </span>
               </div>
-              <span className="mt-0.5 block text-[9px] leading-none text-zinc-500 dark:text-zinc-500">
-                {sandboxShield ? 'Blocking redirects & popups' : '⚠ Protection disabled'}
+              <span className="mt-0.5 block text-[10px] leading-none text-zinc-500 dark:text-zinc-500">
+                Provider player loads inside a sandboxed frame.
               </span>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={sandboxShield}
-              aria-label="Ad-Shield"
-              onClick={toggleShield}
-              className={`relative ml-auto inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none lg:ml-2 ${
-                sandboxShield ? 'bg-lime-500' : 'bg-zinc-300 dark:bg-zinc-800'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  sandboxShield ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
           </div>
         ) : (
           <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-750/60 dark:bg-navy-950/40 lg:w-auto">

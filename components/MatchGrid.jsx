@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { Fragment, useState, useMemo, useEffect, useRef } from 'react';
 import { Search, Filter, Calendar, Star, ChevronLeft, ChevronRight, Flag, CheckCircle, Video } from 'lucide-react';
 import MatchCard from './MatchCard';
+import AdSlot from '@/components/ads/AdSlot';
+import { AD_PLACEMENTS } from '@/lib/adsConfig';
+import { fetchHighlightsSafely } from '@/lib/utils/highlightsClient';
 import { useRouter } from 'next/navigation';
 import { getFavoriteTeams } from '@/lib/utils/favorites';
 
@@ -34,13 +37,18 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
   const router = useRouter();
   const [tab, setTab] = useState(defaultTab);
   const [highlights, setHighlights] = useState([]);
+  const [highlightsLoading, setHighlightsLoading] = useState(false);
   useEffect(() => {
     if (tab !== 'highlights') return;
     let cancelled = false;
-    fetch('/api/highlights', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled) setHighlights(d.highlights || []); })
-      .catch(() => {});
+    setHighlightsLoading(true);
+    // Always resolves within 3s (empty list on timeout / error) — the tab
+    // never stays stuck on "Loading highlights…".
+    fetchHighlightsSafely().then((list) => {
+      if (cancelled) return;
+      setHighlights(list);
+      setHighlightsLoading(false);
+    });
     return () => { cancelled = true; };
   }, [tab]);
   const [search, setSearch] = useState('');
@@ -199,7 +207,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
           </h1>
           <p className="text-sm text-zinc-300">
             Every fixture of the day — live scores, match minutes, cards and statistics pulled straight from the
-            live scoreboard, next to premium ad-free streams.
+            live scoreboard, next to reliable live streams.
           </p>
         </div>
       </div>
@@ -220,11 +228,11 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
       {/* Control panel & Navigation */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-5 rounded-xl shadow-md dark:shadow-lg border border-zinc-200/80 dark:border-navy-750/60">
         
-        {/* Sliding Tabs */}
-        <div className="flex rounded-lg bg-zinc-200/60 dark:bg-navy-950 p-1 border border-zinc-300/45 dark:border-navy-750/80 max-w-xs shrink-0">
+        {/* Sliding Tabs — scroll horizontally inside their own container on small screens */}
+        <div className="tabs-scroll flex w-full flex-nowrap rounded-lg bg-zinc-200/60 dark:bg-navy-950 p-1 border border-zinc-300/45 dark:border-navy-750/80 md:max-w-xs">
           <button
             onClick={() => setTab('live')}
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'live'
                 ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
                 : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
@@ -235,7 +243,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
           </button>
           <button
             onClick={() => setTab('upcoming')}
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'upcoming'
                 ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
                 : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
@@ -246,7 +254,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
           </button>
           <button
             onClick={() => setTab('finished')}
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'finished'
                 ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
                 : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
@@ -257,7 +265,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
           </button>
           <button
             onClick={() => setTab('highlights')}
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'highlights'
                 ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
                 : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
@@ -335,7 +343,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
 
               <div 
                 ref={scrollRef}
-                className="flex flex-row flex-nowrap overflow-x-auto gap-1.5 py-1.5 px-1 -mx-1 custom-horizontal-scrollbar scroll-smooth"
+                className="tabs-scroll flex flex-row flex-nowrap gap-1.5 py-1.5 px-1 -mx-1 custom-horizontal-scrollbar scroll-smooth"
               >
                 {/* "All Leagues" Pill */}
                 <button
@@ -408,22 +416,43 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
 
       {/* Fixtures Listings */}
       {tab === 'highlights' ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {highlights.map((h) => (
-            <a key={h.id} href="/highlights" className="group relative overflow-hidden rounded-xl border border-navy-750 bg-navy-900 shadow-md">
-              <div className="relative aspect-video w-full overflow-hidden bg-black">
-                {h.thumbnail && <img src={h.thumbnail} alt={h.title} className="h-full w-full object-cover opacity-80" />}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-500 text-navy-950"><Video className="h-4 w-4 fill-current" /></span>
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {highlights.map((h, i) => (
+            <Fragment key={h.id}>
+              <a href="/highlights" className="group relative w-full overflow-hidden rounded-xl border border-navy-750 bg-navy-900 shadow-md">
+                <div className="relative aspect-video w-full overflow-hidden bg-black">
+                  {h.thumbnail && <img src={h.thumbnail} alt={h.title} className="h-full w-full object-cover opacity-80" />}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-500 text-navy-950"><Video className="h-4 w-4 fill-current" /></span>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-bold text-white truncate">{h.title}</p>
-                <p className="text-[11px] text-zinc-400 truncate">{h.competition}</p>
-              </div>
-            </a>
+                <div className="p-3">
+                  <p className="text-sm font-bold text-white truncate">{h.title}</p>
+                  <p className="text-[11px] text-zinc-400 truncate">{h.competition}</p>
+                </div>
+              </a>
+              {/* Native banner inside the highlights grid */}
+              {(i + 1) % 6 === 0 && (
+                <div className="col-span-full flex w-full justify-center">
+                  <AdSlot variant="native" banner={AD_PLACEMENTS.highlightsNative} />
+                </div>
+              )}
+            </Fragment>
           ))}
-          {highlights.length === 0 && <p className="text-zinc-500 text-sm">Loading highlights…</p>}
+          {highlightsLoading && (
+            <div className="col-span-full flex items-center gap-2.5 text-zinc-500 text-sm">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-lime-500/20 border-t-lime-500" />
+              Loading highlights…
+            </div>
+          )}
+          {!highlightsLoading && highlights.length === 0 && (
+            <p className="col-span-full text-zinc-500 text-sm">No recent highlights</p>
+          )}
+          {(highlights.length === 0 || highlights.length % 6 !== 0) && (
+            <div className="col-span-full flex w-full justify-center">
+              <AdSlot variant="native" banner={AD_PLACEMENTS.highlightsNative} />
+            </div>
+          )}
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 glass-panel rounded-xl shadow-md">
@@ -464,7 +493,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
                 <h2 className="text-xs font-extrabold uppercase tracking-widest text-amber-600 dark:text-amber-400">Starred Team Fixtures</h2>
                 <div className="h-px flex-1 bg-gradient-to-r from-amber-500/30 via-zinc-300 dark:via-zinc-800 to-transparent ml-2" />
               </div>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
+              <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
                 {starredMatches.map(match => (
                   <MatchCard key={match.id} match={match} tab={tab} />
                 ))}
@@ -484,13 +513,20 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
                   <div className="h-px flex-1 bg-gradient-to-r from-zinc-300/80 dark:from-zinc-800/80 via-zinc-200/30 dark:via-zinc-900/30 to-transparent ml-2" />
                 </div>
               )}
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
+              <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
                 {normalMatches.map(match => (
                   <MatchCard key={match.id} match={match} tab={tab} />
                 ))}
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Native banner inside the match cards feed (every non-highlights tab) */}
+      {tab !== 'highlights' && (
+        <div className="flex w-full justify-center pt-2">
+          <AdSlot variant="native" banner={AD_PLACEMENTS.feedNative} />
         </div>
       )}
     </div>

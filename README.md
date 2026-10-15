@@ -1,6 +1,6 @@
 # ⚽ EVIV Live — Real-Time Football Scores & Live Streams
 
-**EVIV Live** is a high-performance, ad-free live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Deep Burgundy / Electric Lime** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
+**EVIV Live** is a high-performance live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Deep Burgundy / Electric Lime** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
 
 **No mock data, ever.** Fixtures, scores, match minutes, cards, scorers and statistics are read straight from ESPN's public scoreboard JSON. Streaming sources are aggregated from public feeds/providers and always played through a signed first-party proxy.
 

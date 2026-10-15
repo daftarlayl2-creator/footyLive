@@ -125,20 +125,21 @@ export default function LiveChannelsGrid({ initialChannels = null, initialChecke
       const res = await fetch('/api/live-channels', { cache: 'no-store', signal });
       const data = await res.json();
       // Even an "error" response carries the channel list we already know;
-      // always prefer the freshest list available.
+      // always prefer the freshest list available. Never show a scary banner:
+      // a failed refresh quietly keeps the last known list.
       if (Array.isArray(data.channels) && data.channels.length > 0) {
         setChannels(data.channels);
         setCheckedAt(data.checkedAt || Date.now());
-        setError(data.error || (res.ok ? null : 'Live channels are unavailable right now.'));
+        setError(null);
       } else if (!res.ok) {
-        setError(data.error || 'Live channels are unavailable right now.');
+        setError('Channel list refresh is running behind — showing the last known list.');
       } else {
         setChannels((prev) => prev ?? data.channels ?? []);
         setCheckedAt(data.checkedAt || Date.now());
-        setError(data.error || null);
+        setError(null);
       }
     } catch (err) {
-      if (err?.name !== 'AbortError') setError('Live status checks are blocked right now — channels below still attempt playback.');
+      if (err?.name !== 'AbortError') setError('Live status checks are running behind — channels below still attempt playback.');
     } finally {
       setRefreshing(false);
     }

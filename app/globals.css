@@ -100,14 +100,25 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
+  max-width: 100vw;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* Kill mobile horizontal drag-overflow: nothing may push past the viewport. */
+  overflow-x: hidden;
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+}
+
+/* App root and layout wrappers: clip anything that tries to leak past 100vw */
+#__next,
+main {
+  width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
 }
 
@@ -372,4 +383,33 @@ html:not(.dark) {
 .ken-burns {
   animation: kenBurns 18s ease-in-out infinite alternate;
   will-change: transform;
+}
+
+/* === Horizontal tab / filter scrollers === */
+/* Tabs and tournament filter pills scroll smoothly INSIDE their own container
+   (touch momentum on iOS) and never push the page body sideways. */
+.tabs-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  min-width: 0;
+  max-width: 100%;
+}
+.tabs-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.tabs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tabs-scroll::-webkit-scrollbar-thumb {
+  background: rgba(198, 255, 0, 0.22);
+  border-radius: 9999px;
+}
+
+/* Reserve room for the mobile sticky footer ad so it never covers content. */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 60px;
+  }
 }
