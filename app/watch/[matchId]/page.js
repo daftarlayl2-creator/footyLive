@@ -4,6 +4,7 @@ import MatchCountdown from '@/components/MatchCountdown';
 import MatchStatsSection from '@/components/MatchStatsSection';
 import LiveScoreboard from '@/components/LiveScoreboard';
 import VotingBar from '@/components/predictions/VotingBar';
+import MatchInsights from '@/components/predictions/MatchInsights';
 import MatchChatPanel from '@/components/chat/MatchChatPanel';
 import GoalAlerts from '@/components/goals/GoalAlerts';
 import AdSlot from '@/components/ads/AdSlot';
@@ -98,8 +99,9 @@ export default async function WatchPage({ params, searchParams }) {
           matchId={matchId}
           homeTeam={match.homeTeam}
           awayTeam={match.awayTeam}
-          homeScore={match.homeScore ?? 0}
-          awayScore={match.awayScore ?? 0}
+          homeScore={match.homeScore}
+          awayScore={match.awayScore}
+          status={match.status}
         />
       </div>
 
@@ -159,6 +161,8 @@ export default async function WatchPage({ params, searchParams }) {
         <div className="flex w-full min-w-0 flex-col gap-6">
           {/* Fan predictions bar above the stream player */}
           <VotingBar matchId={matchId} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
+
+          <MatchInsights key={matchId} matchId={matchId} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
 
           {/* Player window block: every resolved server goes to the player's selector / failover chain */}
           {channels.length > 0 || (streamUrl && !errorMsg) ? (

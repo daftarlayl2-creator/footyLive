@@ -5,6 +5,7 @@ import { Play, Clock, ShieldAlert, Star, Flag, Timer } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { isTeamFavorited, toggleFavoriteTeam } from '@/lib/utils/favorites';
 import ClubLink from '@/components/clubs/ClubLink';
+import useGoalAudio from '@/lib/hooks/useGoalAudio';
 
 function TeamBadge({ team, size = 'h-9 w-9' }) {
   const [imgError, setImgError] = useState(false);
@@ -72,8 +73,10 @@ export default function MatchCard({ match, tab }) {
     };
     checkFavs();
     window.addEventListener('favorites-updated', checkFavs);
+    window.addEventListener('storage', checkFavs);
     return () => {
       window.removeEventListener('favorites-updated', checkFavs);
+      window.removeEventListener('storage', checkFavs);
     };
   }, [homeTeam?.name, awayTeam?.name]);
 
@@ -105,6 +108,8 @@ export default function MatchCard({ match, tab }) {
     home: activeLiveData?.scorers?.home?.length ? activeLiveData.scorers.home : live?.scorers?.home || [],
     away: activeLiveData?.scorers?.away?.length ? activeLiveData.scorers.away : live?.scorers?.away || [],
   };
+
+  useGoalAudio([{ id, status: activeLiveData?.status ?? status, homeScore: displayHomeScore, awayScore: displayAwayScore }], () => homeFav || awayFav);
 
   const currentMinute = liveMinute || (currentMinuteNumber ? `${currentMinuteNumber}'` : '');
   const kickoff = new Date(timestamp);
@@ -190,10 +195,12 @@ export default function MatchCard({ match, tab }) {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleFavoriteTeam(homeTeam?.name);
+                toggleFavoriteTeam(homeTeam);
               }}
               data-sound="toggle"
               className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+              aria-label={`${homeFav ? "Unfavorite" : "Favorite"} ${homeTeam?.name}`}
+              aria-pressed={homeFav}
               title={homeFav ? "Unfavorite Team" : "Favorite Team"}
             >
               <Star className={`h-3.5 w-3.5 transition-all ${homeFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
@@ -223,10 +230,12 @@ export default function MatchCard({ match, tab }) {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleFavoriteTeam(awayTeam?.name);
+                toggleFavoriteTeam(awayTeam);
               }}
               data-sound="toggle"
               className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+              aria-label={`${awayFav ? "Unfavorite" : "Favorite"} ${awayTeam?.name}`}
+              aria-pressed={awayFav}
               title={awayFav ? "Unfavorite Team" : "Favorite Team"}
             >
               <Star className={`h-3.5 w-3.5 transition-all ${awayFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
