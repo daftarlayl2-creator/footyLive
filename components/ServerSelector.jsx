@@ -77,7 +77,7 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
                   isActive
                     ? isFailed
                       ? 'border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400'
-                      : 'border-lime-500/45 bg-lime-600/10 text-lime-700 shadow-sm dark:text-lime-300 dark:shadow-[0_0_15px_rgba(50,205,50,0.12)]'
+                      : 'border-lime-500/45 bg-lime-600/10 text-lime-700 shadow-sm dark:text-lime-300 dark:shadow-[0_0_15px_rgba(198,255,0,0.12)]'
                     : isFailed
                       ? 'border-red-500/20 bg-red-500/[0.04] text-zinc-500 hover:border-red-500/40 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300'
                       : 'border-zinc-300 bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:border-navy-750 dark:bg-navy-950 dark:text-zinc-400 dark:hover:bg-navy-900 dark:hover:text-zinc-200'
@@ -107,7 +107,7 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
           Auto-switch
           <span
             className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${
-              autoSwitch ? 'bg-lime-600' : 'bg-zinc-300 dark:bg-zinc-800'
+              autoSwitch ? 'bg-lime-500' : 'bg-zinc-300 dark:bg-zinc-800'
             }`}
           >
             <span
@@ -165,7 +165,7 @@ export function ServerMenu({ servers, activeKey, statusOf, failed, onSelect }) {
         <div
           role="menu"
           aria-label="Servers"
-          className="absolute right-0 mt-2 w-52 animate-fade-in rounded-xl border border-navy-750 bg-[#0a1226]/95 p-1.5 shadow-2xl backdrop-blur-md"
+          className="absolute right-0 mt-2 w-52 animate-fade-in rounded-xl border border-navy-750 bg-navy-950/95 p-1.5 shadow-2xl backdrop-blur-md"
         >
           {servers.map((server) => {
             const status = statusOf(server);

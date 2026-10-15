@@ -76,6 +76,10 @@ export interface Match {
   note: string;
   sources: StreamSource[];
   fallbackChannels: { name: string; url: string }[];
+  /** Number of feed servers shown on a live ESPN card when the catalogue has none. */
+  feedStreamCount?: number;
+  /** These are other live channels, NOT a verified stream of this fixture. */
+  feedStreamIsFallback?: boolean;
   currentMinute: string;
   currentMinuteNumber: number;
   homeScore: number;

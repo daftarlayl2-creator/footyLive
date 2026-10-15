@@ -16,7 +16,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
         <div className="rounded-2xl border border-navy-750/80 bg-navy-950/80 overflow-hidden shadow-xl">
           <button
             onClick={() => setShowStats(!showStats)}
-            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-800 cursor-pointer"
+            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-750 cursor-pointer"
           >
             <span className="flex items-center gap-2.5">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime-500/10 border border-lime-500/20">
@@ -81,8 +81,8 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                       <div
                         className={`rounded-l-full transition-all duration-700 ease-out ${
                           homeLeads 
-                            ? 'bg-gradient-to-r from-lime-600 to-lime-500 shadow-[0_0_8px_rgba(50,205,50,0.3)]' 
-                            : 'bg-gradient-to-r from-lime-600/50 to-lime-500/40'
+                            ? 'bg-gradient-to-r from-lime-500 to-lime-400 shadow-[0_0_8px_rgba(198,255,0,0.3)]'
+                            : 'bg-gradient-to-r from-lime-500/50 to-lime-400/40'
                         }`}
                         style={{ width: `${homePct}%` }}
                       />
@@ -100,9 +100,9 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
               })}
 
               {/* Legend */}
-              <div className="flex items-center justify-center gap-6 pt-3 border-t border-navy-800">
+              <div className="flex items-center justify-center gap-6 pt-3 border-t border-navy-750">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-lime-600 to-lime-500" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-lime-500 to-lime-400" />
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{homeTeam?.name || 'Home'}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -120,7 +120,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
         <div className="rounded-2xl border border-navy-750/80 bg-navy-950/80 overflow-hidden shadow-xl">
           <button
             onClick={() => setShowCommentary(!showCommentary)}
-            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-800 cursor-pointer"
+            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-750 cursor-pointer"
           >
             <span className="flex items-center gap-2.5">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime-500/10 border border-lime-500/20">

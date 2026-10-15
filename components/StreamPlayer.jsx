@@ -499,7 +499,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
   if (servers.length === 0) {
     return (
-      <div className="flex w-full flex-col items-center justify-center rounded-2xl border border-navy-750 bg-[#0a1226] px-6 text-center" style={{ aspectRatio: '16/9' }}>
+      <div className="flex w-full flex-col items-center justify-center rounded-2xl border border-navy-750 bg-navy-950 px-6 text-center" style={{ aspectRatio: '16/9' }}>
         <AlertCircle className="mb-3 h-8 w-8 text-zinc-600" />
         <p className="text-sm font-bold text-white">No stream sources available</p>
         <p className="mt-1 text-xs text-zinc-500">Check back closer to kickoff.</p>
@@ -548,7 +548,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
         {/* Connecting screen (also explains an automatic switch); server-rendered too */}
         {isActivePhase && phase === 'connecting' && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#0a1226] px-6 text-center">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-navy-950 px-6 text-center">
             <div className="relative flex items-center justify-center">
               <div className="h-12 w-12 animate-spin rounded-full border-2 border-lime-500/20 border-t-lime-500" />
               <Cpu className="absolute h-5 w-5 animate-pulse text-lime-400" />
@@ -580,7 +580,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
         {/* Server failed and auto-switch is off */}
         {!isUpcoming && phase === 'failed' && activeServer && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a1226]/95 px-6 text-center">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-navy-950/95 px-6 text-center">
             <div className="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
               <AlertCircle className="h-6 w-6 text-red-400" />
             </div>
@@ -602,7 +602,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
               <button
                 type="button"
                 onClick={reloadStream}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-navy-800 bg-navy-900 px-4 py-2 text-xs font-bold text-zinc-300 transition-colors hover:text-white"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-navy-750 bg-navy-900 px-4 py-2 text-xs font-bold text-zinc-300 transition-colors hover:text-white"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Retry {activeServer.label}
@@ -613,7 +613,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
         {/* Every server failed */}
         {!isUpcoming && phase === 'exhausted' && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a1226]/95 px-6 text-center">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-navy-950/95 px-6 text-center">
             <div className="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
               <AlertCircle className="h-6 w-6 text-red-400" />
             </div>
@@ -642,8 +642,8 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center bg-black/40 opacity-0 backdrop-blur-[1.5px] animate-fade-in"
             style={{ animationDelay: '250ms' }}
           >
-            <div className="flex h-16 w-16 scale-100 transform items-center justify-center rounded-full border border-lime-300/30 bg-lime-500 text-navy-950 shadow-[0_0_30px_rgba(50,205,50,0.55)] transition-all duration-300 hover:scale-110 hover:bg-lime-400 active:scale-95">
-              <Play className="ml-1 h-7 w-7 fill-white" />
+            <div className="flex h-16 w-16 scale-100 transform items-center justify-center rounded-full border border-lime-300/30 bg-lime-500 text-navy-950 shadow-[0_0_30px_rgba(198,255,0,0.55)] transition-all duration-300 hover:scale-110 hover:bg-lime-400 active:scale-95">
+              <Play className="ml-1 h-7 w-7 fill-current" />
             </div>
           </div>
         )}
@@ -714,7 +714,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             {/* Live timeline indicator */}
             <div className="flex items-center gap-3">
               <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800/80">
-                <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-gradient-to-r from-lime-600 to-lime-400" />
+                <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-gradient-to-r from-lime-500 to-lime-400" />
               </div>
               <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-lime-500 dark:text-lime-400">
                 <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
@@ -823,10 +823,10 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
       {/* Action toolbar (Ad-Shield / native status, Refresh, Theater, Fullscreen) */}
       <div className="glass-panel flex flex-col justify-between gap-4 rounded-xl p-4 shadow-md lg:flex-row lg:items-center">
         {kind === 'embed' ? (
-          <div className="flex w-full items-center gap-3 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-2.5 shadow-inner dark:border-navy-800/60 dark:bg-navy-950/60 lg:w-auto">
+          <div className="flex w-full items-center gap-3 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-2.5 shadow-inner dark:border-navy-750/60 dark:bg-navy-950/60 lg:w-auto">
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${sandboxShield ? 'bg-green-500' : 'animate-pulse bg-red-400'}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${sandboxShield ? 'bg-lime-500' : 'animate-pulse bg-red-400'}`} />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
                   Ad-Shield {sandboxShield ? 'ON' : 'OFF'}
                 </span>
@@ -842,7 +842,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
               aria-label="Ad-Shield"
               onClick={toggleShield}
               className={`relative ml-auto inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none lg:ml-2 ${
-                sandboxShield ? 'bg-green-600' : 'bg-zinc-300 dark:bg-zinc-800'
+                sandboxShield ? 'bg-lime-500' : 'bg-zinc-300 dark:bg-zinc-800'
               }`}
             >
               <span
@@ -853,7 +853,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             </button>
           </div>
         ) : (
-          <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-800/60 dark:bg-navy-950/40 lg:w-auto">
+          <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-750/60 dark:bg-navy-950/40 lg:w-auto">
             <div className="flex flex-col text-left">
               <span className="text-[10px] font-bold uppercase tracking-wider text-lime-600 dark:text-lime-400">
                 Native Player Active
@@ -865,11 +865,11 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
           </div>
         )}
 
-        <div className="flex w-full items-center justify-end gap-2 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-1.5 shadow-inner dark:border-navy-800/60 dark:bg-navy-950/60 lg:w-auto">
+        <div className="flex w-full items-center justify-end gap-2 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-1.5 shadow-inner dark:border-navy-750/60 dark:bg-navy-950/60 lg:w-auto">
           <button
             type="button"
             onClick={reloadStream}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-950 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
             title="Reload Stream Connection"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${showMedia && phase === 'connecting' ? 'animate-spin' : ''}`} />
@@ -882,7 +882,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
               isTheaterMode
                 ? 'border-lime-500/45 bg-lime-600/10 text-lime-600 shadow-sm hover:bg-lime-600/20 dark:text-lime-400'
-                : 'border-zinc-300 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 hover:text-zinc-950 dark:border-navy-950 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'
+                : 'border-zinc-300 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 hover:text-zinc-950 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'
             }`}
             title={isTheaterMode ? 'Exit Theater Mode' : 'Enter Theater Mode'}
           >
@@ -893,7 +893,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-950 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
             title="Toggle Fullscreen"
           >
             <Maximize className="h-3.5 w-3.5" />

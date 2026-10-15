@@ -18,19 +18,19 @@ export default function LiveMinute({ apiMinute, apiMinuteNumber }) {
       <div className="flex items-center gap-2">
         <button
           onClick={() => setOffset(o => Math.max(o - 1, -5))}
-          className="rounded-full bg-zinc-800 p-1 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors shadow-inner"
+          className="rounded-full bg-navy-900 p-1 text-zinc-500 hover:bg-navy-750 hover:text-zinc-200 transition-colors shadow-inner"
           aria-label="Minus 1 minute"
         >
           <Minus className="h-3 w-3" />
         </button>
         
-        <span className="text-[13px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-lime-950/60 border border-lime-850/80 text-lime-400 min-w-[5ch] text-center tabular-nums shadow-sm">
+        <span className="text-[13px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-lime-500/10 border border-lime-500/30 text-lime-400 min-w-[5ch] text-center tabular-nums shadow-sm">
           {display}
         </span>
         
         <button
           onClick={() => setOffset(o => Math.min(o + 1, 10))}
-          className="rounded-full bg-zinc-800 p-1 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors shadow-inner"
+          className="rounded-full bg-navy-900 p-1 text-zinc-500 hover:bg-navy-750 hover:text-zinc-200 transition-colors shadow-inner"
           aria-label="Plus 1 minute"
         >
           <Plus className="h-3 w-3" />
@@ -44,8 +44,8 @@ export default function LiveMinute({ apiMinute, apiMinuteNumber }) {
           </span>
         ) : (
           <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lime-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-lime-500"></span>
           </span>
         )}
       </div>

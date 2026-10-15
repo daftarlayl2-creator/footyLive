@@ -114,6 +114,7 @@ describe('feed sniffing and config', () => {
     expect(parseFeedText(SAMPLE_M3U, FEED_URL).length).toBeGreaterThan(0);
     expect(parseFeedText('[{"name":"x","url":"https://cdn.example.com/x.m3u8"}]', FEED_URL)).toHaveLength(1);
     expect(parseFeedText('<html>nope</html>', FEED_URL)).toEqual([]);
+    expect(parseFeedText('#EXTM3U\n#EXT-X-TARGETDURATION:6\nhttps://cdn.example.com/segment.ts', FEED_URL)).toEqual([]);
   });
 
   it('reads LIVE_FEED_URLS, defaulting when unset and disabling on empty', () => {
@@ -256,6 +257,8 @@ describe('playback routing', () => {
 });
 
 describe('GitHub-hosted playlists', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('derives the Contents API URL for blob and raw URLs', () => {
     expect(
       githubContentsApiUrl('https://raw.githubusercontent.com/owner/repo/main/feed/playlist.m3u')
@@ -263,6 +266,8 @@ describe('GitHub-hosted playlists', () => {
     expect(
       githubContentsApiUrl('https://github.com/owner/repo/blob/master/playlist.m3u')
     ).toBe('https://api.github.com/repos/owner/repo/contents/playlist.m3u?ref=master');
+    expect(githubContentsApiUrl('https://api.github.com/repos/ibstvofficial/Live-events/contents/live.m3u8'))
+      .toBe('https://api.github.com/repos/ibstvofficial/Live-events/contents/live.m3u8');
     expect(githubContentsApiUrl('https://cdn.example.com/playlist.m3u')).toBeNull();
     expect(githubContentsApiUrl('not-a-url')).toBeNull();
   });
@@ -270,6 +275,9 @@ describe('GitHub-hosted playlists', () => {
   it('decodes a base64 contents payload and ignores junk', () => {
     const encoded = Buffer.from('#EXTM3U\n#EXTINF:-1,Channel A\nhttps://cdn.example.com/a.m3u8\n').toString('base64');
     expect(decodeGithubContents({ content: encoded, encoding: 'base64' })).toContain('#EXTM3U');
+    expect(decodeGithubContents({ content: `${encoded.slice(0, 16)}\n${encoded.slice(16)}`, encoding: 'base64' })).toContain('#EXTM3U');
+    expect(decodeGithubContents({ content: 'not base64!', encoding: 'base64' })).toBeNull();
+    expect(decodeGithubContents({ content: encoded, encoding: 'none' })).toBeNull();
     expect(decodeGithubContents({ content: '' })).toBeNull();
     expect(decodeGithubContents([{ type: 'dir' }])).toBeNull();
     expect(decodeGithubContents(null)).toBeNull();
@@ -290,6 +298,58 @@ describe('GitHub-hosted playlists', () => {
     const text = await fetchFeedText('https://raw.githubusercontent.com/owner/repo/main/playlist.m3u');
     expect(text).toContain('#EXTM3U');
     expect(calls[1]).toContain('api.github.com/repos/owner/repo/contents/playlist.m3u');
+  });
+
+  it('falls back when raw returns a 200 HTML block instead of silently caching 0 channels', async () => {
+    const playlist = Buffer.from(SAMPLE_M3U).toString('base64');
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      calls.push(String(url));
+      if (calls.length === 1) return new Response('<html>Blocked on this edge</html>');
+      return new Response(JSON.stringify({ encoding: 'base64', content: playlist }));
+    }));
+
+    const text = await fetchFeedText(FEED_URL);
+    expect(calls[1]).toContain('/repos/ibstvofficial/Live-events/contents/playlist.m3u');
+    expect(buildLiveChannels(parseFeedText(text, FEED_URL))).toHaveLength(2);
+  });
+
+  it('tries the requested live.m3u8 API, then the published playlist.m3u when live.m3u8 is 404', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      if (urls.length <= 2) return new Response('Not found', { status: 404 });
+      return new Response(JSON.stringify({ encoding: 'base64', content: Buffer.from(SAMPLE_M3U).toString('base64') }));
+    }));
+
+    const text = await fetchFeedText('https://raw.githubusercontent.com/ibstvofficial/Live-events/main/live.m3u8');
+    expect(urls[1]).toContain('https://api.github.com/repos/ibstvofficial/Live-events/contents/live.m3u8');
+    expect(urls[2]).toContain('/repos/ibstvofficial/Live-events/contents/playlist.m3u');
+    expect(buildLiveChannels(parseFeedText(text, FEED_URL))).toHaveLength(2);
+  });
+
+  it('accepts a configured Contents API URL directly and base64-decodes the published alternate', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      if (urls.length === 1) return new Response('missing', { status: 404 });
+      return new Response(JSON.stringify({ encoding: 'base64', content: Buffer.from(SAMPLE_M3U).toString('base64') }));
+    }));
+
+    const text = await fetchFeedText('https://api.github.com/repos/ibstvofficial/Live-events/contents/live.m3u8');
+    expect(urls).toEqual([
+      'https://api.github.com/repos/ibstvofficial/Live-events/contents/live.m3u8',
+      'https://api.github.com/repos/ibstvofficial/Live-events/contents/playlist.m3u',
+    ]);
+    expect(buildLiveChannels(parseFeedText(text, FEED_URL))).toHaveLength(2);
+  });
+
+  it('does not treat an empty or invalid GitHub API response as a successful feed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('raw.githubusercontent.com')) return new Response('blocked', { status: 403 });
+      return new Response(JSON.stringify({ encoding: 'base64', content: Buffer.from('<html>blocked</html>').toString('base64') }));
+    }));
+    await expect(fetchFeedText(FEED_URL)).rejects.toThrow('HTTP 403');
   });
 
   it('surfaces the original failure for non-GitHub feeds', async () => {

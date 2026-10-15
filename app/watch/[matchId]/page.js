@@ -78,7 +78,7 @@ export default async function WatchPage({ params, searchParams }) {
       <div>
         <Link
           href={`/?tab=${backTab}`}
-          className="inline-flex items-center gap-2 rounded-lg bg-navy-950/70 border border-navy-800 px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 hover:shadow-md transition-all group"
+          className="inline-flex items-center gap-2 rounded-lg bg-navy-950/70 border border-navy-750 px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 hover:shadow-md transition-all group"
         >
           <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
           Back to Fixtures
@@ -128,11 +128,17 @@ export default async function WatchPage({ params, searchParams }) {
         </div>
       )}
 
+      {channels.some((ch) => ch.provider === 'livefeed-fallback') && (
+        <p role="status" className="rounded-xl border border-lime-500/30 bg-navy-900 px-4 py-3 text-xs text-zinc-300">
+          No match-specific M3U channel was found. The extra live channels below are best-effort backups and may show a different fixture.
+        </p>
+      )}
+
       {/* Player window block: every resolved server goes to the player's selector / failover chain */}
       {channels.length > 0 || (streamUrl && !errorMsg) ? (
         <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
       ) : (
-        <div className="flex aspect-video items-center justify-center rounded-2xl border border-navy-750 bg-[#0b132b] p-6 shadow-2xl">
+        <div className="flex aspect-video items-center justify-center rounded-2xl border border-navy-750 bg-navy-950 p-6 shadow-2xl">
           <div className="text-center space-y-3 max-w-xs">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-900 border border-navy-750">
               <RefreshCw className="h-5 w-5 text-zinc-500 animate-spin" />

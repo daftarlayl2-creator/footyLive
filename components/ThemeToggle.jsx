@@ -8,47 +8,45 @@ export default function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Detect theme on initial mount
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(savedTheme);
-    
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    // The server always paints dark. Only a saved light preference overrides it.
+    let savedTheme = 'dark';
+    try {
+      if (localStorage.getItem('theme') === 'light') savedTheme = 'light';
+    } catch (_) {
+      /* storage unavailable; keep the default */
     }
+    setTheme(savedTheme);
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
     setMounted(true);
   }, []);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
-    localStorage.setItem('theme', nextTheme);
-
-    if (nextTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    try {
+      localStorage.setItem('theme', nextTheme);
+    } catch (_) {
+      /* storage unavailable; this session can still switch */
     }
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
   };
 
   if (!mounted) {
-    return (
-      <div className="h-8 w-8 rounded-lg bg-navy-900/40 border border-navy-750 animate-pulse" />
-    );
+    return <div className="h-8 w-8 rounded-lg border border-navy-750 bg-navy-900/60 animate-pulse" aria-hidden="true" />;
   }
 
   return (
     <button
+      type="button"
       onClick={toggleTheme}
-      className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:border-navy-750/80 dark:bg-navy-900/60 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/70 transition-all duration-300 hover:scale-110 active:scale-95 shadow-sm group cursor-pointer"
+      className="group flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-navy-200 bg-white text-lime-700 shadow-sm transition-all hover:scale-110 hover:border-lime-500/50 hover:bg-lime-500/10 active:scale-95 dark:border-navy-750 dark:bg-navy-900 dark:text-lime-500"
       title={theme === 'dark' ? 'Activate Light Mode' : 'Activate Dark Mode'}
+      aria-label={theme === 'dark' ? 'Activate Light Mode' : 'Activate Dark Mode'}
     >
-      <span className="sr-only">Toggle Theme</span>
       {theme === 'dark' ? (
-        <Sun className="h-4 w-4 text-amber-500 transition-transform duration-500 group-hover:rotate-90 group-hover:scale-110" />
+        <Sun className="h-4 w-4 transition-transform duration-500 group-hover:rotate-90" aria-hidden="true" />
       ) : (
-        <Moon className="h-4 w-4 text-lime-600 transition-transform duration-500 group-hover:-rotate-45 group-hover:scale-110" />
+        <Moon className="h-4 w-4 transition-transform duration-500 group-hover:-rotate-45" aria-hidden="true" />
       )}
     </button>
   );

@@ -52,7 +52,7 @@ export default async function ChannelPage({ params }) {
     <div className="space-y-6 w-full max-w-6xl mx-auto">
       <Link
         href="/channels"
-        className="inline-flex items-center gap-2 rounded-lg bg-navy-950/70 border border-navy-800 px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-lime-400 hover:border-lime-500/40 transition-all"
+        className="inline-flex items-center gap-2 rounded-lg bg-navy-950/70 border border-navy-750 px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-lime-400 hover:border-lime-500/40 transition-all"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to channels

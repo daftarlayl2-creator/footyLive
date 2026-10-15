@@ -1,13 +1,11 @@
 # ⚽ EVIV Live — Real-Time Football Scores & Live Streams
 
-**EVIV Live** is a high-performance, ad-free live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Navy Blue / Lime Green** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
+**EVIV Live** is a high-performance, ad-free live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Deep Burgundy / Electric Lime** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
 
 **No mock data, ever.** Fixtures, scores, match minutes, cards, scorers and statistics are read straight from ESPN's public scoreboard JSON. Streaming sources are aggregated from public feeds/providers and always played through a signed first-party proxy.
 
-> **Brand:** page/surfaces `#0a192f` · `#0b132b` · `#112240`, accents `#32CD32` → `#00ff00`.
-> **Mark:** a soaring eagle silhouette (Navy/Lime) above the *EVIV Live* wordmark.
-
-<img alt="EVIV Live dashboard" src="https://github.com/user-attachments/assets/d304e7f0-2c1e-4520-8935-f281a5183ccf" />
+> **Brand:** page `#18030A` · cards `#280713` · borders `#3D0B1D` · neon lime `#C6FF00`. Dark is the default; light is an explicit opt-in.
+> **Mark:** the EVIV Live eagle, wordmark and animated on-air signal are one responsive SVG lockup.
 
 ---
 
@@ -17,12 +15,12 @@
 * ⚽ **Live Match Statistics on the Cards**: live cards show the real score, the real match minute (`62'`, `HT`, `90'+3'`), yellow/red card chips counted from the scoreboard's match details and the goal scorers for both sides. Each card then polls `/api/match/{id}` every 30 s to stay current.
 * 🗂️ **Live / Upcoming / Finished Tabs**: past, live and upcoming fixtures of the day in one dashboard, with tournament filters, multi-select search, favourite-team pinning and kickoff countdowns.
 * 📊 **Enterprise Match Statistics**: real boxscore comparison rows (possession, shots, corners, fouls, cards …) with proportional bars — lime for home, sky for away — next to the real key-events log on the match page.
-* 📡 **Channels That Never Disappear**: `/channels` server-renders every channel from the live feeds, shows all statuses by default and labels CDN-blocked probes **Standby** instead of dumping them into the offline pile. Clicking a channel *always* routes to the signed `/api/proxy` player, whatever the probe said.
-* 🎨 **Navy & Lime Design System**: Tailwind v4 `@theme` tokens (`navy-*`, `lime-*`) drive every surface, button, active state and player control; lime `live-dot` pulses on live badges, and cards animate with a hover lift, ring and sheen sweep (all disabled under `prefers-reduced-motion`).
+* 📡 **Channels That Never Disappear**: `/channels` server-renders the currently published `playlist.m3u`, falling back to GitHub’s base64 Contents API if raw access is blocked/HTML. It shows all statuses by default; CDN-blocked probes are **Standby**. Clicking a channel attempts playback through the signed `/api/proxy` player even if a probe failed.
+* 🎨 **Burgundy & Lime Design System**: Tailwind v4 `@theme` tokens (legacy `navy-*` utility names now map to burgundy shades; `lime-*` maps to the new electric lime) drive every surface, button, active state and player control. Cards and live badges animate, respecting `prefers-reduced-motion`.
 * 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback, alongside iframe embeds with togglable sandbox shields.
 * 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls, plus a **Retry all** that re-signs fresh links.
 * 🖥️ **Multistream Arena**: up to four matches side by side in a drag-to-resize grid with per-tile volume.
-* 🌓 **Light & Dark Themes**, slow-network resilience (SWR caching, retry/recovery, skeletons) and an installable PWA with an offline fallback.
+* 🌓 **Dark mode by default** (light mode remains optional), slow-network resilience (SWR caching, retry/recovery, skeletons) and an installable PWA with a branded offline fallback.
 
 ---
 
@@ -54,6 +52,8 @@ ESPN scoreboard (all/scoreboard?dates=YYYYMMDD)        ← fixtures, scores, min
         │
         ├── lib/streamEngine.ts    → merges catalogue stream servers onto the ESPN fixture
         │                            (fuzzy team matching; ESPN stays authoritative)
+        │                         → offers up to 3 confirmed/standby feed channels as
+        │                            unverified backups for unlinked live ESPN fixtures
         │
         └── summary / CDN game package → stats + play-by-play
                  • /soccer/all/summary?event=ID            (tried first)
@@ -61,7 +61,7 @@ ESPN scoreboard (all/scoreboard?dates=YYYYMMDD)        ← fixtures, scores, min
                  • cdn.espn.com/core/soccer/game?xhr=1&gameId=ID   (league-agnostic fallback)
 ```
 
-**Caching:** scoreboards 15 s upstream / 20 s in-app, summaries 45 s, probe results 90 s (in-memory SWR, or Upstash Redis when configured). The home page and `/api/matches` render dynamically so a visitor never sees a stale static snapshot.
+**Caching:** scoreboards 15 s upstream / 20 s in-app, summaries 45 s, feeds 5 min, probe results 90 s (in-memory SWR, or Upstash Redis when configured). The home page and `/api/matches` render dynamically so a visitor never sees a stale static snapshot.
 
 ---
 
@@ -83,15 +83,15 @@ footylive/
 │   ├── channel/[id]/          # Proxied playback for one channel + bounded status check
 │   ├── watch/[matchId]/       # Live scoreboard, real stats, play-by-play, player + failover
 │   ├── multistream/           # Up to 4 simultaneous players
-│   ├── layout.js              # EVIV Live header (eagle mark above the wordmark), footer, glows
-│   ├── globals.css            # Tailwind v4 @theme: navy & lime palettes, glass, animations
+│   ├── layout.js              # Responsive SVG lockup in the header/footer, dark mode default
+│   ├── globals.css            # Tailwind v4 @theme: burgundy & lime palettes, glass, animations
 │   └── page.js                # Home dashboard (dynamic, live data)
 ├── components/
-│   ├── BrandLogo.jsx          # Eagle silhouette SVG (navy/lime), favicon + header + footer
+│   ├── BrandLogo.jsx          # Responsive eagle + wordmark + on-air SVG lockup
 │   ├── MatchCard.jsx          # Real live cards: minute, cards, scorers, FT state, lime pulse
 │   ├── MatchGrid.jsx          # Live / Upcoming / Finished tabs, tournament shelf, search
 │   ├── MatchStatsSection.jsx  # Real stat bars (lime home · sky away) + key-events log
-│   ├── LiveScoreboard.jsx     # Live scoreboard with thematic skins, cards and scorers
+│   ├── LiveScoreboard.jsx     # Burgundy/lime scoreboard, cards and scorers
 │   ├── LiveChannelsGrid.jsx   # Channels with Live / Standby / Unreachable statuses
 │   ├── StreamPlayer.jsx       # hls.js/native playback, failover, sandbox toggle
 │   └── ServerSelector.jsx     # Server 1 … Backup selector + in-player menu
@@ -101,7 +101,7 @@ footylive/
 │   ├── broadcast/             # Feed parsers, channel resolver, resilient probe
 │   ├── cache/                 # In-memory SWR + optional Upstash Redis
 │   ├── player/                # Server labels, stream-kind detection, failover machine
-│   ├── utils/matching.ts      # Jaro-Winkler style team/league matching
+│   ├── utils/matching.ts      # Fuzzy team and league matching
 │   └── streamEngine.ts        # Merges real fixtures with stream sources; HMAC URL signing
 └── public/                    # manifest.json, icon.svg (eagle), offline.html, sw.js
 ```
@@ -143,6 +143,9 @@ STREAM_SECRET="default_stream_hmac_secret_key_123_abc"
 # UPSTASH_REDIS_REST_TOKEN=""
 ```
 
+> The default feed is `playlist.m3u`; `live.m3u8` currently returns 404 in that repository.
+> When a GitHub raw fetch fails or returns HTML, the matching Contents API file is base64-decoded.
+> If an explicitly configured `live.m3u8` is missing, `playlist.m3u` is tried as an alternate.
 > ESPN's public endpoints need no key. If your network blocks them, today's fixtures will be empty
 > (the dashboard says so and retries automatically) — nothing is replaced with placeholder data.
 
@@ -164,6 +167,7 @@ Cloudflare Workers build: `npm run build:cloudflare`.
 npm run test
 ```
 The suite covers the ESPN normalisers (live/upcoming/finished, minutes, cards, scorers, stats),
+GitHub raw-to-Contents fallback, the signed and transparently labelled live-channel backups,
 the channel probe policy (blocked → Standby, 404 → offline, HEAD-blocked → GET retry), the proxy
 signing, the failover machine and server-rendered brand/live UI assertions.
 
@@ -171,13 +175,13 @@ signing, the failover machine and server-rendered brand/live UI assertions.
 
 ## 🛠️ Developer REST API Directory
 
-Interactive documentation lives at [`/api-hub`](https://eviv.live/api-hub).
+Interactive documentation lives at [`/api-hub`](https://eviv.si/api-hub).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/matches` | GET | Every real fixture of the day (live, finished, upcoming) merged with catalogue servers |
+| `/api/matches` | GET | ESPN fixtures enriched with catalogue servers or best-effort live-feed preview counts |
 | `/api/match/[matchId]` | GET | Live score, minute, cards, scorers and incidents for one match |
-| `/api/streams/[matchId]` | GET | Resolved servers with signed proxy URLs |
+| `/api/streams/[matchId]` | GET | Match-specific streams plus (live ESPN only) signed, unverified channel backups |
 | `/api/stream-redirect` | GET | HMAC-validated redirect to upstream embed URLs |
 | `/api/proxy` | GET | Signed HLS relay: playlists rewritten server-side, segments streamed, `Range`/`206`/CORS preserved |
 | `/api/live-channels` | GET | Feed channels + best-effort status (`live`, `unknown` → “Standby”, `offline`); never hides channels |
@@ -194,7 +198,7 @@ Interactive documentation lives at [`/api-hub`](https://eviv.live/api-hub).
 | `offline` | Upstream answered 404/410 or served an HTML page | **Unreachable** pill — playback still attempted |
 | `checking` | Probe still running | Amber **Checking** pill |
 
-Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL regardless of the probe result.
+Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL regardless of the probe result. For an unlinked *live* ESPN fixture only, up to three football feed channels (confirmed live first, standby next; known offline excluded) are offered as **unverified backups**. They are not claimed to broadcast that fixture; playback depends on the third-party source.
 
 ---
 
@@ -207,7 +211,7 @@ Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL re
 
 ### Coding Standards
 * **Real data first**: never introduce mock fixtures, placeholder scores or fabricated minutes. Missing upstream values are omitted, not invented.
-* **Brand palette**: use the `navy-*` / `lime-*` tokens from `@theme` in `globals.css` (Tailwind v4). Lime is an accent — pairing it with `text-navy-950` keeps contrast accessible.
+* **Brand palette**: use the burgundy-alias `navy-*` / electric `lime-*` tokens from `@theme`. Pair neon lime with `text-navy-950` for contrast.
 * **Responsive Design**: every component must work on mobile, tablet and ultrawide screens.
 * **Sandbox Integrity**: keep third-party ads and redirects isolated inside the player sandbox.
 * **Tests**: normalisers and probe policy changes come with `vitest` cases (`npm run test`).

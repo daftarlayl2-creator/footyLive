@@ -204,7 +204,7 @@ export default function MatchGrid({ matches, defaultTab }) {
       )}
 
       {/* Control panel & Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-5 rounded-xl shadow-md dark:shadow-lg border border-zinc-200/80 dark:border-navy-800/60">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-5 rounded-xl shadow-md dark:shadow-lg border border-zinc-200/80 dark:border-navy-750/60">
         
         {/* Sliding Tabs */}
         <div className="flex rounded-lg bg-zinc-200/60 dark:bg-navy-950 p-1 border border-zinc-300/45 dark:border-navy-750/80 max-w-xs shrink-0">
@@ -268,7 +268,7 @@ export default function MatchGrid({ matches, defaultTab }) {
         const isAllSelected = selectedLeagues.length === 0;
 
         return (
-          <div className="space-y-3.5 p-4 sm:p-5 bg-white/80 dark:bg-navy-850/50 border border-zinc-200/80 dark:border-navy-800/60 rounded-2xl shadow-sm transition-all duration-300">
+          <div className="space-y-3.5 p-4 sm:p-5 bg-white/80 dark:bg-navy-850/50 border border-zinc-200/80 dark:border-navy-750/60 rounded-2xl shadow-sm transition-all duration-300">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                 <Filter className="h-3.5 w-3.5 text-lime-500" />
