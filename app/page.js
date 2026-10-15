@@ -1,5 +1,6 @@
 import { getMatches } from '@/lib/streamEngine';
 import MatchGrid from '@/components/MatchGrid';
+import { getHeroBanner } from '@/lib/bannerProvider';
 
 // Live dashboard: always rendered on demand, with the upstream scoreboard
 // itself cached for 15-20s inside the ESPN provider.
@@ -16,6 +17,7 @@ export default async function Home({ searchParams }) {
   const tab = resolvedSearchParams?.tab || 'live';
 
   const matches = await getMatches();
+  const banner = await getHeroBanner(matches).catch(() => null);
 
   const now = Date.now();
   const dayAgo = now - 36 * 60 * 60 * 1000;
@@ -38,7 +40,7 @@ export default async function Home({ searchParams }) {
 
   return (
     <div className="space-y-5">
-      <MatchGrid matches={visible} defaultTab={tab} />
+      <MatchGrid matches={visible} defaultTab={tab} banner={banner} />
     </div>
   );
 }

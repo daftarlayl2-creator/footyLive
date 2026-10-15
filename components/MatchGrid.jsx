@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Filter, Flame, Calendar, Star, ChevronLeft, ChevronRight, Flag } from 'lucide-react';
+import { Search, Filter, Calendar, Star, ChevronLeft, ChevronRight, Flag, CheckCircle, Video } from 'lucide-react';
 import MatchCard from './MatchCard';
 import { useRouter } from 'next/navigation';
 import { getFavoriteTeams } from '@/lib/utils/favorites';
@@ -30,9 +30,19 @@ function Trophy({ className }) {
   );
 }
 
-export default function MatchGrid({ matches, defaultTab }) {
+export default function MatchGrid({ matches, defaultTab, banner }) {
   const router = useRouter();
   const [tab, setTab] = useState(defaultTab);
+  const [highlights, setHighlights] = useState([]);
+  useEffect(() => {
+    if (tab !== 'highlights') return;
+    let cancelled = false;
+    fetch('/api/highlights', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setHighlights(d.highlights || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [tab]);
   const [search, setSearch] = useState('');
   const [selectedLeagues, setSelectedLeagues] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -164,26 +174,30 @@ export default function MatchGrid({ matches, defaultTab }) {
   }, [filtered, favorites]);
 
   return (
-    <div className="space-y-8 relative">
+    <div className="space-y-8 relative w-full max-w-full overflow-x-hidden">
       {/* Decorative desktop illustrations */}
       <Ball className="fixed left-6 top-28 h-20 w-20 opacity-40 rotate-12 hidden xl:block animate-pulse-slow" />
       <Trophy className="fixed right-6 top-32 h-20 w-20 opacity-40 rotate-45 hidden xl:block animate-pulse-slow" />
 
-      {/* Hero Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-navy-750/80 bg-gradient-to-r from-white via-zinc-50/50 to-white dark:from-zinc-950 dark:via-[#101c38] dark:to-zinc-950 px-6 py-8 shadow-md dark:shadow-xl transition-all duration-350">
-        <div className="absolute top-0 right-0 w-[300px] h-full bg-gradient-to-l from-lime-500/5 dark:from-lime-600/10 to-transparent pointer-events-none filter blur-xl" />
-        <div className="relative z-10 max-w-lg space-y-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-lime-100 border border-lime-200 dark:bg-lime-500/10 dark:border-lime-500/25 px-3 py-1 text-xs font-semibold text-lime-700 dark:text-lime-400">
+      {/* Dynamic event-driven hero banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-navy-750/80 shadow-md dark:shadow-xl transition-all duration-350" style={{ minHeight: 180 }}>
+        <div
+          className="absolute inset-0 bg-cover bg-center ken-burns"
+          style={{ backgroundImage: `url(${banner?.backgroundImage || 'https://images.unsplash.com/photo-1459865264687-595d652de67e?auto=format&fit=crop&w=1920&q=80'})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-navy-950/90 via-navy-950/60 to-transparent" />
+        <div className="relative z-10 max-w-lg space-y-2 px-6 py-8">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-lime-500/10 border border-lime-500/25 px-3 py-1 text-xs font-semibold text-lime-400">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lime-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-lime-500"></span>
             </span>
-            Real-time football data
+            {banner?.competition || 'Real-time football data'}
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-navy-900 dark:text-white">
-            Never Miss a Single Kick
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            {banner?.tagline || 'Never Miss a Single Kick'}
           </h1>
-          <p className="text-sm text-navy-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-300">
             Every fixture of the day — live scores, match minutes, cards and statistics pulled straight from the
             live scoreboard, next to premium ad-free streams.
           </p>
@@ -216,7 +230,7 @@ export default function MatchGrid({ matches, defaultTab }) {
                 : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
-            <Flame className={`h-3.5 w-3.5 ${tab === 'live' ? 'animate-pulse' : ''}`} />
+            <span className={`inline-flex h-2 w-2 rounded-full bg-red-500 ${tab === 'live' ? 'live-dot' : ''}`} />
             Live Now ({live.length})
           </button>
           <button
@@ -238,8 +252,19 @@ export default function MatchGrid({ matches, defaultTab }) {
                 : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
-            <Flag className="h-3.5 w-3.5" />
+            <CheckCircle className="h-3.5 w-3.5" />
             Finished ({finished.length})
+          </button>
+          <button
+            onClick={() => setTab('highlights')}
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+              tab === 'highlights'
+                ? 'bg-lime-500 text-navy-950 shadow-md shadow-lime-600/25'
+                : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+            }`}
+          >
+            <Video className="h-3.5 w-3.5" />
+            Highlights & Goals
           </button>
         </div>
 
@@ -382,7 +407,25 @@ export default function MatchGrid({ matches, defaultTab }) {
       })()}
 
       {/* Fixtures Listings */}
-      {filtered.length === 0 ? (
+      {tab === 'highlights' ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {highlights.map((h) => (
+            <a key={h.id} href="/highlights" className="group relative overflow-hidden rounded-xl border border-navy-750 bg-navy-900 shadow-md">
+              <div className="relative aspect-video w-full overflow-hidden bg-black">
+                {h.thumbnail && <img src={h.thumbnail} alt={h.title} className="h-full w-full object-cover opacity-80" />}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-500 text-navy-950"><Video className="h-4 w-4 fill-current" /></span>
+                </div>
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-bold text-white truncate">{h.title}</p>
+                <p className="text-[11px] text-zinc-400 truncate">{h.competition}</p>
+              </div>
+            </a>
+          ))}
+          {highlights.length === 0 && <p className="text-zinc-500 text-sm">Loading highlights…</p>}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 glass-panel rounded-xl shadow-md">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 border border-zinc-200 dark:bg-navy-950 dark:border-navy-750 shadow-inner">
             <svg className="h-6 w-6 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

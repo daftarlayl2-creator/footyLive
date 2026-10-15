@@ -56,6 +56,7 @@ export default function MatchCard({ match, tab }) {
   const feedCount = status === 'live' && match.source === 'espn' ? match.feedStreamCount || 0 : 0;
   const serverCount = sources.length || feedCount;
   const unverifiedFeed = !sources.length && feedCount > 0 && match.feedStreamIsFallback;
+  const hasHighlight = Boolean(match.highlight || match.highlightUrl || match.highlightVideo || match.hasHighlight || (Array.isArray(match.highlights) && match.highlights.length));
 
   const [liveData, setLiveData] = useState(null);
   const [homeFav, setHomeFav] = useState(false);
@@ -247,6 +248,12 @@ export default function MatchCard({ match, tab }) {
             `${serverCount} stream server${serverCount !== 1 ? 's' : ''}`
           )}
         </span>
+
+        {hasHighlight && (status === 'live' || status === 'finished') && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-lime-500/30 bg-lime-500/10 px-2 py-0.5 text-[10px] font-extrabold text-lime-600 dark:text-lime-400">
+            Watch Goals 🎥
+          </span>
+        )}
 
         {serverCount > 0 ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-lime-600 dark:text-lime-400 group-hover:text-lime-500 dark:group-hover:text-lime-300 transition-colors">

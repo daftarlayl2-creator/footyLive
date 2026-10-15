@@ -1,7 +1,7 @@
 import './globals.css';
 import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
-import { Database, Layers, Radio } from 'lucide-react';
+import { Layers, Play, Radio } from 'lucide-react';
 
 export const metadata = {
   title: 'EVIV Live — Real-Time Football Scores & Live Streams',
@@ -51,7 +51,7 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body className="antialiased min-h-screen relative bg-navy-50 text-navy-900 dark:bg-navy-950 dark:text-zinc-100 flex flex-col items-center transition-colors duration-300 w-full" suppressHydrationWarning>
+      <body className="antialiased min-h-screen relative bg-navy-50 text-navy-900 dark:bg-navy-950 dark:text-zinc-100 flex flex-col items-center transition-colors duration-300 w-full max-w-full overflow-x-hidden" suppressHydrationWarning>
         {/* Ambient brand glows */}
         <div className="glow-orb glow-orb-lime w-[600px] h-[600px] -top-[200px] -left-[150px] opacity-[0.06] dark:opacity-20 transition-opacity duration-300" />
         <div className="glow-orb glow-orb-navy w-[500px] h-[500px] top-[40%] -right-[150px] opacity-10 dark:opacity-30 transition-opacity duration-300" />
@@ -74,6 +74,14 @@ export default function RootLayout({ children }) {
                 <span className="hidden sm:inline">Live Channels</span>
               </a>
               <a
+                href="/highlights"
+                aria-label="Highlights"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
+              >
+                <Play className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Highlights</span>
+              </a>
+              <a
                 href="/multistream"
                 aria-label="Multi-View"
                 className="lime-cta inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold sm:px-3.5"
@@ -87,7 +95,7 @@ export default function RootLayout({ children }) {
         </header>
 
         {/* Content wrapper */}
-        <main className="relative z-10 w-full flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8 flex-1">
+        <main className="relative z-10 w-full max-w-full flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8 flex-1 overflow-x-hidden">
           <div className="w-full max-w-6xl mx-auto flex flex-col items-stretch">
             {children}
           </div>
@@ -102,23 +110,7 @@ export default function RootLayout({ children }) {
                 streams are aggregated from third-party networks.
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <a
-                href="/api-hub"
-                className="flex items-center gap-1.5 rounded-lg border border-navy-750 bg-navy-900/40 px-3 py-1.5 font-bold transition-all hover:border-lime-500/40 hover:text-lime-400 active:scale-95"
-              >
-                <Database className="h-3.5 w-3.5" aria-hidden="true" />
-                API Developer Hub
-              </a>
-              <a
-                href="https://github.com/daftarlayl2-creator/footyLive"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-lg border border-navy-750 bg-navy-900/40 px-3 py-1.5 font-bold transition-all hover:border-lime-500/40 hover:text-lime-400 active:scale-95"
-              >
-                GitHub
-              </a>
-            </div>
+
           </div>
         </footer>
       </body>

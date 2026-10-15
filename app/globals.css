@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
@@ -68,7 +68,8 @@
   --animate-float: float 6s ease-in-out infinite;
 
   /* Font family */
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
 }
 
 /* === Tailwind v4: Use class-based dark mode === */
@@ -106,8 +107,12 @@ body {
 }
 
 body {
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
+}
+
+h1, h2, h3, .score-number, .brand-title {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
 }
 
 html {
@@ -357,4 +362,14 @@ html:not(.dark) {
 .custom-horizontal-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(198, 255, 0, 0.22) transparent;
+}
+
+/* Ken Burns zoom on hero banner background */
+@keyframes kenBurns {
+  0% { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.12) translate(-2%, -1%); }
+}
+.ken-burns {
+  animation: kenBurns 18s ease-in-out infinite alternate;
+  will-change: transform;
 }
