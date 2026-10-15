@@ -1,5 +1,6 @@
 import { getMatchDetails, getMatchStats, resolveAllStreams } from '@/lib/streamEngine';
 import StreamPlayer from '@/components/StreamPlayer';
+import StreamAutoResolver from '@/components/StreamAutoResolver';
 import MatchCountdown from '@/components/MatchCountdown';
 import MatchStatsSection from '@/components/MatchStatsSection';
 import LiveScoreboard from '@/components/LiveScoreboard';
@@ -10,7 +11,7 @@ import GoalAlerts from '@/components/goals/GoalAlerts';
 import AdSlot from '@/components/ads/AdSlot';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, MapPin, RefreshCw, Trophy } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Trophy } from 'lucide-react';
 
 export const revalidate = 10;
 
@@ -36,36 +37,36 @@ export default async function WatchPage({ params, searchParams }) {
   const resolvedSearchParams = await searchParams;
   const backTab = resolvedSearchParams?.tab || 'live';
 
-  let match = null;
   let streamUrl = null;
   let channels = [];
-  let errorMsg = null;
+  let streamsFailed = false;
   let stats = null;
 
-  const userFacingErrors = {
-    'No streams available from any provider': 'No streams are available for this match right now.',
-    'Match not found': 'This match could not be found. It may have been removed.',
-  };
+  // One retry absorbs a transient fixture-provider hiccup.
+  let match = await getMatchDetails(matchId).catch(() => getMatchDetails(matchId)).catch(() => null);
+  const matchFound = Boolean(match);
 
-  try {
-    match = await getMatchDetails(matchId);
-    if (!match) throw new Error('Match not found');
-
-    const [resolved, statsResult] = await Promise.all([
+  if (match) {
+    // Streams and statistics are independent: a fixture without a server yet
+    // still shows its stats, line-ups and commentary.
+    const [streamsResult, statsResult] = await Promise.allSettled([
       resolveAllStreams(match.title, matchId, match.homeTeam?.name || '', match.awayTeam?.name || '', match),
       getMatchStats(matchId),
     ]);
-    streamUrl = resolved.proxiedUrl || resolved.url;
-    channels = resolved.channels || [];
-    stats = statsResult;
-  } catch (err) {
-    errorMsg = userFacingErrors[err.message] || 'Unable to load this match. Please try again.';
-    match = await getMatchDetails(matchId);
-  }
-
-  if (!match) {
+    if (streamsResult.status === 'fulfilled') {
+      streamUrl = streamsResult.value.proxiedUrl || streamsResult.value.url;
+      channels = streamsResult.value.channels || [];
+    } else {
+      // "No streams available from any provider" (or a resolver outage).
+      streamsFailed = true;
+    }
+    stats = statsResult.status === 'fulfilled' ? statsResult.value : null;
+  } else {
     match = createFallbackMatch(matchId);
   }
+
+  const hasServers = channels.length > 0 || Boolean(streamUrl && !streamsFailed);
+  const backupsOnly = channels.length > 0 && channels.every((ch) => ch.provider?.includes('fallback'));
 
   const dateStr = new Date(match.timestamp).toLocaleDateString([], {
     weekday: 'short',
@@ -132,9 +133,9 @@ export default async function WatchPage({ params, searchParams }) {
           dateStr,
           timeStr,
         }} />
-      ) : (
+      ) : matchFound ? (
         <MatchCountdown timestamp={match.timestamp} status={match.status} />
-      )}
+      ) : null /* An unknown fixture has no kickoff: a countdown to "now" would refresh the page in a loop. */}
 
       {/* Special notifications banners — driven by the real upstream state */}
       {match.status === 'finished' && (
@@ -157,9 +158,9 @@ export default async function WatchPage({ params, searchParams }) {
         </div>
       )}
 
-      {channels.some((ch) => ch.provider === 'livefeed-fallback') && (
-        <p role="status" className="rounded-2xl border border-lime-500/30 bg-navy-900 px-4 py-3 text-xs text-zinc-300">
-          No match-specific M3U channel was found. The extra live channels below are best-effort backups and may show a different fixture.
+      {backupsOnly && (
+        <p role="status" className="rounded-2xl border border-lime-500/30 bg-navy-900 px-4 py-3 text-xs text-zinc-300" data-backup-notice="">
+          No match-specific stream was found, so the player is using live backup channels from the IPTV feeds. They are checked for being on air, but may show a different fixture.
         </p>
       )}
 
@@ -178,41 +179,17 @@ export default async function WatchPage({ params, searchParams }) {
 
           <MatchInsights key={matchId} matchId={matchId} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
 
-          {/* Player window block: every resolved server goes to the player's selector / failover chain */}
-          {channels.length > 0 || (streamUrl && !errorMsg) ? (
+          {/* Player window block: every resolved server goes to the player's selector / failover chain.
+              A live fixture without a server keeps re-resolving instead of dead-ending. */}
+          {hasServers || match.status === 'upcoming' ? (
             <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-3xl border border-navy-750 bg-navy-950 p-6 shadow-2xl">
-              <div className="text-center space-y-3 max-w-xs">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-900 border border-navy-750">
-                  <RefreshCw className="h-5 w-5 text-zinc-300 animate-spin" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">Stream is Offline</p>
-                  {errorMsg ? (
-                    <p className="mt-1 text-xs text-zinc-300">{errorMsg}</p>
-                  ) : (
-                    <p className="mt-1 text-xs text-zinc-300">The aggregation engine is resolving stream routes.</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                  <a
-                    href="/channels"
-                    className="tactile inline-flex items-center gap-1.5 rounded-xl lime-cta px-3 py-1.5 text-[11px] font-bold"
-                  >
-                    Browse live channels
-                  </a>
-                  <a
-                    href={`/watch/${matchId}`}
-                    className="tactile inline-flex items-center gap-1.5 rounded-xl border border-navy-750 px-3 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white hover:border-lime-500/40 transition-all"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Retry servers
-                  </a>
-                </div>
-                <p className="text-[10px] text-zinc-400">Fixtures, scores and statistics keep updating even when a stream is offline.</p>
-              </div>
-            </div>
+            <StreamAutoResolver
+              key={matchId}
+              matchId={matchId}
+              matchTitle={match.title}
+              matchStatus={!matchFound ? 'missing' : match.status === 'finished' ? 'finished' : 'live'}
+            />
           )}
 
           {/* Banner 728x90 below the player (desktop) */}

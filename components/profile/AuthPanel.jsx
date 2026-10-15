@@ -81,7 +81,7 @@ export default function AuthPanel({ provider, guestName, initialMode = 'signup' 
         <VerifiedBadge size={18} />
       </h2>
       <p className="relative mt-0.5 text-[11px] font-semibold text-zinc-300">
-        Registered fans get the blue verified badge in chat and on their profile.
+        Registered fans get the lime &amp; burgundy verified badge in chat and on their profile.
       </p>
 
       <div role="tablist" aria-label="Account" className="relative mt-4 grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-black/25 p-1">

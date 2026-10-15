@@ -4,7 +4,9 @@ import { withShowcaseSnapshot } from './showcase';
 import type { PlayerProfile } from './types';
 
 const upstream = vi.hoisted(() => vi.fn());
+const sportsDb = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/providers/espn', () => ({ espnFetch: upstream }));
+vi.mock('@/lib/providers/http', () => ({ fetchJson: sportsDb }));
 vi.mock('@/lib/cache/cacheManager', () => ({ getCacheManager: () => ({ swr: (_key: string, load: () => unknown) => load() }) }));
 vi.mock('@/lib/logger', () => ({ default: { warn: vi.fn() } }));
 import { getPlayerProfile, PlayerDataUnavailableError } from './playerProfile';
@@ -24,7 +26,11 @@ const statistics = { splits: { categories: [
 ] } };
 const roster = { season: { year: 2026, displayName: '2026-27 Spanish La Liga' }, team: athlete.team, athletes: [{ ...athlete, statistics }] };
 
-beforeEach(() => { upstream.mockReset(); });
+const CUTOUT = 'https://r2.thesportsdb.com/images/media/player/cutout/yamal.png';
+beforeEach(() => {
+  upstream.mockReset();
+  sportsDb.mockReset().mockResolvedValue({ player: [{ strPlayer: 'Lamine Yamal', strSport: 'Soccer', dateBorn: '2007-07-13', strCutout: CUTOUT }] });
+});
 
 describe('player profile normalization', () => {
   it('builds player identity, club context and all five season metrics without losing real zeroes', () => {
@@ -122,6 +128,22 @@ describe('player data loading', () => {
       throw new Error('HTTP 404');
     });
     expect(await getPlayerProfile('362150')).toMatchObject({ name: 'Lamine Yamal', season: { appearances: 8, goals: 0 }, club: { id: '83' } });
+  });
+
+  it('gives a featured player a transparent cutout first, keeping the ESPN headshots as fallbacks', async () => {
+    upstream.mockImplementation(async (url: string) => {
+      if (url.endsWith('/362150/overview')) return overview;
+      if (url.endsWith('/esp.1/teams/83/roster')) return roster;
+      throw new Error('HTTP 404');
+    });
+    const profile = await getPlayerProfile('362150');
+    expect(profile?.featured).toBe(true);
+    expect(profile?.portraits?.map(({ src }) => src)).toEqual([
+      CUTOUT, 'https://cdn.example.com/yamal.png', 'https://a.espncdn.com/i/headshots/soccer/players/full/362150.png',
+    ]);
+    // A portrait outage never hides the player.
+    sportsDb.mockRejectedValue(new Error('HTTP 429'));
+    expect((await getPlayerProfile('362150', '83', 'esp.1'))?.portraits?.[0].src).toBe('https://cdn.example.com/yamal.png');
   });
 
   it('creates a roster-backed profile when a league does not support the athlete overview API', async () => {

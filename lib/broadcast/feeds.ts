@@ -14,7 +14,10 @@ import { getCacheManager } from '../cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl, parseSafeUpstreamUrl } from '../hlsProxy';
 import { parseM3U } from './m3u';
 import { parseJsonFeed } from './json';
-import { canonicalFeedUrl, isIptvOrgFeed, IPTV_ORG_SPORTS_API, IPTV_ORG_SPORTS_URL, GUOVIN_IPTV_API_URL } from './sources';
+import {
+  canonicalFeedUrl, isGuovinFeed, isIptvOrgFeed, IPTV_ORG_SPORTS_API, IPTV_ORG_SPORTS_URL, GUOVIN_IPTV_API_URL,
+  GUOVIN_RELEASES_API, STANDBY_FEED_URL, guovinContentsApiUrl, guovinVariant, type GuovinVariant,
+} from './sources';
 import type { FeedEntry, LiveChannel } from './types';
 
 // This is the file currently published by Live-events; live.m3u8 may be
@@ -42,6 +45,17 @@ const BROWSER_UA =
  * Live-events playlist ships several of these pointing at a dummy .mp4).
  */
 const PROMO_TITLE_RE = /promotion|download|telegram|whatsapp|t\.me|contact us|advertis/i;
+
+/**
+ * Groups that carry generator metadata rather than channels — e.g. Guovin's
+ * first entry, group `🕘️更新时间` ("update time"), whose title is a timestamp.
+ */
+const META_GROUP_RE = /更新时间|更新時間|last\s*update|update(?:d)?\s*(?:time|at)/i;
+
+/** Promotional banners and generator metadata entries are never channels. */
+export function isNonChannelEntry(entry: Pick<FeedEntry, 'name' | 'group'>): boolean {
+  return PROMO_TITLE_RE.test(entry.name) || META_GROUP_RE.test(entry.group || '');
+}
 
 export function getFeedUrls(raw: string | undefined = process.env.LIVE_FEED_URLS): string[] {
   if (raw === undefined) return DEFAULT_LIVE_FEEDS;
@@ -75,6 +89,21 @@ export function isPlayableFeedUrl(url: string): boolean {
   return parseSafeUpstreamUrl(url) !== null && isDirectStreamUrl(url);
 }
 
+/** Formats hls.js cannot play (raw TS/FLV, DASH, multicast relays, …). */
+const NON_HLS_URL_RE = /\.(?:flv|ts|ctv|mpd|mkv|avi|rmvb|wmv)(?:[?#]|$)|\/(?:rtp|udp|rtsp|igmp)\//i;
+
+/**
+ * Extension-less entries from the official IPTV-Org category and the Guovin
+ * generator (e.g. `Smart.php?id=cctv5plus` HLS redirectors) are kept as
+ * candidates. They are never auto-injected as backups without a live media
+ * probe; the proxy sniffs extension-less playlists when one is played.
+ */
+function isProbeGatedCandidate(entry: Pick<FeedEntry, 'url' | 'feedUrl'>): boolean {
+  if (!parseSafeUpstreamUrl(entry.url)) return false;
+  if (isIptvOrgFeed(entry.feedUrl)) return true;
+  return isGuovinFeed(entry.feedUrl) && !NON_HLS_URL_RE.test(entry.url);
+}
+
 /** Stable channel id: survives playlist refreshes that rotate URL tokens. */
 export function channelIdFor(entry: FeedEntry): string {
   const key = `${canonicalFeedUrl(entry.feedUrl)}|${entry.tvgId || entry.name.trim().toLowerCase()}`;
@@ -91,10 +120,8 @@ export function buildLiveChannels(entries: FeedEntry[]): LiveChannel[] {
   const out: LiveChannel[] = [];
 
   for (const entry of entries) {
-    if (PROMO_TITLE_RE.test(entry.name)) continue;
-    // Published IPTV-Org entries also use extensionless HLS endpoints. Keep
-    // those candidates, but never auto-inject them without a live media probe.
-    if (!isPlayableFeedUrl(entry.url) && !(isIptvOrgFeed(entry.feedUrl) && parseSafeUpstreamUrl(entry.url))) continue;
+    if (isNonChannelEntry(entry)) continue;
+    if (!isPlayableFeedUrl(entry.url) && !isProbeGatedCandidate(entry)) continue;
     if (seenUrls.has(entry.url)) continue;
     seenUrls.add(entry.url);
 
@@ -224,7 +251,6 @@ async function fetchFeedTextOnce(feedUrl: string): Promise<string> {
   return assertPlaylist(text, feedUrl);
 }
 
-/** Fetch one playlist, retrying via GitHub's base64 Contents API when raw fetching fails. */
 /** Fallback URLs for the Guovin IPTV-API GitHub Pages playlist. */
 function guovinFallbackUrls(feedUrl: string): string[] {
   try {
@@ -241,6 +267,74 @@ function guovinFallbackUrls(feedUrl: string): string[] {
   }
 }
 
+const RELEASE_ASSET_RE = /^https:\/\/github\.com\/Guovin\/iptv-api\/releases\/download\/[\w.-]+\/(?:result|ipv4|ipv6)\.m3u$/;
+
+/**
+ * Download URL of the newest `playlist-*` release asset for a variant.
+ * Guovin's `releases/latest` is the desktop GUI release (no playlists), so
+ * the list is scanned newest-first for the first release carrying the file.
+ */
+export function pickGuovinReleaseAsset(releases: unknown, variant: GuovinVariant): string | null {
+  if (!Array.isArray(releases)) return null;
+  for (const release of releases) {
+    if (!release || release.draft || !Array.isArray(release.assets)) continue;
+    const asset = release.assets.find((item: any) => item?.name === `${variant}.m3u`);
+    const url = typeof asset?.browser_download_url === 'string' ? asset.browser_download_url : '';
+    if (RELEASE_ASSET_RE.test(url)) return url;
+  }
+  return null;
+}
+
+async function fetchGithubContents(apiUrl: string, feedUrl: string): Promise<string> {
+  const res = await fetch(apiUrl, {
+    headers: { 'User-Agent': BROWSER_UA, Accept: 'application/vnd.github+json' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(FEED_API_TIMEOUT_MS),
+  });
+  if (!res.ok) { await res.body?.cancel().catch(() => {}); throw new Error(`HTTP ${res.status}`); }
+  const text = decodeGithubContents(JSON.parse(await readBoundedText(res, Math.ceil(MAX_FEED_BYTES * 1.4) + 4096)));
+  if (!text) throw new Error('Missing or invalid base64 playlist');
+  return assertPlaylist(text, feedUrl);
+}
+
+async function fetchGuovinRelease(variant: GuovinVariant, feedUrl: string): Promise<string> {
+  const res = await fetch(GUOVIN_RELEASES_API, {
+    headers: { 'User-Agent': BROWSER_UA, Accept: 'application/vnd.github+json' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(FEED_API_TIMEOUT_MS),
+  });
+  if (!res.ok) { await res.body?.cancel().catch(() => {}); throw new Error(`HTTP ${res.status}`); }
+  const asset = pickGuovinReleaseAsset(JSON.parse(await readBoundedText(res, MAX_FEED_BYTES)), variant);
+  if (!asset) throw new Error('No playlist release asset');
+  return assertPlaylist(await fetchFeedTextOnce(asset), feedUrl);
+}
+
+/**
+ * Every other transport for a Guovin playlist, raced in parallel so a dead
+ * Pages deployment costs one timeout, not a queue of them: the sibling Pages
+ * variants, the newest `playlist-*` release asset and finally the generator's
+ * `gd` output branch through the Contents API (older, but real, data).
+ */
+async function fetchGuovinMirrors(feedUrl: string): Promise<string> {
+  const variant = guovinVariant(feedUrl);
+  if (!variant) throw new Error('Not a Guovin playlist');
+  const attempts: Array<Promise<string>> = [
+    ...guovinFallbackUrls(feedUrl).map((url) => fetchFeedTextOnce(url)),
+    fetchGuovinRelease(variant, feedUrl),
+  ];
+  const contents = guovinContentsApiUrl(variant);
+  if (contents !== feedUrl) attempts.push(fetchGithubContents(contents, feedUrl));
+  try {
+    const text = await Promise.any(attempts);
+    logger.info('Guovin playlist loaded through a mirror', { feed: feedUrl });
+    return text;
+  } catch (err: any) {
+    logger.debug('Guovin playlist mirrors failed', { feed: feedUrl, error: err?.errors?.map((e: Error) => e?.message) });
+    throw new Error('Guovin playlist mirrors unavailable');
+  }
+}
+
+/** Fetch one playlist, retrying via GitHub's base64 Contents API when raw fetching fails. */
 export async function fetchFeedText(feedUrl: string): Promise<string> {
   let firstError: unknown;
   // A Contents API URL may also be supplied directly in LIVE_FEED_URLS.
@@ -257,29 +351,21 @@ export async function fetchFeedText(feedUrl: string): Promise<string> {
   // API fallback before it has a chance to make a request on Vercel.
   for (const apiUrl of githubContentsCandidates(feedUrl)) {
     try {
-      const res = await fetch(apiUrl, {
-        headers: { 'User-Agent': BROWSER_UA, Accept: 'application/vnd.github+json' },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(FEED_API_TIMEOUT_MS),
-      });
-      if (!res.ok) { await res.body?.cancel().catch(() => {}); throw new Error(`HTTP ${res.status}`); }
-      const text = decodeGithubContents(JSON.parse(await readBoundedText(res, Math.ceil(MAX_FEED_BYTES * 1.4) + 4096)));
-      if (!text) throw new Error('Missing or invalid base64 playlist');
-      const playlist = assertPlaylist(text, feedUrl);
+      const playlist = await fetchGithubContents(apiUrl, feedUrl);
       logger.info('Live feed loaded through the GitHub contents API', { feed: feedUrl, apiUrl });
       return playlist;
     } catch (err: any) {
       logger.debug('GitHub contents fallback failed', { feed: feedUrl, apiUrl, error: err?.message });
+      if (!firstError) firstError = err;
     }
   }
 
-  // Guovin publishes complete, IPv4-only and IPv6-only variants. Try the
-  // sibling variants when the requested one is unavailable.
-  for (const fallbackUrl of guovinFallbackUrls(feedUrl)) {
+  // Guovin publishes complete, IPv4-only and IPv6-only variants on Pages, as
+  // release assets and on its `gd` branch: any of them is the same real data.
+  if (guovinVariant(feedUrl)) {
     try {
-      return await fetchFeedTextOnce(fallbackUrl);
-    } catch (err: any) {
-      logger.debug('Guovin playlist fallback failed', { feed: feedUrl, fallbackUrl, error: err?.message });
+      return await fetchGuovinMirrors(feedUrl);
+    } catch (err) {
       if (!firstError) firstError = err;
     }
   }
@@ -341,7 +427,6 @@ async function refreshLiveChannels(urls: string[]): Promise<LiveChannel[]> {
 /** Standby channels used when every feed path is down. These are long-lived,
  *  public 24/7 HLS streams — real playback, honestly labelled — so the
  *  /channels grid always renders something instead of an error banner. */
-const STANDBY_FEED_URL = 'eviv://standby';
 
 const STATIC_FALLBACK_ENTRIES: FeedEntry[] = [
   {

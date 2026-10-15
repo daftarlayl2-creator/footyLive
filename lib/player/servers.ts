@@ -10,7 +10,9 @@
  *    current server fails it moves on to the next one nobody has tried yet in
  *    this failover chain, and reports `exhausted` once every server failed.
  *    After an embedded provider page fails, direct HLS/MP4 backups are tried
- *    first (they do not depend on a third-party page). Viewers can also report
+ *    first (they do not depend on a third-party page); after a direct stream
+ *    fails (restricted, offline, unsupported), an embedded web player is tried
+ *    first (it is delivered over a different path). Viewers can also report
  *    a broken embed (`skip`), and `autoRetryDelay()` paces the automatic
  *    "retry every server" rounds once the whole list is exhausted.
  */
@@ -271,8 +273,11 @@ const isDirectKind = (kind: StreamKind | undefined) => kind === 'hls' || kind ==
 /**
  * Next server to try after `active`: walk the list in order (wrapping round),
  * skip servers already tried in this chain, and prefer ones that have not
- * failed earlier. When `kinds` says the active server is an embedded provider
- * page, untried direct HLS/MP4 backups come first. Returns -1 when every
+ * failed earlier. Delivery paths alternate when `kinds` is known: after an
+ * embedded provider page fails, untried direct HLS/MP4 backups come first;
+ * after a direct stream fails — geo/CDN-restricted, offline, or not playable
+ * in this browser — an untried embedded web player comes first, since it does
+ * not depend on the proxy/CDN path that just failed. Returns -1 when every
  * server has been tried.
  */
 export function pickNextServer(
@@ -296,6 +301,10 @@ export function pickNextServer(
   if (kinds && kinds[keys[active]] === 'embed') {
     const direct = fresh.find((i) => isDirectKind(kinds[keys[i]]));
     if (direct !== undefined) return direct;
+  }
+  if (kinds && isDirectKind(kinds[keys[active]])) {
+    const embed = fresh.find((i) => kinds[keys[i]] === 'embed');
+    if (embed !== undefined) return embed;
   }
   return fresh[0] ?? candidates[0] ?? -1;
 }

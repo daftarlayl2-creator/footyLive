@@ -13,6 +13,9 @@ import VotingBar from './predictions/VotingBar';
 import { MatchInsightsContent } from './predictions/MatchInsights';
 import ClubHero from './club/ClubHero';
 import VerifiedBadge from './auth/VerifiedBadge';
+import UserAvatar, { avatarSealLayout } from './auth/UserAvatar';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import CrestDrop from './clubs/CrestDrop';
 import MatchChatPanel from './chat/MatchChatPanel';
 import ProfileDashboard from './profile/ProfileDashboard';
@@ -200,6 +203,20 @@ describe('StreamPlayer embeds', () => {
     await render(<StreamPlayer channels={channels} matchStatus="live" />);
     await waitFor(() => expect(container.querySelector('iframe').getAttribute('src')).toBe('https://provider-b.example/embed/2'));
     expect(container.textContent).toContain('Provider player refused to load');
+  });
+
+  it('switches a restricted direct stream to the next embedded web player', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json({ health: 'unknown' })));
+    const channels = [
+      { url: 'https://cdn.example/live/geo-blocked.mp4', kind: 'mp4' },
+      { url: 'https://cdn.example/live/second.mp4', kind: 'mp4' },
+      { url: 'https://provider-c.example/embed/3', kind: 'embed' },
+    ];
+    await render(<StreamPlayer channels={channels} matchStatus="live" />);
+    await waitFor(() => expect(container.querySelector('video')).not.toBeNull());
+    await act(async () => container.querySelector('video').dispatchEvent(new Event('error')));
+    await waitFor(() => expect(container.querySelector('iframe[data-player-frame]')?.getAttribute('src')).toBe('https://provider-c.example/embed/3'));
+    expect(container.textContent).toContain('Switched to Backup');
   });
 
   it('probes signed provider links server-side and prefers the direct backup on failure', async () => {
@@ -391,12 +408,60 @@ describe('liquid-glass crests', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('verified badge', () => {
-  it('is an accessible brand seal', () => {
+  it('is an accessible brand seal in EVIV lime and deep burgundy', () => {
     const html = renderToStaticMarkup(<VerifiedBadge size={20} />);
     expect(html).toContain('role="img"');
     expect(html).toContain('aria-label="Verified fan"');
     expect(html).toContain('<title>Verified fan</title>');
-    expect(html).toContain('#C6FF00');
+    expect(html).toContain('#CCFF00');
+    expect(html).toContain('#2A0813');
+    // The old blue rosette is gone.
+    expect(html).not.toMatch(/#1D9BF0|#6FD3FF|#1A4FD6/i);
+  });
+
+  it('renders in a fixed 1:1 box so it never stretches next to a username', async () => {
+    await render(<p className="flex items-center gap-1"><span className="min-w-0 truncate">A very long fan display name</span><VerifiedBadge size={13} /></p>);
+    const badge = container.querySelector('[data-verified-badge]');
+    expect(badge.tagName).toBe('SPAN');
+    expect(badge.className).toContain('verified-badge');
+    expect(badge.style.getPropertyValue('--vb-size')).toBe('13px');
+    const seal = badge.querySelector('svg');
+    expect(seal.getAttribute('aria-hidden')).toBe('true');
+    expect([seal.getAttribute('width'), seal.getAttribute('height')]).toEqual(['13', '13']);
+    // Only the scalloped rosette turns; the check stays upright.
+    expect(badge.querySelector('.verified-badge__rosette path')).not.toBeNull();
+    expect(badge.querySelector('.verified-badge__glow').getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('spins and glows subtly in CSS, sized from --vb-size, and stops for reduced motion', () => {
+    const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
+    const block = (selector) => css.slice(css.indexOf(`${selector} {`), css.indexOf('}', css.indexOf(`${selector} {`)));
+    expect(block('.verified-badge')).toMatch(/flex:\s*none/);
+    expect(block('.verified-badge')).toMatch(/width:\s*var\(--vb-size\)/);
+    expect(block('.verified-badge')).toMatch(/isolation:\s*isolate/);
+    expect(block('.verified-badge__rosette')).toContain('animation: subtle-spin 12s linear infinite');
+    expect(block('.verified-badge__glow')).toContain('subtle-spin 12s linear infinite');
+    expect(css).toMatch(/@keyframes subtle-spin\s*{\s*to\s*{\s*transform:\s*rotate\(360deg\)/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*{\s*\.verified-badge__rosette,\s*\.verified-badge__glow\s*{\s*animation:\s*none/);
+    expect(block('.avatar-seal')).toMatch(/z-index:\s*10/);
+  });
+
+  it('pins the seal on the avatar frame edge at every size, above the picture', async () => {
+    for (const size of [20, 28, 72, 96]) {
+      const { seal, box, offset } = avatarSealLayout(size);
+      // Centre of the seal's disc sits on the circle at 45° (within a pixel).
+      const centre = size - offset - box / 2;
+      expect(Math.abs(centre - (size / 2) * (1 + Math.SQRT1_2))).toBeLessThanOrEqual(1);
+      expect(seal).toBeGreaterThanOrEqual(12);
+      expect(seal).toBeLessThanOrEqual(Math.max(12, size * 0.4));
+    }
+    await render(<UserAvatar name="Curva Sud" size={96} verified />);
+    const avatar = container.querySelector('[data-user-avatar]');
+    expect(avatar.className).toContain('isolate');
+    const corner = avatar.querySelector('[data-avatar-seal]');
+    expect(corner.className).toBe('avatar-seal');
+    expect(corner.style.width).toBe(corner.style.height);
+    expect(corner.querySelector('[data-verified-badge]').style.getPropertyValue('--vb-size')).toBe(`${avatarSealLayout(96).seal}px`);
   });
 });
 

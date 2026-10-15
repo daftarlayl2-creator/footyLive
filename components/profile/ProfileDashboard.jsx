@@ -17,7 +17,7 @@ import ProfileEditor from './ProfileEditor';
 
 function Chip({ tone = 'neutral', children }) {
   const tones = {
-    verified: 'border-sky-400/40 bg-sky-400/15 text-sky-100',
+    verified: 'border-eviv-lime/40 bg-eviv-burgundy/80 text-eviv-lime',
     pending: 'border-amber-400/40 bg-amber-400/10 text-amber-100',
     level: 'border-lime-500/35 bg-lime-500/10 text-lime-200',
     neutral: 'border-white/10 bg-white/5 text-zinc-200',
@@ -50,14 +50,15 @@ function ProfileHero({ auth, guestName, level }) {
   return (
     <section className="glass-dark relative overflow-hidden rounded-3xl p-5 sm:p-7" aria-labelledby="profile-heading" data-profile-hero="">
       <span className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-lime-500/10 blur-3xl" aria-hidden="true" />
-      <span className="pointer-events-none absolute -bottom-24 right-0 h-64 w-64 rounded-full bg-sky-500/10 blur-3xl" aria-hidden="true" />
+      <span className="pointer-events-none absolute -bottom-24 right-0 h-64 w-64 rounded-full bg-navy-600/25 blur-3xl" aria-hidden="true" />
 
       <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
         <UserAvatar name={name} avatarUrl={user?.avatarUrl} size={96} verified={Boolean(user?.verified)} />
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-            <h1 id="profile-heading" className="max-w-full truncate text-2xl font-black text-white sm:text-3xl">
+          {/* One row: a long name truncates, the seal keeps its size right beside it. */}
+          <div className="flex min-w-0 items-center justify-center gap-2 sm:justify-start">
+            <h1 id="profile-heading" className="min-w-0 truncate text-2xl font-black text-white sm:text-3xl">
               {name}
             </h1>
             {user?.verified && <VerifiedBadge size={26} />}

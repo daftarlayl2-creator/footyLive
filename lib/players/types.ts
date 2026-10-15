@@ -26,11 +26,24 @@ export interface SeasonPerformance {
   passAccuracy?: number;
 }
 
+/** One portrait candidate; the banner falls through them on image errors. */
+export interface PlayerPortrait {
+  src: string;
+  /** `cutout`/`headshot` are transparent PNGs; `photo` has its own background. */
+  kind: 'cutout' | 'headshot' | 'photo';
+  credit: 'ESPN' | 'TheSportsDB';
+}
+
 export interface PlayerProfile {
   id: string;
   name: string;
   fullName?: string;
+  /** ESPN headshot from the athlete payload, when published. */
   portrait?: string;
+  /** Ordered portrait candidates (see lib/players/portraits.ts). */
+  portraits?: PlayerPortrait[];
+  /** A showcase player with a dated editorial snapshot. */
+  featured?: boolean;
   dateOfBirth?: string;
   age?: number;
   position: string;

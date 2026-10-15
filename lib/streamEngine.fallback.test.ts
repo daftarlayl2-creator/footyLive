@@ -3,8 +3,9 @@ import type { Match } from './types';
 import type { LiveChannel } from './broadcast/types';
 import { buildLiveChannels } from './broadcast/feeds';
 import { PROXY_PATH, verifyProxySignature } from './hlsProxy';
-import { IPTV_ORG_SPORTS_URL } from './broadcast/sources';
+import { GUOVIN_IPTV_API_URL, IPTV_ORG_SPORTS_URL } from './broadcast/sources';
 import { resetIptvOrgSelection } from './broadcast/iptvOrg';
+import { resetLiveBackupSelection } from './broadcast/backups';
 
 const services = vi.hoisted(() => ({
   espnMatches: vi.fn(),
@@ -74,15 +75,23 @@ function proxyTarget(link: string): string {
   return target;
 }
 
+/** Strong-probe results keyed by upstream URL fragment; unmatched targets stay unknown. */
+function probeResults(rules: Record<string, 'live' | 'offline'>) {
+  return async (targets: Array<{ id: string; url: string }>) => Object.fromEntries(targets.flatMap(({ id, url }) => {
+    const status = Object.entries(rules).find(([needle]) => url.includes(needle))?.[1];
+    return status ? [[id, { status, mediaVerified: status === 'live', latencyMs: status === 'live' ? 80 : null, checkedAt: Date.now(), successRate: status === 'live' ? 1 : 0, samples: 3 }]] : [];
+  }));
+}
+
 beforeEach(() => {
   resetIptvOrgSelection();
-  services.health.mockReset().mockResolvedValue({});
+  resetLiveBackupSelection();
   services.espnMatches.mockReset().mockResolvedValue([match()]);
   services.catalogue.mockReset().mockResolvedValue([]);
   services.feed.mockReset().mockResolvedValue(CHANNELS);
-  services.statuses.mockReset().mockResolvedValue({
-    [CHANNELS[0].id]: 'live', [CHANNELS[1].id]: 'unknown', [CHANNELS[2].id]: 'offline',
-  });
+  services.statuses.mockReset().mockResolvedValue({});
+  // Roma is on air, City is blocked (unknown) and the third listing is gone.
+  services.health.mockReset().mockImplementation(probeResults({ '/roma/': 'live', '/gone/': 'offline' }));
 });
 
 describe('ESPN live stream backups', () => {
@@ -110,17 +119,18 @@ describe('ESPN live stream backups', () => {
     expect(resolved.channels[0].kind).toBe('hls');
   });
 
-  it('uses an exact M3U team match ahead of unrelated channels', async () => {
+  it('uses an exact M3U team match ahead of unrelated channels, which stay behind it as backups', async () => {
     const fixture = match({ title: 'Real Madrid vs Roma', homeTeam: { name: 'Real Madrid', badge: '' }, awayTeam: { name: 'Roma', badge: '' } });
     services.espnMatches.mockResolvedValue([fixture]);
     const [preview] = await getMatches();
     expect(preview).toMatchObject({ feedStreamCount: 1, feedStreamIsFallback: false });
-    expect(services.statuses).not.toHaveBeenCalled();
+    expect(services.health).not.toHaveBeenCalled();
 
     const resolved = await resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture);
-    expect(resolved.serverCount).toBe(1);
     expect(resolved.channels[0].provider).toBe('livefeed');
     expect(proxyTarget(resolved.channels[0].url)).toBe(CHANNELS[0].url);
+    // A geo-blocked or expired fixture link must fail over instead of dead-ending.
+    expect(resolved.channels.slice(1).map((ch) => [ch.provider, proxyTarget(ch.url)])).toEqual([['livefeed-fallback', CHANNELS[1].url]]);
   });
 
   it('retains match-specific catalogue servers first, with unrelated live channels only as backups', async () => {
@@ -134,13 +144,48 @@ describe('ESPN live stream backups', () => {
     const fixture = match({ status: 'upcoming' });
     await expect(resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture))
       .rejects.toThrow('No streams available');
-    expect(services.statuses).not.toHaveBeenCalled();
+    expect(services.health).not.toHaveBeenCalled();
 
-    services.statuses.mockResolvedValue(Object.fromEntries(CHANNELS.map((ch: LiveChannel) => [ch.id, 'offline'])));
+    services.health.mockImplementation(probeResults(Object.fromEntries(CHANNELS.map((ch: LiveChannel) => [new URL(ch.url).pathname, 'offline' as const]))));
     const [livePreview] = await getMatches();
     expect(livePreview.feedStreamCount).toBeUndefined();
     await expect(resolveAllStreams('Arsenal vs Liverpool', 'espn-700001', 'Arsenal', 'Liverpool', match()))
       .rejects.toThrow('No streams available');
+  });
+
+  it('maps live fixtures from catalogue providers too, not only ESPN ids', async () => {
+    const fixture = match({ id: 'wf-arsenal-liverpool', source: 'watchfooty' });
+    const resolved = await resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture);
+    expect(resolved.channels.map((ch) => ch.provider)).toEqual(['livefeed-fallback', 'livefeed-fallback']);
+  });
+});
+
+const GUOVIN = buildLiveChannels([
+  { name: 'CCTV-1', group: '📺央视频道', url: 'http://198.51.100.7/live/cctv1.m3u8', source: 'guovin.github.io', feedUrl: GUOVIN_IPTV_API_URL },
+  { name: '魅力足球', group: '🏀体育频道', url: 'http://198.51.100.8/live/mlzq.m3u8', source: 'guovin.github.io', feedUrl: GUOVIN_IPTV_API_URL },
+  { name: 'CCTV-5', group: '🏀体育频道', url: 'https://smart.example.org/Smart.php?id=cctv5', source: 'guovin.github.io', feedUrl: GUOVIN_IPTV_API_URL },
+]);
+
+describe('Guovin + IPTV-Org backup mapping (no early failure)', () => {
+  it('serves media-verified Guovin sports streams when the event feed has nothing on air', async () => {
+    services.feed.mockResolvedValue([...CHANNELS, ...GUOVIN]);
+    services.health.mockImplementation(probeResults({ '/mlzq.': 'live', 'Smart.php': 'live', '/cctv1.': 'live', '/roma/': 'offline', '/city/': 'offline', '/gone/': 'offline' }));
+    const fixture = match();
+    const resolved = await resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture);
+    expect(resolved.channels.map((ch) => [ch.name, ch.provider])).toEqual([
+      ['魅力足球', 'guovin-fallback-sports'],
+      ['CCTV-5', 'guovin-fallback-sports'],
+    ]);
+    // General TV (CCTV-1) never stands in for a football fixture; links are signed and first-party.
+    expect(resolved.channels.map((ch) => proxyTarget(ch.url))).toEqual([GUOVIN[1].url, GUOVIN[2].url]);
+    expect(resolved.channels.every((ch) => ch.kind === 'hls' && ch.health?.mediaVerified)).toBe(true);
+  });
+
+  it('never injects unverified Guovin entries', async () => {
+    services.feed.mockResolvedValue(GUOVIN);
+    services.health.mockResolvedValue({});
+    const fixture = match();
+    await expect(resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture)).rejects.toThrow('No streams available');
   });
 });
 
@@ -173,6 +218,7 @@ describe('official sports integration in the shared match/Multi-View resolver', 
 
   it('never bypasses the health gate through the legacy feed provider, even for a two-team title', async () => {
     services.feed.mockResolvedValue([{ ...OFFICIAL[0], name: 'Arsenal vs Liverpool' }]);
+    services.health.mockResolvedValue({});
     await expect(resolveAllStreams('Arsenal vs Liverpool', 'espn-700001', 'Arsenal', 'Liverpool', match())).rejects.toThrow('No streams available');
     expect(services.statuses).not.toHaveBeenCalled();
   });
@@ -194,6 +240,7 @@ describe('official sports integration in the shared match/Multi-View resolver', 
 
   it('does not offer unverified official preview counts or automatic backups for upcoming fixtures', async () => {
     services.feed.mockResolvedValue(OFFICIAL);
+    services.health.mockResolvedValue({});
     const [unverified] = await getMatches();
     expect(unverified.feedStreamCount).toBeUndefined();
     services.health.mockImplementation(async (targets) => working(targets));

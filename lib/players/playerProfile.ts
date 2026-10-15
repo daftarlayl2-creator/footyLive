@@ -4,6 +4,7 @@ import { espnFetch } from '@/lib/providers/espn';
 import logger from '@/lib/logger';
 import { normalizePlayerProfile, rosterAthlete } from './normalize';
 import { withShowcaseSnapshot } from './showcase';
+import { withPortraits } from './portraits';
 import type { PlayerProfile } from './types';
 
 const COMMON_API = 'https://site.web.api.espn.com/apis/common/v3/sports/soccer';
@@ -86,12 +87,13 @@ async function loadPlayer(id: string, clubId: string, league: string): Promise<P
   roster = currentRoster.status === 'fulfilled' ? currentRoster.value : null;
   // A stats outage never hides a valid player or replaces missing fields with 0.
   const profile = normalizePlayerProfile(overview, roster, stats.status === 'fulfilled' ? stats.value : null)!;
-  return withShowcaseSnapshot(profile);
+  // Cutout/headshot candidates for the card; a portrait outage never hides the player.
+  return withPortraits(withShowcaseSnapshot(profile));
 }
 
 export const getPlayerProfile = cache(async (id: string, clubParam = '', leagueParam = 'all'): Promise<PlayerProfile | null> => {
   if (!/^\d{1,10}$/.test(id)) return null;
   const clubId = /^\d{1,10}$/.test(clubParam) ? clubParam : '';
   const league = /^[a-z0-9.-]{1,40}$/i.test(leagueParam) ? leagueParam : 'all';
-  return getCacheManager().swr(`player:profile:v3:${id}:${clubId}:${league}`, () => loadPlayer(id, clubId, league), PROFILE_TTL_S);
+  return getCacheManager().swr(`player:profile:v4:${id}:${clubId}:${league}`, () => loadPlayer(id, clubId, league), PROFILE_TTL_S);
 });

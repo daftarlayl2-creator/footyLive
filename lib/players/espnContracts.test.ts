@@ -3,6 +3,8 @@ import contract from './__fixtures__/common-soccer-yamal.json';
 import { normalizePlayerProfile } from './normalize';
 const upstream = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/providers/espn', () => ({ espnFetch: upstream }));
+// Portrait enrichment (TheSportsDB) stays offline in contract tests.
+vi.mock('@/lib/providers/http', () => ({ fetchJson: vi.fn(async () => ({ player: null })) }));
 vi.mock('@/lib/cache/cacheManager', () => ({ getCacheManager: () => ({ swr: (_key: string, load: () => unknown) => load() }) }));
 vi.mock('@/lib/logger', () => ({ default: { warn: vi.fn() } }));
 import { getPlayerProfile, PlayerDataUnavailableError } from './playerProfile';
