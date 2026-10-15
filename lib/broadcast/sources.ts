@@ -38,3 +38,12 @@ export function isGuovinFeed(value: string): boolean {
     return false;
   }
 }
+
+/** Compatibility aliases for alternate naming used by callers/tests. */
+export const GUOVIN_FEED_URL = GUOVIN_IPTV_API_URL;
+export const GUOVIN_IPTV_API = GUOVIN_IPTV_API_URL;
+export const GUOVIN_RESULT_URL = GUOVIN_IPTV_API_URL;
+export const GUOVIN_RESULT_M3U = GUOVIN_IPTV_API_URL;
+export const GUOVIN_M3U_URL = GUOVIN_IPTV_API_URL;
+export function isGuovinIptvApi(value: string): boolean { return isGuovinFeed(value); }
+export function isGuovinSource(value: string): boolean { return isGuovinFeed(value); }
