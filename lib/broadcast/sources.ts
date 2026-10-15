@@ -18,3 +18,23 @@ export function canonicalFeedUrl(value: string): string {
 export function isIptvOrgFeed(value: string): boolean {
   return canonicalFeedUrl(value) === IPTV_ORG_SPORTS_URL;
 }
+
+/** Canonical provenance for the Guovin IPTV-API complete playlist. */
+export const GUOVIN_IPTV_API_URL = 'https://guovin.github.io/iptv-api/result.m3u';
+export const GUOVIN_IPTV_API_IPV4_URL = 'https://guovin.github.io/iptv-api/ipv4.m3u';
+export const GUOVIN_IPTV_API_IPV6_URL = 'https://guovin.github.io/iptv-api/ipv6.m3u';
+
+/** Aliases for callers/tests that use alternate naming. */
+export const GUOVIN_RESULT_M3U_URL = GUOVIN_IPTV_API_URL;
+export const GUOVIN_IPV4_M3U_URL = GUOVIN_IPTV_API_IPV4_URL;
+export const GUOVIN_IPV6_M3U_URL = GUOVIN_IPTV_API_IPV6_URL;
+
+export function isGuovinFeed(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.username || url.password) return false;
+    return url.hostname === 'guovin.github.io' && /^\/iptv-api\/(result|ipv4|ipv6)\.m3u$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
