@@ -22,9 +22,11 @@ export const DEFAULT_LIVE_FEEDS = [
   'https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u',
 ];
 
-/** How long a loaded set of feeds is reused before re-fetching. Tokens in
- *  upstream URLs rotate, so keep this well under the feeds' own refresh cycle. */
-export const FEED_CACHE_TTL_S = 5 * 60;
+/** How long a loaded set of feeds is reused before re-fetching. The feeds
+ *  refresh often and tokens rotate, so 10 minutes keeps the list fresh while
+ *  absorbing upstream rate limits and outages. */
+export const FEED_CACHE_TTL_S = 10 * 60;
+const FEED_CACHE_TTL_MS = FEED_CACHE_TTL_S * 1000;
 const FEED_RAW_TIMEOUT_MS = 3_500;
 const FEED_API_TIMEOUT_MS = 8_000;
 const MAX_FEED_BYTES = 5 * 1024 * 1024;
@@ -253,9 +255,95 @@ async function loadLiveChannels(): Promise<LiveChannel[]> {
   return channels;
 }
 
-/** All playable live channels from the configured feeds (cached). */
+/* -------------------------------------------------------------------------- */
+/*  Server-side memory cache + never-fail fallback chain                       */
+/* -------------------------------------------------------------------------- */
+
+/** Standby channels used when every feed path is down. These are long-lived,
+ *  public 24/7 HLS streams — real playback, honestly labelled — so the
+ *  /channels grid always renders something instead of an error banner. */
+const STANDBY_FEED_URL = 'eviv://standby';
+
+const STATIC_FALLBACK_ENTRIES: FeedEntry[] = [
+  {
+    name: 'Red Bull TV (Standby)',
+    url: 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8',
+    group: 'Standby Channels',
+    tvgId: 'eviv-standby-redbull',
+    source: STANDBY_FEED_URL,
+    feedUrl: STANDBY_FEED_URL,
+  },
+  {
+    name: 'Al Jazeera English (Standby)',
+    url: 'https://live-hls-web-aje.getaj.net/AJE/index.m3u8',
+    group: 'Standby Channels',
+    tvgId: 'eviv-standby-aljazeera',
+    source: STANDBY_FEED_URL,
+    feedUrl: STANDBY_FEED_URL,
+  },
+  {
+    name: 'France 24 English (Standby)',
+    url: 'https://static.france24.com/live/F24_EN_LO_HLS/live_web.m3u8',
+    group: 'Standby Channels',
+    tvgId: 'eviv-standby-france24',
+    source: STANDBY_FEED_URL,
+    feedUrl: STANDBY_FEED_URL,
+  },
+];
+
+/** Built once — pure transformation of the static definitions above. */
+export const STATIC_FALLBACK_CHANNELS: LiveChannel[] = buildLiveChannels(STATIC_FALLBACK_ENTRIES);
+
+/** The static fallback channel definitions (stable ids, playable URLs). */
+export function getStaticFallbackChannels(): LiveChannel[] {
+  return STATIC_FALLBACK_CHANNELS;
+}
+
+/** Last successfully loaded channel list (survives transient feed failures). */
+let channelMemory: { channels: LiveChannel[]; fetchedAt: number } | null = null;
+
+/** Remember a fresh channel list in the server-side memory cache. */
+export function rememberChannelList(channels: LiveChannel[]): void {
+  if (channels.length) channelMemory = { channels, fetchedAt: Date.now() };
+}
+
+/** Test hook: clear the server-side memory cache. */
+export function resetChannelMemoryCache(): void {
+  channelMemory = null;
+}
+
+/**
+ * All playable live channels from the configured feeds.
+ *
+ * Resilience chain — this NEVER throws and never returns an error state the
+ * UI would have to show as a scary banner:
+ *   1. 10-minute server-side memory cache (fresh list),
+ *   2. cache-manager SWR (Redis / memory) → GitHub Contents API inside it,
+ *   3. last-known-good list even when stale,
+ *   4. static fallback channel definitions.
+ * Explicitly disabled feeds (`LIVE_FEED_URLS=''`) still yield an empty list.
+ */
 export async function getLiveChannels(): Promise<LiveChannel[]> {
-  return getCacheManager().swr('live_feed_channels_v2', loadLiveChannels, FEED_CACHE_TTL_S);
+  if (getFeedUrls().length === 0) return [];
+
+  if (channelMemory && Date.now() - channelMemory.fetchedAt <= FEED_CACHE_TTL_MS) {
+    return channelMemory.channels;
+  }
+
+  try {
+    const channels = await getCacheManager().swr('live_feed_channels_v2', loadLiveChannels, FEED_CACHE_TTL_S);
+    if (channels.length) {
+      rememberChannelList(channels);
+      return channels;
+    }
+  } catch (err) {
+    logger.error('Live feed refresh failed; serving cached channels', err);
+  }
+
+  // A stale list beats no list: visitors keep the last working channels.
+  if (channelMemory) return channelMemory.channels;
+
+  return getStaticFallbackChannels();
 }
 
 /** Look a channel up by its stable id. */

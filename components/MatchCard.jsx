@@ -118,7 +118,7 @@ export default function MatchCard({ match, tab }) {
   return (
     <Link
       href={`/watch/${id}?tab=${tab || 'live'}`}
-      className={`group relative flex flex-col rounded-xl glass-panel glass-panel-hover p-4 shadow-md overflow-hidden ${
+      className={`group relative flex w-full min-w-0 flex-col rounded-xl glass-panel glass-panel-hover p-4 shadow-md overflow-hidden ${
         isMatchFavorited
           ? 'border-lime-300 bg-gradient-to-br from-lime-50/40 via-white/80 to-lime-50/20 ring-1 ring-lime-200/50 shadow-[0_10px_30px_rgba(198,255,0,0.1)] dark:border-lime-500/35 dark:bg-gradient-to-br dark:from-lime-950/25 dark:via-navy-850/65 dark:to-navy-950/85 dark:ring-1 dark:ring-lime-500/25 dark:shadow-[0_0_30px_rgba(198,255,0,0.2)]'
           : ''

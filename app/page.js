@@ -1,6 +1,8 @@
 import { getMatches } from '@/lib/streamEngine';
 import MatchGrid from '@/components/MatchGrid';
 import { getHeroBanner } from '@/lib/bannerProvider';
+import AdSlot from '@/components/ads/AdSlot';
+import { AD_PLACEMENTS } from '@/lib/adsConfig';
 
 // Live dashboard: always rendered on demand, with the upstream scoreboard
 // itself cached for 15-20s inside the ESPN provider.
@@ -9,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'EVIV Live — Today’s Football Fixtures, Live Scores & Streams',
   description:
-    'Every football match of the day with real-time scores, live minutes, cards and statistics — plus premium ad-free streams.',
+    'Every football match of the day with real-time scores, live minutes, cards and statistics — plus reliable live streams.',
 };
 
 export default async function Home({ searchParams }) {
@@ -39,7 +41,16 @@ export default async function Home({ searchParams }) {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="w-full space-y-5">
+      {/* Homepage top banner: leaderboard on desktop, 320x50 on mobile.
+          The mobile slot breaks out of main's px-4 so the 320px unit fits a
+          320px viewport exactly without ever pushing the page sideways. */}
+      <div className="hidden w-full justify-center md:flex">
+        <AdSlot variant="banner" banner={AD_PLACEMENTS.homeTopDesktop} />
+      </div>
+      <div className="-mx-4 flex w-[calc(100%+2rem)] justify-center overflow-hidden md:hidden">
+        <AdSlot variant="banner" banner={AD_PLACEMENTS.homeTopMobile} />
+      </div>
       <MatchGrid matches={visible} defaultTab={tab} banner={banner} />
     </div>
   );

@@ -16,7 +16,7 @@
  */
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { getLiveChannels } from '@/lib/broadcast/feeds';
+import { getLiveChannels, getStaticFallbackChannels } from '@/lib/broadcast/feeds';
 import { getChannelStatuses } from '@/lib/broadcast/probe';
 
 export const dynamic = 'force-dynamic';
@@ -26,15 +26,15 @@ export async function GET(request: Request) {
   const probeParam = new URL(request.url).searchParams.get('probe');
   const probe = probeParam !== '0';
 
+  // `getLiveChannels` never throws (memory cache → GitHub Contents API →
+  // last-known-good → static standby channels); the catch is a final guard so
+  // the response still lists channels instead of an error.
   let channels;
   try {
     channels = await getLiveChannels();
   } catch (err: any) {
     logger.error('Live channels unavailable', err);
-    return NextResponse.json(
-      { channels: [], checkedAt, error: 'Live feeds are unavailable right now. Retrying shortly.' },
-      { status: 200, headers: { 'Cache-Control': 'no-store' } }
-    );
+    channels = getStaticFallbackChannels();
   }
 
   const statuses = probe ? await getChannelStatuses(channels) : {};

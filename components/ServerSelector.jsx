@@ -44,7 +44,7 @@ function serverTooltip(server, status, reason) {
   return [
     server.label,
     server.quality,
-    server.kind === 'embed' ? 'Embedded player' : 'Native player (ad-free)',
+    server.kind === 'embed' ? 'Embedded player' : 'Native HLS player',
     status === 'failed' ? `Failed: ${describeFailure(reason)}` : STATUS_META[status].text,
   ].join(' · ');
 }

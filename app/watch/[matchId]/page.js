@@ -3,8 +3,10 @@ import StreamPlayer from '@/components/StreamPlayer';
 import MatchCountdown from '@/components/MatchCountdown';
 import MatchStatsSection from '@/components/MatchStatsSection';
 import LiveScoreboard from '@/components/LiveScoreboard';
+import AdSlot from '@/components/ads/AdSlot';
+import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, RefreshCw, Trophy } from 'lucide-react';
 
 export const revalidate = 10;
 
@@ -134,42 +136,93 @@ export default async function WatchPage({ params, searchParams }) {
         </p>
       )}
 
-      {/* Player window block: every resolved server goes to the player's selector / failover chain */}
-      {channels.length > 0 || (streamUrl && !errorMsg) ? (
-        <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
-      ) : (
-        <div className="flex aspect-video items-center justify-center rounded-2xl border border-navy-750 bg-navy-950 p-6 shadow-2xl">
-          <div className="text-center space-y-3 max-w-xs">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-900 border border-navy-750">
-              <RefreshCw className="h-5 w-5 text-zinc-500 animate-spin" />
+      {/* Player + sidebar: streams on the left, match info & sponsor panel on the right */}
+      <div className="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex w-full min-w-0 flex-col gap-6">
+          {/* Player window block: every resolved server goes to the player's selector / failover chain */}
+          {channels.length > 0 || (streamUrl && !errorMsg) ? (
+            <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
+          ) : (
+            <div className="flex aspect-video items-center justify-center rounded-2xl border border-navy-750 bg-navy-950 p-6 shadow-2xl">
+              <div className="text-center space-y-3 max-w-xs">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-900 border border-navy-750">
+                  <RefreshCw className="h-5 w-5 text-zinc-500 animate-spin" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Stream is Offline</p>
+                  {errorMsg ? (
+                    <p className="mt-1 text-xs text-zinc-500">{errorMsg}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-zinc-500">The aggregation engine is resolving stream routes.</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  <a
+                    href="/channels"
+                    className="inline-flex items-center gap-1.5 rounded-lg lime-cta px-3 py-1.5 text-[11px] font-bold"
+                  >
+                    Browse live channels
+                  </a>
+                  <a
+                    href={`/watch/${matchId}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-navy-750 px-3 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white hover:border-lime-500/40 transition-all"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Retry servers
+                  </a>
+                </div>
+                <p className="text-[10px] text-zinc-650">Fixtures, scores and statistics keep updating even when a stream is offline.</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-white">Stream is Offline</p>
-              {errorMsg ? (
-                <p className="mt-1 text-xs text-zinc-500">{errorMsg}</p>
-              ) : (
-                <p className="mt-1 text-xs text-zinc-500">The aggregation engine is resolving stream routes.</p>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-              <a
-                href="/channels"
-                className="inline-flex items-center gap-1.5 rounded-lg lime-cta px-3 py-1.5 text-[11px] font-bold"
-              >
-                Browse live channels
-              </a>
-              <a
-                href={`/watch/${matchId}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-navy-750 px-3 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white hover:border-lime-500/40 transition-all"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Retry servers
-              </a>
-            </div>
-            <p className="text-[10px] text-zinc-650">Fixtures, scores and statistics keep updating even when a stream is offline.</p>
+          )}
+
+          {/* Banner 728x90 below the player (desktop) */}
+          <div className="flex w-full justify-center">
+            <AdSlot variant="banner" banner={AD_PLACEMENTS.watchBelowPlayer} className="hidden md:flex" />
           </div>
         </div>
-      )}
+
+        {/* Sidebar: match info panel + 300x250 banner */}
+        <aside className="flex w-full flex-col gap-6">
+          <div className="glass-panel rounded-xl p-4 shadow-md">
+            <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+              <Trophy className="h-3.5 w-3.5 text-lime-500" aria-hidden="true" />
+              Match Info
+            </h2>
+            <dl className="space-y-3 text-xs">
+              <div className="flex items-start gap-2.5">
+                <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" aria-hidden="true" />
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Kick-off</dt>
+                  <dd className="mt-0.5 font-semibold text-zinc-800 dark:text-zinc-200">{dateStr} · {timeStr}</dd>
+                </div>
+              </div>
+              {match.tournament ? (
+                <div className="flex items-start gap-2.5">
+                  <Trophy className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" aria-hidden="true" />
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Competition</dt>
+                    <dd className="mt-0.5 font-semibold text-zinc-800 dark:text-zinc-200">{match.tournament}</dd>
+                  </div>
+                </div>
+              ) : null}
+              {match.venue ? (
+                <div className="flex items-start gap-2.5">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" aria-hidden="true" />
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Venue</dt>
+                    <dd className="mt-0.5 font-semibold text-zinc-800 dark:text-zinc-200">{match.venue}</dd>
+                  </div>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+
+          <div className="flex w-full justify-center overflow-hidden">
+            <AdSlot variant="banner" banner={AD_PLACEMENTS.watchSidebar} />
+          </div>
+        </aside>
+      </div>
 
       {/* Stats & commentary details block */}
       <MatchStatsSection teamStats={teamStats} commentary={commentary} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />

@@ -1,12 +1,14 @@
 import './globals.css';
 import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
+import AdSlot from '@/components/ads/AdSlot';
+import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import { Layers, Play, Radio } from 'lucide-react';
 
 export const metadata = {
   title: 'EVIV Live — Real-Time Football Scores & Live Streams',
   description:
-    'EVIV Live tracks every football match of the day with real-time scores, live match statistics and premium ad-free streams.',
+    'EVIV Live tracks every football match of the day with real-time scores, live match statistics and reliable live streams.',
   applicationName: 'EVIV Live',
   icons: { icon: '/icon.svg' },
 };
@@ -113,6 +115,17 @@ export default function RootLayout({ children }) {
 
           </div>
         </footer>
+
+        {/* Mobile sticky footer banner (320x50) — the fixed bar reserves its space via body padding */}
+        <div
+          className="fixed inset-x-0 bottom-0 z-[60] flex w-full justify-center overflow-hidden border-t border-navy-750 bg-navy-950/95 py-1 backdrop-blur-md md:hidden"
+          data-ad-slot-wrapper="mobile-sticky-footer"
+        >
+          <AdSlot variant="banner" banner={AD_PLACEMENTS.mobileStickyFooter} label="Advertisement" />
+        </div>
+
+        {/* Adsterra Social Bar — page-level overlay, injected once after hydration */}
+        <AdSlot variant="social" />
       </body>
     </html>
   );

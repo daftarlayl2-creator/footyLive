@@ -15,10 +15,10 @@ export const dynamic = 'force-dynamic';
 export default async function ChannelsPage() {
   // Server-render the channel list so the grid is never empty: even if the
   // client-side status probe is blocked, every channel is listed and clickable.
+  // `getLiveChannels` never throws — it falls back to cached / standby channels.
   let channels = [];
   let checkedAt = null;
   let statuses = {};
-  let serverError = null;
 
   try {
     channels = await getLiveChannels();
@@ -27,7 +27,6 @@ export default async function ChannelsPage() {
     checkedAt = Date.now();
   } catch (err) {
     logger.error('Channels page: live feed load failed', err);
-    serverError = 'Live feeds are temporarily unavailable — retrying automatically.';
   }
 
   const initialChannels = channels.map((ch) => ({
@@ -51,9 +50,6 @@ export default async function ChannelsPage() {
         <p className="mt-1 text-xs text-navy-500 dark:text-zinc-400">
           Events from our live feeds. Status is checked automatically; click a channel to watch it through the EVIV Live proxy.
         </p>
-        {serverError && (
-          <p className="mt-2 text-[11px] font-semibold text-amber-600 dark:text-amber-400">{serverError}</p>
-        )}
       </header>
       <LiveChannelsGrid
         initialChannels={initialChannels.length ? initialChannels : null}
