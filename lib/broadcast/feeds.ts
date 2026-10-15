@@ -16,6 +16,8 @@ import { parseM3U } from './m3u';
 import { parseJsonFeed } from './json';
 import type { FeedEntry, LiveChannel } from './types';
 
+// This is the file currently published by Live-events; live.m3u8 may be
+// published later, but is not present in the repository at the moment.
 export const DEFAULT_LIVE_FEEDS = [
   'https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u',
 ];
@@ -23,7 +25,8 @@ export const DEFAULT_LIVE_FEEDS = [
 /** How long a loaded set of feeds is reused before re-fetching. Tokens in
  *  upstream URLs rotate, so keep this well under the feeds' own refresh cycle. */
 export const FEED_CACHE_TTL_S = 5 * 60;
-const FEED_FETCH_TIMEOUT_MS = 8_000;
+const FEED_RAW_TIMEOUT_MS = 3_500;
+const FEED_API_TIMEOUT_MS = 8_000;
 const MAX_FEED_BYTES = 5 * 1024 * 1024;
 
 const BROWSER_UA =
@@ -46,6 +49,8 @@ export function getFeedUrls(raw: string | undefined = process.env.LIVE_FEED_URLS
 /** Parse feed text, sniffing M3U vs JSON from its content. */
 export function parseFeedText(text: string, feedUrl: string): FeedEntry[] {
   const trimmed = text.replace(/^\uFEFF/, '').trimStart();
+  // #EXT-X-* identifies a media/variant HLS manifest, not a list of channels.
+  if (trimmed.startsWith('#EXTM3U') && /^#EXT-X-/m.test(trimmed)) return [];
   if (trimmed.startsWith('#EXTM3U') || trimmed.includes('#EXTINF')) {
     return parseM3U(text, feedUrl);
   }
@@ -107,6 +112,10 @@ export function toPlaybackUrl(entry: Pick<FeedEntry, 'url' | 'referer'>): string
 export function githubContentsApiUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
+    if (parsed.protocol === 'https:' && parsed.hostname === 'api.github.com' &&
+        /^\/repos\/[^/]+\/[^/]+\/contents\/.+/.test(parsed.pathname)) {
+      return parsed.href;
+    }
     if (parsed.hostname === 'github.com') {
       const parts = parsed.pathname.split('/').filter(Boolean);
       if (parts.length >= 5 && (parts[2] === 'blob' || parts[2] === 'raw')) {
@@ -128,72 +137,95 @@ export function githubContentsApiUrl(url: string): string | null {
   }
 }
 
-/** Decode a GitHub Contents API file response (base64) into playlist text. */
+/** Decode an inline, base64-encoded GitHub Contents API file response. */
 export function decodeGithubContents(payload: any): string | null {
-  if (!payload || Array.isArray(payload)) return null;
-  if (typeof payload.content === 'string' && payload.content.trim()) {
-    try {
-      const decoded = payload.encoding === 'base64' || !payload.encoding
-        ? Buffer.from(payload.content, 'base64').toString('utf8')
-        : payload.content;
-      return decoded;
-    } catch {
-      return null;
-    }
+  if (!payload || Array.isArray(payload) || payload.encoding !== 'base64' || typeof payload.content !== 'string') {
+    return null;
   }
-  // Files over the API's inline limit only expose `download_url`.
-  return null;
+  // GitHub inserts newlines into base64 content. Reject bad/oversized payloads
+  // rather than letting Buffer.from silently decode an HTML/rate-limit page.
+  const content = payload.content.replace(/\s/g, '');
+  if (!content || content.length > Math.ceil(MAX_FEED_BYTES * 4 / 3) + 8 || !/^[A-Za-z0-9+/]*={0,2}$/.test(content)) {
+    return null;
+  }
+  const data = Buffer.from(content, 'base64');
+  return data.length <= MAX_FEED_BYTES ? data.toString('utf8') : null;
 }
 
-async function fetchFeedTextOnce(feedUrl: string, signal: AbortSignal): Promise<string> {
-  const res = await fetch(feedUrl, {
-    headers: { 'User-Agent': BROWSER_UA, Accept: 'application/x-mpegURL, application/json, text/plain, */*' },
-    cache: 'no-store',
-    signal,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const text = await res.text();
-  if (text.length > MAX_FEED_BYTES) throw new Error('Feed exceeds size limit');
+/**
+ * The repository has used both live.m3u8 and playlist.m3u. Try the requested
+ * file first, then the other name if it is missing (live.m3u8 is currently 404).
+ * For other GitHub repositories, only fetch the URL the user configured.
+ */
+function githubContentsCandidates(feedUrl: string): string[] {
+  const first = githubContentsApiUrl(feedUrl);
+  if (!first) return [];
+  const parsed = new URL(first);
+  const path = parsed.pathname;
+  const root = '/repos/ibstvofficial/Live-events/contents/';
+  if (!path.startsWith(root)) return [first];
+  const filename = path.slice(root.length);
+  if (filename !== 'playlist.m3u' && filename !== 'live.m3u8') return [first];
+  const other = filename === 'playlist.m3u' ? 'live.m3u8' : 'playlist.m3u';
+  return [first, `https://api.github.com${root}${other}${parsed.search}`];
+}
+
+function assertPlaylist(text: string, feedUrl: string): string {
+  if (!parseFeedText(text, feedUrl).length) {
+    throw new Error('Feed did not contain any channel entries');
+  }
   return text;
 }
 
-/** Fetch one playlist, falling back to the GitHub Contents API when the raw host is blocked. */
+async function fetchFeedTextOnce(feedUrl: string): Promise<string> {
+  const res = await fetch(feedUrl, {
+    headers: { 'User-Agent': BROWSER_UA, Accept: 'application/x-mpegURL, application/json, text/plain, */*' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(FEED_RAW_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (Number(res.headers.get('content-length')) > MAX_FEED_BYTES) throw new Error('Feed exceeds size limit');
+  const text = await res.text();
+  if (Buffer.byteLength(text, 'utf8') > MAX_FEED_BYTES) throw new Error('Feed exceeds size limit');
+  // A 200 HTML block (or a media HLS playlist, not a channel playlist) must
+  // also trigger fallback. Otherwise it is cached as a successful empty feed.
+  return assertPlaylist(text, feedUrl);
+}
+
+/** Fetch one playlist, retrying via GitHub's base64 Contents API when raw fetching fails. */
 export async function fetchFeedText(feedUrl: string): Promise<string> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FEED_FETCH_TIMEOUT_MS);
-  try {
-    let firstError: any = null;
+  let firstError: unknown;
+  // A Contents API URL may also be supplied directly in LIVE_FEED_URLS.
+  // Its JSON response must be base64-decoded, never parsed as a JSON channel list.
+  if (!feedUrl.startsWith('https://api.github.com/repos/')) {
     try {
-      return await fetchFeedTextOnce(feedUrl, controller.signal);
+      return await fetchFeedTextOnce(feedUrl);
     } catch (err) {
       firstError = err;
     }
-
-    // Blocked raw.githubusercontent / HTML blob page → retry through the API.
-    const apiUrl = githubContentsApiUrl(feedUrl);
-    if (apiUrl) {
-      try {
-        const res = await fetch(apiUrl, {
-          headers: { 'User-Agent': BROWSER_UA, Accept: 'application/vnd.github+json' },
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-        if (res.ok) {
-          const text = decodeGithubContents(await res.json());
-          if (text && text.length <= MAX_FEED_BYTES) {
-            logger.info('Live feed loaded through the GitHub contents API', { feed: feedUrl });
-            return text;
-          }
-        }
-      } catch (err: any) {
-        logger.debug('GitHub contents fallback failed', { feed: feedUrl, error: err?.message });
-      }
-    }
-
-    throw firstError ?? new Error('Feed fetch failed');
-  } finally {
-    clearTimeout(timer);
   }
+
+  // Each request gets its own timeout: a raw-host timeout must not abort the
+  // API fallback before it has a chance to make a request on Vercel.
+  for (const apiUrl of githubContentsCandidates(feedUrl)) {
+    try {
+      const res = await fetch(apiUrl, {
+        headers: { 'User-Agent': BROWSER_UA, Accept: 'application/vnd.github+json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(FEED_API_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = decodeGithubContents(await res.json());
+      if (!text) throw new Error('Missing or invalid base64 playlist');
+      const playlist = assertPlaylist(text, feedUrl);
+      logger.info('Live feed loaded through the GitHub contents API', { feed: feedUrl, apiUrl });
+      return playlist;
+    } catch (err: any) {
+      logger.debug('GitHub contents fallback failed', { feed: feedUrl, apiUrl, error: err?.message });
+    }
+  }
+
+  throw firstError ?? new Error('Feed fetch failed');
 }
 
 async function loadLiveChannels(): Promise<LiveChannel[]> {
@@ -216,13 +248,14 @@ async function loadLiveChannels(): Promise<LiveChannel[]> {
   }
 
   const channels = buildLiveChannels(entries);
+  if (!channels.length) throw new Error('Live feeds contained no playable channels');
   logger.info('Live feeds loaded', { feeds: urls.length, entries: entries.length, channels: channels.length });
   return channels;
 }
 
 /** All playable live channels from the configured feeds (cached). */
 export async function getLiveChannels(): Promise<LiveChannel[]> {
-  return getCacheManager().swr('live_feed_channels', loadLiveChannels, FEED_CACHE_TTL_S);
+  return getCacheManager().swr('live_feed_channels_v2', loadLiveChannels, FEED_CACHE_TTL_S);
 }
 
 /** Look a channel up by its stable id. */

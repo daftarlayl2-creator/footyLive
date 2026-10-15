@@ -8,7 +8,7 @@ import { isTeamFavorited, toggleFavoriteTeam } from '@/lib/utils/favorites';
 function TeamBadge({ team, size = 'h-9 w-9' }) {
   const [imgError, setImgError] = useState(false);
   const hasBadge = team.badge && !imgError;
-  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(team.name)}&background=0b132b&color=32cd32&size=128&bold=true&format=png`;
+  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(team.name)}&background=18030a&color=c6ff00&size=128&bold=true&format=png`;
 
   if (hasBadge) {
     return (
@@ -53,6 +53,9 @@ function CardChips({ cards, align = 'left' }) {
 
 export default function MatchCard({ match, tab }) {
   const { id, status, timestamp, homeTeam, awayTeam, sources, tournament, homeScore, awayScore, currentMinuteNumber, note, live } = match;
+  const feedCount = status === 'live' && match.source === 'espn' ? match.feedStreamCount || 0 : 0;
+  const serverCount = sources.length || feedCount;
+  const unverifiedFeed = !sources.length && feedCount > 0 && match.feedStreamIsFallback;
 
   const [liveData, setLiveData] = useState(null);
   const [homeFav, setHomeFav] = useState(false);
@@ -116,12 +119,12 @@ export default function MatchCard({ match, tab }) {
       href={`/watch/${id}?tab=${tab || 'live'}`}
       className={`group relative flex flex-col rounded-xl glass-panel glass-panel-hover p-4 shadow-md overflow-hidden ${
         isMatchFavorited
-          ? 'border-lime-300 bg-gradient-to-br from-lime-50/40 via-white/80 to-lime-50/20 ring-1 ring-lime-200/50 shadow-[0_10px_30px_rgba(50,205,50,0.1)] dark:border-lime-500/35 dark:bg-gradient-to-br dark:from-lime-950/25 dark:via-navy-850/65 dark:to-navy-950/85 dark:ring-1 dark:ring-lime-500/25 dark:shadow-[0_0_30px_rgba(50,205,50,0.2)]'
+          ? 'border-lime-300 bg-gradient-to-br from-lime-50/40 via-white/80 to-lime-50/20 ring-1 ring-lime-200/50 shadow-[0_10px_30px_rgba(198,255,0,0.1)] dark:border-lime-500/35 dark:bg-gradient-to-br dark:from-lime-950/25 dark:via-navy-850/65 dark:to-navy-950/85 dark:ring-1 dark:ring-lime-500/25 dark:shadow-[0_0_30px_rgba(198,255,0,0.2)]'
           : ''
       }`}
     >
       {/* Lime sheen sweep on hover */}
-      <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(50,205,50,0.12),transparent_60%)]" />
+      <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(198,255,0,0.12),transparent_60%)]" />
 
       {/* Top Header */}
       <div className="relative flex items-center justify-between mb-4 gap-2">
@@ -236,17 +239,24 @@ export default function MatchCard({ match, tab }) {
         <span className="text-[11px] text-navy-500 dark:text-zinc-500 font-bold tracking-wide flex items-center gap-1.5">
           {note ? (
             <span className="text-amber-600 dark:text-amber-400">{note}</span>
-          ) : sources.length === 0 ? (
+          ) : unverifiedFeed ? (
+            `${serverCount} live channel${serverCount !== 1 ? 's' : ''} · fixture unverified`
+          ) : serverCount === 0 ? (
             'Verification only'
           ) : (
-            `${sources.length} stream server${sources.length !== 1 ? 's' : ''}`
+            `${serverCount} stream server${serverCount !== 1 ? 's' : ''}`
           )}
         </span>
 
-        {sources.length > 0 ? (
+        {serverCount > 0 ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-lime-600 dark:text-lime-400 group-hover:text-lime-500 dark:group-hover:text-lime-300 transition-colors">
             <Play className="h-3 w-3 fill-lime-500/25 group-hover:scale-110 transition-transform" />
-            Watch Stream
+            {unverifiedFeed ? 'Try Live Channels' : 'Watch Stream'}
+          </span>
+        ) : status === 'live' ? (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-zinc-400">
+            <ShieldAlert className="h-3.5 w-3.5" />
+            Explore Streams
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-navy-500 dark:text-zinc-500">

@@ -16,7 +16,9 @@ import {
 } from './providers/espn';
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
-import { LiveFeedProvider } from './providers/liveFeed';
+import { LiveFeedProvider, findMatchFeedChannels, selectActiveFeedChannels } from './providers/liveFeed';
+import { getLiveChannels, toPlaybackUrl } from './broadcast/feeds';
+import type { LiveChannel } from './broadcast/types';
 import { getCacheManager } from './cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
 import { detectStreamKind } from './player/servers';
@@ -78,7 +80,18 @@ export async function getMatches(): Promise<Match[]> {
     ]);
 
     if (espnMatches.length > 0) {
-      return attachStreamSources(espnMatches, watchFootyMatches);
+      const enriched = attachStreamSources(espnMatches, watchFootyMatches);
+      // Cards with no catalogue servers still need a route into the player.
+      // Only fetch the feed when ESPN actually has live, unlinked fixtures.
+      if (!enriched.some((m) => m.source === 'espn' && m.status === 'live' && !m.sources?.length)) {
+        return enriched;
+      }
+      try {
+        return await attachLiveFeedPreviews(enriched, await getLiveChannels());
+      } catch (err) {
+        logger.warn('Live feed preview unavailable for ESPN matches', { error: String(err) });
+        return enriched;
+      }
     }
 
     logger.warn('ESPN fixtures unavailable, falling back to catalogue provider');
@@ -122,6 +135,25 @@ export function attachStreamSources(espnMatches: Match[], catalogue: Match[]): M
   });
 }
 
+/** Add a stream preview to unlinked, *live* ESPN cards without inventing a match-specific link. */
+export async function attachLiveFeedPreviews(matches: Match[], channels: LiveChannel[]): Promise<Match[]> {
+  const unlinked = matches.filter((m) => m.source === 'espn' && m.status === 'live' && !m.sources?.length);
+  if (!unlinked.length || !channels.length) return matches;
+
+  const exactById = new Map(unlinked.map((m) => [m.id, findMatchFeedChannels(channels, m.title)]));
+  const needsFallback = unlinked.some((m) => !exactById.get(m.id)?.length);
+  const fallback = needsFallback ? await selectActiveFeedChannels(channels) : [];
+
+  return matches.map((match) => {
+    const exact = exactById.get(match.id);
+    if (!exact) return match;
+    const selected = exact.length ? exact : fallback;
+    return selected.length
+      ? { ...match, feedStreamCount: selected.length, feedStreamIsFallback: exact.length === 0 }
+      : match;
+  });
+}
+
 /** Details for a single match — ESPN fixtures and catalogue ids both work. */
 export async function getMatchDetails(matchId: string): Promise<Match | null> {
   if (isEspnMatchId(matchId)) {
@@ -129,7 +161,15 @@ export async function getMatchDetails(matchId: string): Promise<Match | null> {
     if (!espnMatch) return null;
     const catalogue = await getMatches().catch(() => [] as Match[]);
     const enriched = catalogue.find((m) => m.id === matchId);
-    return enriched ? { ...espnMatch, sources: enriched.sources, fallbackChannels: enriched.fallbackChannels } : espnMatch;
+    return enriched
+      ? {
+          ...espnMatch,
+          sources: enriched.sources,
+          fallbackChannels: enriched.fallbackChannels,
+          feedStreamCount: enriched.feedStreamCount,
+          feedStreamIsFallback: enriched.feedStreamIsFallback,
+        }
+      : espnMatch;
   }
   return getWatchFootyMatchDetails(matchId);
 }
@@ -174,12 +214,31 @@ export async function resolveAllStreams(
       }
     }
 
+    // An ESPN-live fixture without a matching M3U event can still try the top
+    // active channels. Add them *after* any match-specific provider servers as
+    // clearly labelled backups, not as a claim that they carry this fixture.
+    if (isEspnMatchId(matchId) && preFetchedMatch?.status === 'live' &&
+        !allServers.some((server) => server.provider === 'livefeed')) {
+      try {
+        const backups = await selectActiveFeedChannels(await getLiveChannels());
+        allServers.push(...backups.map((ch) => ({
+          name: ch.name,
+          url: ch.url,
+          proxiedUrl: toPlaybackUrl(ch),
+          provider: 'livefeed-fallback',
+          quality: 'SD',
+        })));
+      } catch (err) {
+        logger.warn('Live channel backups unavailable', { matchId, error: String(err) });
+      }
+    }
+
     if (allServers.length === 0) {
       throw new Error('No streams available from any provider');
     }
 
     const qualityOrder: Record<string, number> = { 'FHD': 0, 'HD': 0, '1080p': 0, '720p': 1, 'SD': 2 };
-    allServers.sort((a, b) => (qualityOrder[a.quality || 'SD'] || 2) - (qualityOrder[b.quality || 'SD'] || 2));
+    allServers.sort((a, b) => (qualityOrder[a.quality || 'SD'] ?? 2) - (qualityOrder[b.quality || 'SD'] ?? 2));
 
     const seenUrls = new Set<string>();
     const uniqueServers: Channel[] = [];
@@ -193,7 +252,7 @@ export async function resolveAllStreams(
           ...server,
           name: `Server ${serverIndex++}`,
           // Feed streams carry signed proxy links; never expose their raw upstream URL.
-          url: server.provider === 'livefeed' ? proxiedUrl : server.url,
+          url: server.provider?.startsWith('livefeed') ? proxiedUrl : server.url,
           proxiedUrl,
           kind: detectStreamKind(proxiedUrl) ?? 'embed',
         });

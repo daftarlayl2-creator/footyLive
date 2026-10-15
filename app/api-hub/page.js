@@ -20,7 +20,7 @@ import {
 export default function ApiHubPage() {
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [expandedIndex, setExpandedIndex] = useState(null);
-  const origin = 'https://eviv.live';
+  const origin = 'https://eviv.si';
 
   const copyToClipboard = (text, index) => {
     navigator.clipboard.writeText(text);
@@ -133,7 +133,7 @@ export default function ApiHubPage() {
       name: 'Resolve Match Streams',
       path: '/api/streams/[matchId]',
       method: 'GET',
-      description: 'Retrieves the list of active streaming channels (embeds or direct HLS m3u8 playlists) resolving signed redirect routing proxies for security.',
+      description: 'Returns match-specific servers via signed proxy links. When a live ESPN match has no matching M3U event, additional verified/standby feed channels are offered as unverified backups; they may show another fixture.',
       sampleResponse: `{
   "matchTitle": "Arsenal vs Chelsea",
   "matchStatus": "live",
@@ -163,7 +163,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
       name: 'Live Channels + Status',
       path: '/api/live-channels',
       method: 'GET',
-      description: 'Lists every playable channel from the dynamic M3U/JSON feeds. The status probe is best-effort: a blocked or unverifiable probe reports "unknown" (shown as Standby) instead of hiding the channel, and the list is always returned so playback can still be attempted through /api/proxy.',
+      description: 'Lists playable M3U/JSON channels, falling back to the GitHub Contents API when raw fetching is blocked. A blocked status probe reports "unknown" (Standby) instead of hiding the channel; /api/proxy still attempts playback.',
       sampleResponse: `{
   "checkedAt": 1792350000000,
   "probed": true,
@@ -227,7 +227,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
           </div>
           
           <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-lime-600 via-lime-650 to-lime-500 bg-clip-text text-transparent dark:from-lime-400 dark:to-lime-400">
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-lime-600 via-lime-650 to-lime-500 bg-clip-text text-transparent dark:from-lime-400 dark:via-lime-500 dark:to-lime-400">
               API Developer Hub
             </h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-3xl leading-relaxed">
@@ -288,7 +288,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                   Matches are aggregated from multiple scraping channels (WatchFooty, CDNLive, etc.) in real-time. Since names differ across networks (e.g., "Manchester United" vs "Man Utd"), the backend leverages a strategy pattern orchestrator:
                 </p>
                 <p>
-                  The engine applies fuzzy Jaro-Winkler string similarity calculations (<code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-navy-900 font-mono text-[10px] text-lime-600 dark:text-lime-400">lib/utils/matching.ts</code>). If the similarity score is greater than 0.85, the teams are aligned, and the duplicate match entries are collapsed, creating a single unified match console.
+                  The engine applies a fuzzy team-name similarity check (<code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-navy-900 font-mono text-[10px] text-lime-600 dark:text-lime-400">lib/utils/matching.ts</code>). Matches are enriched only when both teams align; ESPN remains authoritative for the score and status. If no M3U title matches a live ESPN fixture, the player can also offer clearly labelled, unverified live-channel backups.
                 </p>
               </div>
 
@@ -346,7 +346,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                   </p>
 
                   {/* Copy URL Row */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-100/50 dark:bg-navy-950/80 border border-zinc-200/50 dark:border-navy-800/60">
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-100/50 dark:bg-navy-950/80 border border-zinc-200/50 dark:border-navy-750/60">
                     <span className="text-[10px] font-mono text-zinc-400 select-none">URL:</span>
                     <input 
                       type="text" 

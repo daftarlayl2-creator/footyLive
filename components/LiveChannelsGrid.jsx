@@ -57,7 +57,7 @@ function ChannelLogo({ src, name }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-100 dark:bg-navy-950 border border-navy-200 dark:border-navy-800">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-100 dark:bg-navy-950 border border-navy-200 dark:border-navy-750">
         <RadioTower className="h-4 w-4 text-lime-500" />
       </div>
     );
@@ -82,7 +82,7 @@ function ChannelCard({ channel }) {
       className="group relative flex flex-col gap-3 overflow-hidden rounded-xl glass-panel glass-panel-hover p-4 shadow-md"
       title={isOffline ? 'The probe could not reach this source — playback is still attempted through the proxy.' : 'Play through the EVIV proxy'}
     >
-      <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(50,205,50,0.14),transparent_60%)]" />
+      <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(198,255,0,0.14),transparent_60%)]" />
       <div className="relative flex items-start gap-3 min-w-0">
         <ChannelLogo src={channel.logo} name={channel.name} />
         <div className="min-w-0 flex-1">
@@ -129,13 +129,13 @@ export default function LiveChannelsGrid({ initialChannels = null, initialChecke
       if (Array.isArray(data.channels) && data.channels.length > 0) {
         setChannels(data.channels);
         setCheckedAt(data.checkedAt || Date.now());
-        setError(res.ok ? null : data.error || null);
+        setError(data.error || (res.ok ? null : 'Live channels are unavailable right now.'));
       } else if (!res.ok) {
         setError(data.error || 'Live channels are unavailable right now.');
       } else {
         setChannels((prev) => prev ?? data.channels ?? []);
         setCheckedAt(data.checkedAt || Date.now());
-        setError(null);
+        setError(data.error || null);
       }
     } catch (err) {
       if (err?.name !== 'AbortError') setError('Live status checks are blocked right now — channels below still attempt playback.');

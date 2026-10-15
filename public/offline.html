@@ -7,9 +7,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     body {
-      background-color: #040405;
+      background-color: #18030A;
       color: #f4f4f5;
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Outfit', system-ui, sans-serif;
       margin: 0;
       padding: 0;
       min-height: 100vh;
@@ -21,7 +21,7 @@
       position: relative;
     }
 
-    /* Glow Effects */
+    /* Brand Glows */
     .glow-orb {
       position: absolute;
       border-radius: 50%;
@@ -30,15 +30,15 @@
       pointer-events: none;
       z-index: 0;
     }
-    .glow-purple {
-      background: radial-gradient(circle, #8b5cf6 0%, transparent 80%);
+    .glow-lime {
+      background: radial-gradient(circle, #C6FF00 0%, transparent 80%);
       width: 450px;
       height: 450px;
       top: -150px;
       left: -150px;
     }
-    .glow-emerald {
-      background: radial-gradient(circle, #10b981 0%, transparent 80%);
+    .glow-burgundy {
+      background: radial-gradient(circle, #74334B 0%, transparent 80%);
       width: 400px;
       height: 400px;
       bottom: -150px;
@@ -49,16 +49,16 @@
     .glass-card {
       position: relative;
       z-index: 10;
-      background: rgba(13, 13, 16, 0.6);
+      background: #280713;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      border: 1px solid #3D0B1D;
       border-radius: 24px;
       padding: 40px 32px;
       max-width: 400px;
       width: 85%;
       text-align: center;
-      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8), 0 0 50px -10px rgba(139, 92, 246, 0.1);
+      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8), 0 0 50px -10px rgba(198, 255, 0, 0.1);
       animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
@@ -67,7 +67,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Whistle / Ball SVG */
+    /* Offline icon */
     .icon-container {
       display: inline-flex;
       align-items: center;
@@ -75,16 +75,16 @@
       height: 72px;
       width: 72px;
       border-radius: 20px;
-      background: rgba(139, 92, 246, 0.1);
-      border: 1px solid rgba(139, 92, 246, 0.2);
+      background: rgba(198, 255, 0, 0.1);
+      border: 1px solid rgba(198, 255, 0, 0.2);
       margin-bottom: 24px;
-      color: #a78bfa;
+      color: #C6FF00;
       animation: pulseGlow 2s infinite ease-in-out;
     }
 
     @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 10px rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.2); }
-      50% { box-shadow: 0 0 25px rgba(139, 92, 246, 0.3); border-color: rgba(139, 92, 246, 0.4); }
+      0%, 100% { box-shadow: 0 0 10px rgba(198, 255, 0, 0.1); border-color: rgba(198, 255, 0, 0.2); }
+      50% { box-shadow: 0 0 25px rgba(198, 255, 0, 0.3); border-color: rgba(198, 255, 0, 0.4); }
     }
 
     h1 {
@@ -92,7 +92,7 @@
       font-weight: 800;
       margin: 0 0 8px 0;
       letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #ffffff 30%, #a78bfa 100%);
+      background: linear-gradient(135deg, #ffffff 30%, #E4FF66 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -109,22 +109,22 @@
       align-items: center;
       justify-content: center;
       width: 100%;
-      background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
-      color: #ffffff;
+      background: linear-gradient(135deg, #C6FF00 0%, #E4FF66 100%);
+      color: #18030A;
       border: none;
       padding: 14px 24px;
       font-size: 14px;
       font-weight: 700;
       border-radius: 12px;
       cursor: pointer;
-      box-shadow: 0 10px 20px -5px rgba(124, 58, 237, 0.4);
+      box-shadow: 0 10px 20px -5px rgba(198, 255, 0, 0.4);
       transition: all 0.2s ease-in-out;
     }
 
     .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 15px 25px -5px rgba(124, 58, 237, 0.6);
-      background: linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%);
+      box-shadow: 0 15px 25px -5px rgba(198, 255, 0, 0.6);
+      background: linear-gradient(135deg, #C6FF00 0%, #E4FF66 100%);
     }
 
     .btn:active {
@@ -135,14 +135,14 @@
       position: absolute;
       bottom: 20px;
       font-size: 11px;
-      color: #52525b;
+      color: #a1a1aa;
       z-index: 5;
     }
   </style>
 </head>
 <body>
-  <div class="glow-orb glow-purple"></div>
-  <div class="glow-orb glow-emerald"></div>
+  <div class="glow-orb glow-lime"></div>
+  <div class="glow-orb glow-burgundy"></div>
 
   <div class="glass-card">
     <div class="icon-container">

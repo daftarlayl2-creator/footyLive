@@ -6,6 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import BrandLogo from './BrandLogo';
 
 vi.mock('next/link', () => ({
   default: ({ children, href, ...rest }) => (
@@ -93,6 +94,22 @@ const FINISHED_MATCH = {
   sources: [],
 };
 
+describe('EVIV lockup', () => {
+  it('renders the supplied eagle, wordmark and on-air animation with isolated SVG definitions at both sizes', () => {
+    const html = renderToStaticMarkup(
+      <div><BrandLogo className="w-[106px] h-auto" /><BrandLogo className="w-28 h-auto" /></div>
+    );
+    expect((html.match(/viewBox="0 0 320 150"/g) || [])).toHaveLength(2);
+    expect(html).toContain('M54 52 L34 36 L6 18');
+    expect(html).toContain('stop-color="#C6FF00"');
+    expect(html).toContain('attributeName="r"');
+    expect(html).toContain('aria-label="EVIV Live"');
+    const gradients = [...html.matchAll(/<linearGradient id="([^"]+)"/g)].map((match) => match[1]);
+    expect(new Set(gradients).size).toBe(2);
+    for (const id of gradients) expect(html).toContain(`fill="url(#${id})"`);
+  });
+});
+
 describe('MatchCard', () => {
   it('shows real live score, minute, cards and scorers with a pulsing lime dot', () => {
     const html = renderToStaticMarkup(<MatchCard match={LIVE_MATCH} tab="live" />);
@@ -110,6 +127,21 @@ describe('MatchCard', () => {
     // Links into the player page for real stream resolution.
     expect(html).toContain('href="/watch/espn-700001?tab=live"');
     expect(html).toContain('1 stream server');
+  });
+
+  it('links an unlinked live ESPN match to its best-effort live channels without claiming they carry the fixture', () => {
+    const html = renderToStaticMarkup(<MatchCard match={{ ...LIVE_MATCH, sources: [], feedStreamCount: 2, feedStreamIsFallback: true }} tab="live" />);
+    expect(html).toContain('2 live channels');
+    expect(html).toContain('fixture unverified');
+    expect(html).toContain('Try Live Channels');
+    expect(html).not.toContain('Pending Link');
+    expect(html).toContain('href="/watch/espn-700001?tab=live"');
+  });
+
+  it('never labels a live ESPN fixture Pending Link even when the feed is unavailable', () => {
+    const html = renderToStaticMarkup(<MatchCard match={{ ...LIVE_MATCH, sources: [] }} tab="live" />);
+    expect(html).toContain('Explore Streams');
+    expect(html).not.toContain('Pending Link');
   });
 
   it('renders a kickoff countdown for upcoming fixtures and no fake score', () => {

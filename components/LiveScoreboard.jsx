@@ -4,47 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import LiveMinute from './LiveMinute';
 
-const THEMES = {
-  lime: {
-    name: 'EVIV Lime',
-    glow1: 'bg-lime-500/10',
-    glow2: 'bg-lime-500/5',
-    border: 'border-lime-500/25',
-    shadow: 'shadow-[0_0_50px_rgba(50,205,50,0.16)]',
-    accent: 'text-lime-400',
-    ring: 'ring-lime-500/35 border-lime-500/25',
-    dot: 'bg-lime-500',
-  },
-  navy: {
-    name: 'Navy Night',
-    glow1: 'bg-navy-600/25',
-    glow2: 'bg-lime-600/5',
-    border: 'border-navy-600/45',
-    shadow: 'shadow-[0_0_50px_rgba(30,51,88,0.45)]',
-    accent: 'text-navy-200',
-    ring: 'ring-navy-400/35 border-navy-500/40',
-    dot: 'bg-navy-300',
-  },
-  crimson: {
-    name: 'Crimson Derby',
-    glow1: 'bg-red-600/10',
-    glow2: 'bg-rose-600/5',
-    border: 'border-red-500/20',
-    shadow: 'shadow-[0_0_50px_rgba(239,68,68,0.12)]',
-    accent: 'text-red-400',
-    ring: 'ring-red-500/35 border-red-500/20',
-    dot: 'bg-red-500',
-  },
-  amber: {
-    name: 'Amber Kickoff',
-    glow1: 'bg-amber-600/10',
-    glow2: 'bg-yellow-600/5',
-    border: 'border-amber-500/20',
-    shadow: 'shadow-[0_0_50px_rgba(245,158,11,0.12)]',
-    accent: 'text-amber-400',
-    ring: 'ring-amber-500/35 border-amber-500/20',
-    dot: 'bg-amber-500',
-  },
+// The scoreboard shares the same burgundy/lime identity as the rest of EVIV.
+const THEME = {
+  glow1: 'bg-lime-500/10',
+  glow2: 'bg-navy-700/20',
+  border: 'border-navy-750',
+  shadow: 'shadow-[0_0_50px_rgba(198,255,0,0.10)]',
+  accent: 'text-lime-400',
+  ring: 'ring-lime-500/35 border-lime-500/25',
 };
 
 function CardChips({ cards }) {
@@ -69,9 +36,7 @@ function CardChips({ cards }) {
 export default function LiveScoreboard({ matchId, initial }) {
   const [data, setData] = useState(initial);
   const [loading, setLoading] = useState(false);
-  const [activeTheme, setActiveTheme] = useState('lime');
-
-  const t = THEMES[activeTheme] || THEMES.lime;
+  const t = THEME;
   const isFinished = data.status === 'finished';
 
   const refresh = useCallback(async () => {
@@ -88,60 +53,29 @@ export default function LiveScoreboard({ matchId, initial }) {
   }, [matchId]);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('scoreboard_theme');
-      if (saved && THEMES[saved]) setActiveTheme(saved);
-    } catch (e) {}
-  }, []);
-
-  useEffect(() => {
     if (data.status !== 'live') return;
     const interval = setInterval(refresh, 30000);
     return () => clearInterval(interval);
   }, [data.status, refresh]);
 
-  const changeTheme = (key) => {
-    setActiveTheme(key);
-    try {
-      localStorage.setItem('scoreboard_theme', key);
-    } catch (e) {}
-  };
-
   const homeScorers = data.scorers?.home || [];
   const awayScorers = data.scorers?.away || [];
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border bg-navy-950 px-6 py-6 shadow-2xl transition-all duration-500 ${t.border} ${t.shadow}`}>
+    <div className={`relative overflow-hidden rounded-2xl border bg-navy-900 px-6 py-6 shadow-2xl transition-all duration-500 ${t.border} ${t.shadow}`}>
       {/* Dynamic glow backgrounds */}
       <div className={`absolute top-0 left-1/4 w-[250px] h-[250px] pointer-events-none filter blur-3xl transition-all duration-500 ${t.glow1}`} />
       <div className={`absolute bottom-0 right-1/4 w-[250px] h-[250px] pointer-events-none filter blur-3xl transition-all duration-500 ${t.glow2}`} />
 
-      {/* Scoreboard theme selector + manual refresh */}
-      <div className="absolute top-3.5 right-4 z-20 flex items-center gap-1.5 bg-navy-950/80 backdrop-blur-md border border-navy-800 px-2 py-1 rounded-full shadow-lg">
+      <div className="absolute top-3.5 right-4 z-20 rounded-full border border-navy-750 bg-navy-950/80 px-2 py-1 shadow-lg backdrop-blur-md">
         <button
           onClick={refresh}
-          className="mr-1 text-zinc-400 hover:text-lime-400 transition-colors"
+          className="text-lime-400 transition-colors hover:text-lime-300"
           title="Refresh live data"
           aria-label="Refresh live data"
         >
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''} ${!loading && data.status === 'live' ? 'text-lime-400' : ''}`} />
+          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
         </button>
-        <span className="text-[9px] font-extrabold uppercase tracking-widest text-zinc-550 mr-1 select-none">Theme</span>
-        {Object.keys(THEMES).map((key) => {
-          const isActive = activeTheme === key;
-          return (
-            <button
-              key={key}
-              onClick={() => changeTheme(key)}
-              className={`h-3.5 w-3.5 rounded-full transition-all duration-300 ${THEMES[key].dot} ${
-                isActive
-                  ? 'scale-110 ring-2 ring-white/95 shadow-md shadow-black/80'
-                  : 'scale-90 opacity-40 hover:opacity-90 hover:scale-100'
-              }`}
-              title={`Switch theme to ${THEMES[key].name}`}
-            />
-          );
-        })}
       </div>
 
       <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 mt-2">
@@ -229,16 +163,16 @@ export default function LiveScoreboard({ matchId, initial }) {
       {/* Info footer */}
       <div className={`relative z-10 mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs font-semibold text-zinc-500 border-t pt-4 transition-all duration-500 ${t.border}`}>
         {data.tournament && (
-          <span className="flex items-center gap-1.5 bg-navy-900/60 border border-navy-800 px-3 py-1 rounded-full text-zinc-400">
+          <span className="flex items-center gap-1.5 bg-navy-900/60 border border-navy-750 px-3 py-1 rounded-full text-zinc-400">
             <span className="h-1.5 w-1.5 rounded-full bg-lime-500" />
             {data.tournament}
           </span>
         )}
-        <span className="bg-navy-900/60 border border-navy-800 px-3 py-1 rounded-full text-zinc-400">
+        <span className="bg-navy-900/60 border border-navy-750 px-3 py-1 rounded-full text-zinc-400">
           {data.dateStr} &middot; {data.timeStr}
         </span>
         {data.venue && data.venue !== 'N/A' && (
-          <span className="bg-navy-900/60 border border-navy-800 px-3 py-1 rounded-full text-zinc-400">
+          <span className="bg-navy-900/60 border border-navy-750 px-3 py-1 rounded-full text-zinc-400">
             🏟️ {data.venue}
           </span>
         )}
