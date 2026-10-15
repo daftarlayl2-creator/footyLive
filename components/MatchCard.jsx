@@ -5,32 +5,27 @@ import { Play, Clock, ShieldAlert, Star, Flag, Timer } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { isTeamFavorited, toggleFavoriteTeam } from '@/lib/utils/favorites';
 import ClubLink from '@/components/clubs/ClubLink';
+import CrestDrop from '@/components/clubs/CrestDrop';
+import BallIcon from '@/components/ui/BallIcon';
 import useGoalAudio from '@/lib/hooks/useGoalAudio';
+import { formatScorerLine, scorersBySide } from '@/lib/match/scoreboard';
 
-function TeamBadge({ team, size = 'h-9 w-9' }) {
-  const [imgError, setImgError] = useState(false);
-  const hasBadge = team.badge && !imgError;
-  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(team.name)}&background=18030a&color=c6ff00&size=128&bold=true&format=png`;
-
-  if (hasBadge) {
-    return (
-      <img
-        src={team.badge}
-        alt={team.name}
-        className={`${size} rounded-full object-contain bg-white dark:bg-navy-900 p-0.5 ring-1 ring-navy-200 dark:ring-navy-750 group-hover:ring-lime-500/60 group-hover:scale-110 transition-all duration-300 shadow-sm`}
-        loading="lazy"
-        onError={() => setImgError(true)}
-      />
-    );
-  }
-
+/** Scorers grouped per player, anchored directly under their own team's row. */
+function TeamScorers({ side, teamName, groups }) {
+  if (!groups.length) return null;
+  const shown = groups.slice(0, 3);
   return (
-    <img
-      src={fallbackUrl}
-      alt={team.name}
-      className={`${size} rounded-full object-contain ring-1 ring-navy-200 dark:ring-navy-750 group-hover:scale-110 transition-all duration-300`}
-      loading="lazy"
-    />
+    <ul className="relative space-y-0.5 pl-11" data-scorers={side} aria-label={`${teamName || 'Team'} goalscorers`}>
+      {shown.map((group, index) => (
+        <li key={`${group.player}-${index}`} className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-navy-600 dark:text-zinc-300">
+          <BallIcon className="h-3 w-3 shrink-0 text-navy-500 dark:text-zinc-400" />
+          <span className="truncate">{formatScorerLine(group)}</span>
+        </li>
+      ))}
+      {groups.length > shown.length && (
+        <li className="text-[10px] font-bold text-navy-500 dark:text-zinc-400">+{groups.length - shown.length} more</li>
+      )}
+    </ul>
   );
 }
 
@@ -108,6 +103,8 @@ export default function MatchCard({ match, tab }) {
     home: activeLiveData?.scorers?.home?.length ? activeLiveData.scorers.home : live?.scorers?.home || [],
     away: activeLiveData?.scorers?.away?.length ? activeLiveData.scorers.away : live?.scorers?.away || [],
   };
+  const goals = activeLiveData?.goals?.length ? activeLiveData.goals : live?.goals;
+  const scorerGroups = scorersBySide({ goals, scorers });
 
   useGoalAudio([{ id, status: activeLiveData?.status ?? status, homeScore: displayHomeScore, awayScore: displayAwayScore }], () => homeFav || awayFav);
 
@@ -180,88 +177,81 @@ export default function MatchCard({ match, tab }) {
 
       {/* Main scoreboard block */}
       <div className="relative space-y-3.5 py-1">
-        {/* Home Team */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <ClubLink
-              team={homeTeam}
-              className="relative z-20 flex min-w-0 items-center gap-2.5 rounded-xl pr-1 hover:[&>span]:text-lime-600 dark:hover:[&>span]:text-lime-400"
-            >
-              <TeamBadge team={homeTeam} />
-              <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{homeTeam?.name}</span>
-            </ClubLink>
-            <CardChips cards={cards.home} />
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleFavoriteTeam(homeTeam);
-              }}
-              data-sound="toggle"
-              className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
-              aria-label={`${homeFav ? "Unfavorite" : "Favorite"} ${homeTeam?.name}`}
-              aria-pressed={homeFav}
-              title={homeFav ? "Unfavorite Team" : "Favorite Team"}
-            >
-              <Star className={`h-3.5 w-3.5 transition-all ${homeFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
-            </button>
-          </div>
-          {showScores && displayHomeScore !== undefined && (
-            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-xl border shadow-sm transition-colors ${
-              status === 'live'
-                ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
-                : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
-            }`}>{displayHomeScore}</span>
-          )}
-        </div>
-
-        {/* Away Team */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <ClubLink
-              team={awayTeam}
-              className="relative z-20 flex min-w-0 items-center gap-2.5 rounded-xl pr-1 hover:[&>span]:text-lime-600 dark:hover:[&>span]:text-lime-400"
-            >
-              <TeamBadge team={awayTeam} />
-              <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{awayTeam?.name}</span>
-            </ClubLink>
-            <CardChips cards={cards.away} />
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleFavoriteTeam(awayTeam);
-              }}
-              data-sound="toggle"
-              className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-500 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
-              aria-label={`${awayFav ? "Unfavorite" : "Favorite"} ${awayTeam?.name}`}
-              aria-pressed={awayFav}
-              title={awayFav ? "Unfavorite Team" : "Favorite Team"}
-            >
-              <Star className={`h-3.5 w-3.5 transition-all ${awayFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-500'}`} />
-            </button>
-          </div>
-          {showScores && displayAwayScore !== undefined && (
-            <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-xl border shadow-sm transition-colors ${
-              status === 'live'
-                ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
-                : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
-            }`}>{displayAwayScore}</span>
-          )}
-        </div>
-
-        {/* Real-time scorer feed (live matches only) */}
-        {status === 'live' && (scorers.home.length > 0 || scorers.away.length > 0) && (
-          <div className="space-y-1 pt-1">
-            {[['home', scorers.home], ['away', scorers.away]].map(([side, list]) =>
-              list.length ? (
-                <p key={side} className={`text-[10.5px] font-semibold text-navy-500 dark:text-zinc-400 truncate ${side === 'away' ? 'text-right' : ''}`}>
-                  {list.slice(-3).join(' · ')}
-                </p>
-              ) : null
+        {/* Home Team (row + its own scorers) */}
+        <div className="space-y-1" data-team="home">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <ClubLink
+                team={homeTeam}
+                className="relative z-20 flex min-w-0 items-center gap-2.5 rounded-xl pr-1 hover:[&>span]:text-lime-600 dark:hover:[&>span]:text-lime-400"
+              >
+                <CrestDrop src={homeTeam?.badge} name={homeTeam?.name} size="sm" />
+                <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{homeTeam?.name}</span>
+              </ClubLink>
+              <CardChips cards={cards.home} />
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleFavoriteTeam(homeTeam);
+                }}
+                data-sound="toggle"
+                className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-400 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+                aria-label={`${homeFav ? "Unfavorite" : "Favorite"} ${homeTeam?.name}`}
+                aria-pressed={homeFav}
+                title={homeFav ? "Unfavorite Team" : "Favorite Team"}
+              >
+                <Star className={`h-3.5 w-3.5 transition-all ${homeFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-400'}`} />
+              </button>
+            </div>
+            {showScores && displayHomeScore !== undefined && (
+              <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-xl border shadow-sm transition-colors ${
+                status === 'live'
+                  ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
+                  : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
+              }`}>{displayHomeScore}</span>
             )}
           </div>
-        )}
+          {showScores && <TeamScorers side="home" teamName={homeTeam?.name} groups={scorerGroups.home} />}
+        </div>
+
+        {/* Away Team (row + its own scorers) */}
+        <div className="space-y-1" data-team="away">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <ClubLink
+                team={awayTeam}
+                className="relative z-20 flex min-w-0 items-center gap-2.5 rounded-xl pr-1 hover:[&>span]:text-lime-600 dark:hover:[&>span]:text-lime-400"
+              >
+                <CrestDrop src={awayTeam?.badge} name={awayTeam?.name} size="sm" />
+                <span className="text-[14px] font-bold truncate text-navy-800 dark:text-zinc-100 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">{awayTeam?.name}</span>
+              </ClubLink>
+              <CardChips cards={cards.away} />
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleFavoriteTeam(awayTeam);
+                }}
+                data-sound="toggle"
+                className="relative z-20 p-1.5 rounded-lg hover:bg-navy-100/70 dark:hover:bg-navy-900/90 text-navy-400 hover:text-amber-500 dark:text-zinc-400 dark:hover:text-amber-400 active:scale-75 transition-all ease-spring shrink-0 ml-1 opacity-65 group-hover:opacity-100 cursor-pointer"
+                aria-label={`${awayFav ? "Unfavorite" : "Favorite"} ${awayTeam?.name}`}
+                aria-pressed={awayFav}
+                title={awayFav ? "Unfavorite Team" : "Favorite Team"}
+              >
+                <Star className={`h-3.5 w-3.5 transition-all ${awayFav ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]' : 'text-navy-400 dark:text-zinc-400'}`} />
+              </button>
+            </div>
+            {showScores && displayAwayScore !== undefined && (
+              <span className={`text-[18px] font-black tabular-nums shrink-0 px-2.5 py-0.5 rounded-xl border shadow-sm transition-colors ${
+                status === 'live'
+                  ? 'text-lime-700 dark:text-lime-300 bg-lime-500/10 border-lime-500/25'
+                  : 'text-navy-800 dark:text-white bg-navy-100/85 dark:bg-navy-900 border-navy-200 dark:border-navy-750'
+              }`}>{displayAwayScore}</span>
+            )}
+          </div>
+          {showScores && <TeamScorers side="away" teamName={awayTeam?.name} groups={scorerGroups.away} />}
+        </div>
       </div>
 
       {/* Divider */}
@@ -269,7 +259,7 @@ export default function MatchCard({ match, tab }) {
 
       {/* Footer Info */}
       <div className="relative flex items-center justify-between text-xs">
-        <span className="text-[11px] text-navy-500 dark:text-zinc-500 font-bold tracking-wide flex items-center gap-1.5">
+        <span className="text-[11px] text-navy-500 dark:text-zinc-400 font-bold tracking-wide flex items-center gap-1.5">
           {note ? (
             <span className="text-amber-600 dark:text-amber-400">{note}</span>
           ) : unverifiedFeed ? (
@@ -298,7 +288,7 @@ export default function MatchCard({ match, tab }) {
             Explore Streams
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-navy-500 dark:text-zinc-500">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-navy-500 dark:text-zinc-400">
             <ShieldAlert className="h-3.5 w-3.5" />
             Pending Link
           </span>

@@ -577,6 +577,12 @@ export interface RestClientOptions {
   /** Realtime polling interval (ms). */
   pollIntervalMs?: number;
   timeoutMs?: number;
+  /**
+   * Signed-in user's access token (Supabase Auth). Sent as the Bearer token so
+   * row-level security sees `auth.uid()`; the anon key is used when it
+   * returns nothing (guests, expired sessions).
+   */
+  getAccessToken?: () => string | null | undefined;
 }
 
 function encodeFilterValue(filter: QueryFilter): string {
@@ -614,10 +620,20 @@ function createRestBackend(url: string, anonKey: string, options: RestClientOpti
     Accept: 'application/json',
   };
 
+  const authHeaders = (): Record<string, string> => {
+    let token: string | null | undefined = null;
+    try {
+      token = options.getAccessToken?.();
+    } catch {
+      token = null;
+    }
+    return token ? { ...baseHeaders, Authorization: `Bearer ${token}` } : { ...baseHeaders };
+  };
+
   async function execute(state: QueryState): Promise<SupabaseResult> {
     const method =
       state.action === 'select' ? 'GET' : state.action === 'insert' ? 'POST' : state.action === 'update' ? 'PATCH' : 'DELETE';
-    const headers: Record<string, string> = { ...baseHeaders };
+    const headers: Record<string, string> = authHeaders();
     let body: string | undefined;
     if (state.action === 'insert' || state.action === 'update') {
       headers['Content-Type'] = 'application/json';
@@ -790,6 +806,22 @@ function hasRealCredentials(): boolean {
 
 let sharedClient: SupabaseClient | null = null;
 let localClient: SupabaseClient | null = null;
+let accessTokenProvider: (() => string | null | undefined) | null = null;
+
+/**
+ * Registers where the shared remote client reads the signed-in user's access
+ * token from (lib/auth does this), without the data client importing auth.
+ */
+export function setSupabaseAccessTokenProvider(provider: (() => string | null | undefined) | null): void {
+  accessTokenProvider = provider;
+}
+
+/** Supabase project URL + anon key when configured (shared with Supabase Auth). */
+export function getSupabaseCredentials(): { url: string; anonKey: string } | null {
+  return hasRealCredentials()
+    ? { url: process.env.NEXT_PUBLIC_SUPABASE_URL as string, anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string }
+    : null;
+}
 
 /** Browser-local client (localStorage + cross-tab realtime). Also the offline fallback. */
 export function getLocalSupabase(): SupabaseClient {
@@ -801,7 +833,9 @@ export function getLocalSupabase(): SupabaseClient {
 export function initSupabase(): SupabaseClient {
   if (sharedClient) return sharedClient;
   sharedClient = hasRealCredentials()
-    ? createRestClient(process.env.NEXT_PUBLIC_SUPABASE_URL as string, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+    ? createRestClient(process.env.NEXT_PUBLIC_SUPABASE_URL as string, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string, {
+        getAccessToken: () => accessTokenProvider?.() ?? null,
+      })
     : getLocalSupabase();
   return sharedClient;
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Star, X } from 'lucide-react';
 import ClubLink from '@/components/clubs/ClubLink';
 import TeamLogo from '@/components/clubs/TeamLogo';
+import CrestDrop from '@/components/clubs/CrestDrop';
 import { clubHref } from '@/lib/clubs/links';
 import { getFavoriteTeamDetails, toggleFavoriteTeam } from '@/lib/utils/favorites';
 
@@ -24,9 +25,7 @@ function FavoriteCrest({ team }) {
   const club = resolved || team;
   return (
     <ClubLink team={club} prefetch={false} aria-label={`Open ${team.name} club profile`} className="tactile flex w-20 shrink-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-lime-500/10">
-      <span className="rounded-full bg-white p-1.5 shadow-md ring-2 ring-lime-500/30 dark:bg-navy-900">
-        <TeamLogo src={club.badge} name={club.name} size={40} />
-      </span>
+      <CrestDrop src={club.badge} name={club.name} size={50} />
       <span className="w-full truncate text-center text-[10px] font-bold">{team.name}</span>
     </ClubLink>
   );
@@ -76,7 +75,7 @@ export default function FavoritesHub({ favorites, matches }) {
               const selected = favorites.some((name) => name.toLowerCase() === team.name.toLowerCase());
               return <button key={team.name} type="button" aria-pressed={selected} onClick={() => toggleFavoriteTeam(team)} className="tactile flex min-w-0 items-center gap-2 rounded-xl border border-navy-200 p-2 text-left text-xs font-bold dark:border-navy-750"><TeamLogo src={team.badge} name={team.name} size={28} /><span className="flex-1 truncate">{team.name}</span><Star className={`h-4 w-4 shrink-0 ${selected ? 'fill-amber-400 text-amber-400' : 'text-zinc-400'}`} /></button>;
             })}
-            {!options.length && <p className="text-xs text-zinc-500">No matching teams in today’s fixtures. Star a team on a match card when it appears.</p>}
+            {!options.length && <p className="text-xs text-zinc-600 dark:text-zinc-400">No matching teams in today’s fixtures. Star a team on a match card when it appears.</p>}
           </div>
         </div>
       )}

@@ -69,7 +69,7 @@ export async function ClubAbout({ club }) {
         ))}
       </div>
       {summary?.url ? (
-        <p className="relative mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-navy-500 dark:text-zinc-500">
+        <p className="relative mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-navy-500 dark:text-zinc-400">
           <a
             href={summary.url}
             target="_blank"
@@ -86,7 +86,7 @@ export async function ClubAbout({ club }) {
           </span>
         </p>
       ) : (
-        <p className="relative mt-4 text-[11px] font-semibold text-navy-500 dark:text-zinc-500">Summary generated from live ESPN club data.</p>
+        <p className="relative mt-4 text-[11px] font-semibold text-navy-500 dark:text-zinc-400">Summary generated from live ESPN club data.</p>
       )}
     </section>
   );

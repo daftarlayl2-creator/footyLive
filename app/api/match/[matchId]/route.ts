@@ -48,6 +48,8 @@ export async function GET(
           // Real live incidents parsed from the upstream scoreboard.
           cards: match.live?.cards ?? null,
           scorers: match.live?.scorers ?? null,
+          // Structured goals (player, minute, penalty/own-goal) for per-team scorer lists.
+          goals: match.live?.goals ?? null,
           events: (match.live?.events ?? []).slice(-12),
           period: match.live?.period || '',
           dateStr,

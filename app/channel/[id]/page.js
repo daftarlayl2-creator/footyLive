@@ -27,7 +27,7 @@ export default async function ChannelPage({ params }) {
         </Link>
         <div className="rounded-2xl border border-navy-750 bg-navy-850 p-8 text-center space-y-3">
           <p className="text-sm font-bold text-white">Channel not found in the current feeds</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-400">
             It may have ended, or the feed rotated its links. Live channels are re-read every minute.
           </p>
           <Link
@@ -74,7 +74,7 @@ export default async function ChannelPage({ params }) {
         )}
         <h1 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">{channel.name}</h1>
         {channel.group && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-500">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
             <RadioTower className="h-3 w-3" />
             {channel.group}
           </span>
@@ -84,13 +84,13 @@ export default async function ChannelPage({ params }) {
       <StreamPlayer streamUrl={playbackUrl} channels={channels} matchTitle={channel.name} matchStatus="live" />
 
       <div className="space-y-1.5">
-        <p className="text-[11px] text-navy-500 dark:text-zinc-500">
+        <p className="text-[11px] text-navy-500 dark:text-zinc-400">
           Source: {channel.source}. Playback is routed through EVIV Live&apos;s signed proxy;{' '}
           {channels.length > 1
             ? `${channels.length} sources found for this channel — if one stops, the player moves to the next automatically.`
             : 'if the stream stops, try again shortly as feed links rotate.'}
         </p>
-        <p className="text-[11px] text-navy-500 dark:text-zinc-500">
+        <p className="text-[11px] text-navy-500 dark:text-zinc-400">
           {status === 'live'
             ? 'The status probe confirmed this feed is serving media right now.'
             : 'The background probe could not verify this feed (CDNs often block server-side checks). Playback was still attempted through the proxy — use Server 2, 3 … below if this one stays blank.'}

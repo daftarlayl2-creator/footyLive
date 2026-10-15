@@ -319,6 +319,27 @@ describe('event details parsing', () => {
     expect(scorers.home).toEqual(["Joel Matip 12'"]);
     expect(scorers.away).toEqual([]);
   });
+
+  it('returns structured goals with penalty and own-goal flags, credited to the scoring side', () => {
+    const { goals } = parseEspnDetails(
+      {
+        details: [
+          { type: { text: 'Goal' }, clock: { displayValue: "15'" }, team: { id: '103' }, athletesInvolved: [{ displayName: 'Alphadjo Cissè' }] },
+          { type: { text: 'Yellow Card' }, clock: { displayValue: "20'" }, team: { id: '110' }, athletesInvolved: [{ displayName: 'Booked Player' }] },
+          { type: { text: 'Penalty - Scored' }, clock: { displayValue: "32'" }, team: { id: '103' }, penalty: true, athletesInvolved: [{ displayName: 'Alphadjo Cissè' }] },
+          { type: { text: 'Own Goal' }, clock: { displayValue: "90'+2'" }, team: { id: '103' }, ownGoal: true, athletesInvolved: [{ displayName: 'Unlucky Defender' }] },
+          { type: { text: 'Goal' }, clock: { displayValue: "60'" }, team: { id: '110' } },
+        ],
+      },
+      '103'
+    );
+    expect(goals).toEqual([
+      { side: 'home', player: 'Alphadjo Cissè', minute: "15'", penalty: false, ownGoal: false },
+      { side: 'home', player: 'Alphadjo Cissè', minute: "32'", penalty: true, ownGoal: false },
+      { side: 'away', player: 'Unlucky Defender', minute: "90'+2'", penalty: false, ownGoal: true },
+      { side: 'away', player: '', minute: "60'", penalty: false, ownGoal: false },
+    ]);
+  });
 });
 
 describe('statistics mapping', () => {

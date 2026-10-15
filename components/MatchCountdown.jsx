@@ -57,7 +57,7 @@ export default function MatchCountdown({ timestamp, status }) {
               <div className="bg-zinc-100 dark:bg-navy-900 border border-zinc-200 dark:border-navy-750 px-3 py-1.5 rounded-lg text-sm font-bold text-zinc-800 dark:text-white font-mono tabular-nums shadow-inner">
                 {timeLeft.days}
               </div>
-              <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1 mr-2">d</span>
+              <span className="text-[10px] text-zinc-550 dark:text-zinc-400 font-extrabold uppercase ml-1 mr-2">d</span>
             </div>
           )}
           
@@ -65,21 +65,21 @@ export default function MatchCountdown({ timestamp, status }) {
             <div className="bg-zinc-100 dark:bg-navy-900 border border-zinc-200 dark:border-navy-750 px-3 py-1.5 rounded-lg text-sm font-bold text-zinc-800 dark:text-white font-mono tabular-nums shadow-inner">
               {String(timeLeft.hours).padStart(2, '0')}
             </div>
-            <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1 mr-2">h</span>
+            <span className="text-[10px] text-zinc-550 dark:text-zinc-400 font-extrabold uppercase ml-1 mr-2">h</span>
           </div>
 
           <div className="flex items-center">
             <div className="bg-zinc-100 dark:bg-navy-900 border border-zinc-200 dark:border-navy-750 px-3 py-1.5 rounded-lg text-sm font-bold text-zinc-800 dark:text-white font-mono tabular-nums shadow-inner">
               {String(timeLeft.minutes).padStart(2, '0')}
             </div>
-            <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1 mr-2">m</span>
+            <span className="text-[10px] text-zinc-550 dark:text-zinc-400 font-extrabold uppercase ml-1 mr-2">m</span>
           </div>
 
           <div className="flex items-center">
             <div className="bg-zinc-100 dark:bg-navy-900 border border-zinc-200 dark:border-navy-750 px-3 py-1.5 rounded-lg text-sm font-bold text-lime-650 dark:text-lime-400 font-mono tabular-nums shadow-inner ring-1 ring-lime-500/20">
               {String(timeLeft.seconds).padStart(2, '0')}
             </div>
-            <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1">s</span>
+            <span className="text-[10px] text-zinc-550 dark:text-zinc-400 font-extrabold uppercase ml-1">s</span>
           </div>
         </div>
 

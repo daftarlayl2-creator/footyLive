@@ -240,6 +240,19 @@ describe('remote (PostgREST) client', () => {
     expect(writeInit.headers['Content-Type']).toBe('application/json');
   });
 
+  it('sends the signed-in user\'s access token for row-level security, anon key otherwise', async () => {
+    let token: string | null = 'user-jwt';
+    const fetchMock = vi.fn(async () => new Response('[]', { status: 200 }));
+    const client = createRestClient('https://abc.supabase.co', 'anon-key', { fetch: fetchMock as any, getAccessToken: () => token });
+
+    await client.from('match_messages').select('*');
+    expect((fetchMock.mock.calls[0] as any)[1].headers).toMatchObject({ apikey: 'anon-key', Authorization: 'Bearer user-jwt' });
+
+    token = null;
+    await client.from('match_messages').select('*');
+    expect((fetchMock.mock.calls[1] as any)[1].headers.Authorization).toBe('Bearer anon-key');
+  });
+
   it('returns (never throws) PostgREST and network errors', async () => {
     const failing = createRestClient('https://abc.supabase.co', 'k', {
       fetch: (async () =>

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  AUTO_RETRY_DELAYS_MS,
+  autoRetryDelay,
   buildServerList,
   describeFailure,
   detectStreamKind,
@@ -9,6 +11,7 @@ import {
   normalizeQuality,
   pickNextServer,
   serverKey,
+  serverKinds,
   serverLabel,
   type FailoverAction,
   type FailoverState,
@@ -134,6 +137,26 @@ describe('pickNextServer', () => {
   it('tries servers that failed in an earlier chain last', () => {
     expect(pickNextServer(keys, 0, ['a'], { b: 'network' })).toBe(2);
     expect(pickNextServer(keys, 0, ['a', 'c', 'd'], { b: 'network' })).toBe(1);
+  });
+
+  it('prefers an untried direct HLS/MP4 backup after an embedded player fails', () => {
+    const kinds = { a: 'embed', b: 'embed', c: 'hls', d: 'mp4' } as const;
+    expect(pickNextServer(keys, 0, ['a'], {}, kinds)).toBe(2);
+    // A direct backup that already failed earlier loses to a fresh embed.
+    expect(pickNextServer(keys, 0, ['a'], { c: 'network', d: 'media' }, kinds)).toBe(1);
+    // After a direct stream fails, the normal order applies.
+    expect(pickNextServer(keys, 2, ['c'], {}, kinds)).toBe(3);
+    expect(pickNextServer(keys, 3, ['c', 'd'], {}, kinds)).toBe(0);
+  });
+});
+
+describe('autoRetryDelay', () => {
+  it('backs off over three automatic rounds, then leaves it to the viewer', () => {
+    expect(AUTO_RETRY_DELAYS_MS).toEqual([10_000, 30_000, 60_000]);
+    expect([0, 1, 2].map(autoRetryDelay)).toEqual([10_000, 30_000, 60_000]);
+    expect(autoRetryDelay(3)).toBeNull();
+    expect(autoRetryDelay(-1)).toBeNull();
+    expect(autoRetryDelay(1.5)).toBeNull();
   });
 });
 
@@ -277,8 +300,68 @@ describe('failoverReducer: server list changes', () => {
   });
 });
 
+describe('failoverReducer: embed failures and viewer reports', () => {
+  const servers = buildServerList([
+    { url: 'https://provider-a.example.com/embed/1' },
+    { url: 'https://provider-b.example.com/embed/2' },
+    { url: 'https://cdn.example.com/live/3.m3u8' },
+  ]);
+  const keys = servers.map((s) => s.key);
+  const kinds = serverKinds(servers);
+
+  it('serverKinds maps every key to its stream kind', () => {
+    expect(Object.values(kinds)).toEqual(['embed', 'embed', 'hls']);
+  });
+
+  it('jumps straight to the HLS backup when an embed refuses to load', () => {
+    const s = run(initFailoverState(keys, true, kinds), { type: 'fail', attempt: 1, reason: 'embed' });
+    expect(s).toMatchObject({ active: 2, phase: 'connecting', attempt: 2 });
+    expect(s.failed).toEqual({ [keys[0]]: 'embed' });
+    expect(s.switched).toEqual({ from: 0, to: 2, reason: 'embed' });
+  });
+
+  it('skip marks the active server as reported and moves on, even with auto-switch off', () => {
+    const manual = initFailoverState(keys, false, kinds);
+    const s = run(manual, { type: 'ready', attempt: 1 }, { type: 'skip', attempt: 1 });
+    expect(s).toMatchObject({ active: 2, phase: 'connecting', attempt: 2 });
+    expect(s.failed[keys[0]]).toBe('reported');
+    expect(s.switched).toMatchObject({ from: 0, to: 2, reason: 'reported' });
+  });
+
+  it('skip ignores stale attempts and finished chains', () => {
+    const s = initFailoverState(keys, true, kinds);
+    expect(run(s, { type: 'skip', attempt: 7 })).toBe(s);
+    const exhausted = run(initFailoverState(['solo']), { type: 'fail', attempt: 1, reason: 'network' });
+    expect(run(exhausted, { type: 'skip', attempt: exhausted.attempt })).toBe(exhausted);
+  });
+
+  it('skip on a lone server reloads it instead of giving up', () => {
+    const s = run(initFailoverState(['solo']), { type: 'skip', attempt: 1 });
+    expect(s).toMatchObject({ active: 0, phase: 'connecting', attempt: 2, failed: {} });
+  });
+
+  it('skipping through every server ends the chain as exhausted', () => {
+    let s = initFailoverState(keys, true, kinds);
+    s = run(s, { type: 'skip', attempt: 1 });
+    s = run(s, { type: 'skip', attempt: s.attempt });
+    s = run(s, { type: 'skip', attempt: s.attempt });
+    expect(s.phase).toBe('exhausted');
+    expect(Object.values(s.failed)).toEqual(['reported', 'reported', 'reported']);
+  });
+
+  it('sync refreshes kinds without restarting identical lists', () => {
+    const s = initFailoverState(keys, true, {});
+    const synced = run(s, { type: 'sync', keys, kinds });
+    expect(synced.kinds).toEqual(kinds);
+    expect(synced.attempt).toBe(s.attempt);
+    expect(run(synced, { type: 'sync', keys, kinds: { ...kinds } })).toBe(synced);
+  });
+});
+
 describe('copy helpers', () => {
   it('describes failures and joins labels', () => {
+    expect(describeFailure('embed')).toMatch(/refused/i);
+    expect(describeFailure('reported')).toMatch(/not playing/i);
     expect(describeFailure('network')).toMatch(/offline/i);
     expect(describeFailure(null)).toBe('Stream unavailable');
     expect(joinLabels(['Server 1'])).toBe('Server 1');

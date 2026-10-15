@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { MapPin, Palette, Trophy } from 'lucide-react';
-import TeamLogo from '@/components/clubs/TeamLogo';
+import CrestDrop from '@/components/clubs/CrestDrop';
 import FormStrip from '@/components/club/FormStrip';
 import { heroPalette } from '@/lib/clubs/colors';
 import { findStandingsLeague } from '@/lib/standings';
@@ -64,11 +64,10 @@ export default function ClubHero({ club, form = [], children }) {
 
       <div className="relative p-5 sm:p-8">
         <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:gap-7 sm:text-left">
+          {/* Crest inside a liquid-glass droplet, its glow tinted with the club colour */}
           <div className="relative shrink-0">
-            <span className="absolute inset-0 -z-0 rounded-[2rem] bg-white/30 blur-2xl" aria-hidden="true" />
-            <div className="relative flex h-28 w-28 items-center justify-center rounded-[2rem] bg-white/95 p-3.5 shadow-2xl ring-4 ring-white/25 sm:h-36 sm:w-36 sm:p-4">
-              <TeamLogo src={club.logo} name={club.name} size={256} rounded="rounded-2xl" priority fill />
-            </div>
+            <span className="absolute inset-3 -z-0 rounded-full bg-white/25 blur-2xl" aria-hidden="true" />
+            <CrestDrop src={club.logo} name={club.name} size="xl" tone="dark" tint={palette.swatches[0]} priority />
           </div>
 
           <div className="min-w-0 flex-1 space-y-2.5">

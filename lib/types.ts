@@ -42,6 +42,17 @@ export interface MatchEvent {
   penalty?: boolean;
 }
 
+/** One goal, credited to the side that benefits (own goals count for the opponent). */
+export interface MatchGoal {
+  side: 'home' | 'away';
+  /** Scorer name ('' when the upstream feed omits it). */
+  player: string;
+  /** Minute as displayed upstream, e.g. "63'" or "90'+4'". */
+  minute: string;
+  penalty: boolean;
+  ownGoal: boolean;
+}
+
 /** Real-time extras available for live (and recently finished) matches. */
 export interface MatchLiveDetails {
   cards: {
@@ -51,6 +62,8 @@ export interface MatchLiveDetails {
   events: MatchEvent[];
   /** Goal scorers per side formatted as "Player 63'". */
   scorers: { home: string[]; away: string[] };
+  /** Structured goals in match order (scoreboards group them per player). */
+  goals?: MatchGoal[];
   period?: string;
   detail?: string;
 }

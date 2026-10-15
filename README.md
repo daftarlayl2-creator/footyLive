@@ -12,13 +12,17 @@
 ## 🌟 Key Features
 
 * 🛰️ **REAL Data Only (ESPN public API)**: the home dashboard consumes `https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard` for every competition of the day — live, finished and upcoming — plus per-match summaries for statistics and play-by-play. Nothing is fabricated: a match is only marked live when ESPN reports `status.type.state === "in"`, and unparseable values are omitted rather than invented.
-* ⚽ **Live Match Statistics on the Cards**: live cards show the real score, the real match minute (`62'`, `HT`, `90'+3'`), yellow/red card chips counted from the scoreboard's match details and the goal scorers for both sides. Each card then polls `/api/match/{id}` every 30 s to stay current.
+* ⚽ **Live Match Statistics on the Cards**: live cards show the real score, the real match minute (`62'`, `HT`, `90'+3'`), yellow/red card chips and the goal scorers — grouped per player and listed directly under their own team (`Bukayo Saka 20', 55'`). Each card then polls `/api/match/{id}` every 30 s to stay current.
+* 🧾 **Match-Centre Scoreboard**: Home (crest, name, score, scorers, cards) and Away sit in separate columns on every screen size — never stacked — with a centre divider showing the live minute (with DVR controls), the period (`1st half`, `Half-time`, `Extra time`, `Full time`) and the competition chip. Scorers are grouped per player with goal icons and minutes (`Alphadjo Cissè 15', 32'`), penalties `(P)` and own goals `(OG)`, anchored strictly under the team they scored for.
+* 💧 **Liquid-Glass Crests**: club crests float inside a glossy "water droplet" (`components/clubs/CrestDrop.jsx` + `.crest-drop` in `globals.css`): frosted translucent backdrop, radial caustic glow tinted with the club colour, curved specular highlight, glint, inner rim light and layered shadows — on match cards, the scoreboard, the predictor, favourites and club pages.
+* 🌑 **Dark Glass Match Centre**: the scoreboard, the "Who will win?" predictor, H2H insights and the player chrome use theme-independent dark glass (`.glass-dark`), so labels, badges and stats always sit on a dark backdrop with high contrast (secondary text is `zinc-300/400`, never the sub-AA `zinc-500+` on burgundy).
+* 👤 **Fan Accounts & Profile (`/profile`)**: Guest vs registered fans, via **Supabase Auth** when configured or secure **device-local accounts** (PBKDF2-SHA256 hashed passwords) otherwise. Fans edit their display name, avatar (upload — downscaled in the browser — or a brand preset) and primary favourite club. Registered fans get the brand **verified badge** (blue rosette, lime ring) on their profile, in the header and next to their chat messages. A **Fan Stats** card shows prediction accuracy (correct calls over settled votes, streaks, recent calls), starred teams and chat activity.
 * 🗂️ **Live / Upcoming / Finished Tabs**: past, live and upcoming fixtures of the day in one dashboard, with tournament filters, multi-select search, favourite-team pinning and kickoff countdowns.
 * 📊 **Enterprise Match Statistics**: real boxscore comparison rows (possession, shots, corners, fouls, cards …) with proportional bars — lime for home, sky for away — next to the real key-events log on the match page.
 * 📡 **Channels That Never Disappear**: `/channels` server-renders the currently published `playlist.m3u`, falling back to GitHub’s base64 Contents API if raw access is blocked/HTML. It shows all statuses by default; CDN-blocked probes are **Standby**. Clicking a channel attempts playback through the signed `/api/proxy` player even if a probe failed.
 * 🎨 **Burgundy & Lime Design System**: Tailwind v4 `@theme` tokens (legacy `navy-*` utility names now map to burgundy shades; `lime-*` maps to the new electric lime) drive every surface, button, active state and player control. Cards and live badges animate, respecting `prefers-reduced-motion`.
-* 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback, alongside iframe embeds with togglable sandbox shields.
-* 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls, plus a **Retry all** that re-signs fresh links.
+* 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback. Provider embeds run in an **unsandboxed** iframe with a permissive `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"` list — provider players refuse to play inside `sandbox` ("Remove sandbox attributes on the iframe tag").
+* 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls. Embeds are watched too: a refused/expired signed link inside the frame and provider pages the server-side probe (`/api/stream-redirect?…&check=1`) reports gone fail over immediately, and after an embed fails the **direct HLS/MP4 backups are tried first**. Viewers can tap **Next server** when a provider shows its own error. Once every server failed, the player re-signs links and **retries the whole list on its own** (10 s → 30 s → 60 s, with a countdown and Cancel), plus a manual **Retry all**.
 * 🖥️ **Multistream Arena**: up to four matches side by side in a drag-to-resize grid with per-tile volume.
 * 🏆 **Standings, Top Scorers & Top Assists**: `/standings` has a scrollable league pill selector (Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Botola Pro, Europa League, Eredivisie, Primeira Liga, Saudi Pro League, MLS) and Table / Top Scorers / Top Assists tabs. Tables show Pos, Team, P, W, D, L, GF, GA, GD, Pts with qualification/relegation zones; phones get a combined `GF:GA` column so points never scroll off-screen. The league and tab live in the URL (`?league=esp.1&view=scorers`), so views can be shared.
 * 🛡️ **Club Pages (`/club/[id]`)**: every crest and club name (match cards, scoreboard, standings, leaderboards, fixtures) links to a club page. It has a hero in the official club colours with a high-res crest, plus founding year, stadium and current manager. Below that come the Wikipedia history/bio and tabs for **Form & Results**, **Fixtures** and **Squad**. ESPN data renders first; the Wikidata facts and bio stream in afterwards.
@@ -109,6 +113,7 @@ footylive/
 │   ├── channels/              # Server-rendered channel grid (all statuses shown)
 │   ├── channel/[id]/          # Proxied playback for one channel + bounded status check
 │   ├── watch/[matchId]/       # Live scoreboard, real stats, play-by-play, player + failover
+│   ├── profile/               # Fan profile: sign in / sign up, edit profile, Fan Stats
 │   ├── multistream/           # Up to 4 simultaneous players
 │   ├── standings/             # League pills + Table / Top Scorers / Top Assists tabs
 │   ├── club/[id]/             # Club hero, streamed facts + bio, Results / Fixtures / Squad tabs
@@ -122,13 +127,15 @@ footylive/
 │   ├── MatchStatsSection.jsx  # Real stat bars (lime home · sky away) + key-events log
 │   ├── LiveScoreboard.jsx     # Burgundy/lime scoreboard, cards and scorers
 │   ├── LiveChannelsGrid.jsx   # Channels with Live / Standby / Unreachable statuses
-│   ├── StreamPlayer.jsx       # hls.js/native playback, failover, sandbox toggle
+│   ├── StreamPlayer.jsx       # hls.js/native playback, unsandboxed embeds, failover + auto-retry
 │   ├── ServerSelector.jsx     # Server 1 … Backup selector + in-player menu
 │   ├── chat/MatchChatPanel.jsx      # Optimistic live chat (never-disabled input, retry, auto-scroll)
 │   ├── predictions/VotingBar.jsx    # One-tap votes, instant tallies, confirmation animation
 │   ├── standings/StandingsView.jsx  # Standings UI (sticky pills + segmented tabs)
 │   ├── club/                  # ClubHero, ClubFacts (streamed), ClubTabs, FormStrip
-│   ├── clubs/                 # ClubLink (→ /club/[id]) and resilient TeamLogo
+│   ├── clubs/                 # ClubLink (→ /club/[id]), resilient TeamLogo, liquid-glass CrestDrop
+│   ├── auth/                  # VerifiedBadge, UserAvatar, header AccountButton
+│   ├── profile/               # ProfileDashboard, AuthPanel, ProfileEditor, ClubPicker, FanStatsCard
 │   ├── nav/                   # MobileBottomNav (phones) + HeaderNav (active states)
 │   └── ui/                    # SoundEffects (delegated tap sounds), SoundToggle, LocalDateTime
 ├── lib/
@@ -136,7 +143,11 @@ footylive/
 │   ├── providers/             # WatchFooty, CDNLive, StreamedPk, LiveFeed (stream sources)
 │   ├── broadcast/             # Feed parsers, channel resolver, resilient probe
 │   ├── cache/                 # In-memory SWR + optional Upstash Redis
-│   ├── player/                # Server labels, stream-kind detection, failover machine
+│   ├── player/                # Server labels, stream-kind detection, failover machine, embed helpers
+│   ├── streamRedirect.ts      # Signed embed links: HMAC sign/verify + provider page probe
+│   ├── match/scoreboard.ts    # Scorer grouping per player/side, period + clock labels
+│   ├── auth/                  # Fan auth: Supabase Auth (GoTrue REST) or local accounts, useAuth()
+│   ├── fanStats.ts            # Prediction accuracy, streaks, chat activity, fan level
 │   ├── utils/matching.ts      # Fuzzy team and league matching
 │   ├── standings.ts           # League catalogue + ESPN / TheSportsDB table & leader normalisers
 │   ├── providers/standingsProvider.ts # Cached standings bundles
@@ -219,7 +230,23 @@ create policy "post chat" on match_messages for insert with check (true);
 create policy "read votes" on match_predictions for select using (true);
 create policy "cast votes" on match_predictions for insert with check (true);
 create policy "change votes" on match_predictions for update using (true);
+
+-- Fan accounts (Supabase Auth): verified chat messages + avatars.
+alter table match_messages add column if not exists user_id uuid references auth.users (id) on delete set null;
+alter table match_messages add column if not exists verified boolean not null default false;
+drop policy if exists "post chat" on match_messages;
+create policy "post chat" on match_messages for insert
+  with check ((user_id is null and verified = false) or user_id = auth.uid());
+
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
+create policy "avatar read" on storage.objects for select using (bucket_id = 'avatars');
+create policy "avatar upload" on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "avatar update" on storage.objects for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 ```
+
+Fan accounts use the same two env vars: sign-up / sign-in / token refresh go to Supabase Auth's REST API (no SDK), the session persists in `localStorage` and is refreshed a minute before it expires, and the PostgREST client sends the user's access token so row-level security sees `auth.uid()`. Display name, favourite club and avatar URL live in `user_metadata`; uploaded pictures go to the public `avatars` bucket (only the URL is stored — a device copy is kept if the upload is unavailable). Accounts count as verified once the email is confirmed. Chat inserts fall back to the classic row shape if the table predates the `user_id` / `verified` columns. Without Supabase, accounts live on the device with PBKDF2-SHA256 hashed passwords.
 
 The client talks to PostgREST directly (no SDK in the bundle). New chat messages arrive by polling for new rows every 4 s while the tab is visible, and vote tallies refresh every 20 s. If the shared backend is unreachable, both widgets fall back to the browser store instead of failing.
 </details>
@@ -262,6 +289,12 @@ Wikipedia/Wikidata), all against fixtures captured from the live APIs in `lib/pr
 Further suites cover the Supabase-compatible client (chained queries, local realtime, cross-tab
 BroadcastChannel delivery, PostgREST URLs and polling), the Web Audio sound engine, vote and chat
 helpers, and the server-rendered overhaul UI (club links, tab bar, chat, voting, standings, club page).
+The glass sprint adds suites for embed helpers and signed-redirect probing, the embed-aware failover
+(viewer reports, direct-backup preference, auto-retry backoff), scorer grouping and period labels,
+fan auth (password hashing, local accounts, the GoTrue client, session refresh/sign-out), fan stats,
+and mounted UI tests: unsandboxed player frames with refused-link failover and the auto-retry
+countdown, the two-column scoreboard, dark-glass predictor, liquid-glass crests, the sign-up →
+verified profile flow, prediction accuracy and verified chat messages.
 
 ---
 
@@ -274,7 +307,7 @@ Interactive documentation lives at [`/api-hub`](https://eviv.si/api-hub).
 | `/api/matches` | GET | ESPN fixtures enriched with catalogue servers or best-effort live-feed preview counts |
 | `/api/match/[matchId]` | GET | Live score, minute, cards, scorers and incidents for one match |
 | `/api/streams/[matchId]` | GET | Match-specific streams plus (live ESPN only) signed, unverified channel backups |
-| `/api/stream-redirect` | GET | HMAC-validated redirect to upstream embed URLs |
+| `/api/stream-redirect` | GET | HMAC-validated redirect to upstream embed URLs; `&check=1` returns a server-side probe of the provider page (`ok` / `offline` / `unknown`) |
 | `/api/proxy` | GET | Signed HLS relay: playlists rewritten server-side, segments streamed, `Range`/`206`/CORS preserved |
 | `/api/live-channels` | GET | Feed channels + best-effort status (`live`, `unknown` → “Standby”, `offline`); never hides channels |
 | `/api/standings?league={slug}` | GET | League table (zones, ranks), top scorers and top assists; `mar.1` (Botola Pro) via TheSportsDB |
@@ -307,7 +340,8 @@ Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL re
 * **Real data first**: never introduce mock fixtures, placeholder scores or fabricated minutes. Missing upstream values are omitted, not invented.
 * **Brand palette**: use the burgundy-alias `navy-*` / electric `lime-*` tokens from `@theme`. Pair neon lime with `text-navy-950` for contrast.
 * **Responsive Design**: every component must work on mobile, tablet and ultrawide screens.
-* **Sandbox Integrity**: keep third-party ads and redirects isolated inside the player sandbox.
+* **Player embeds vs ads**: never add `sandbox` to video-player iframes (providers refuse to play); use `EMBED_IFRAME_ALLOW` from `lib/player/embed.ts`. Ad frames (`components/ads/AdSlot.jsx`) stay sandboxed.
+* **Dark glass & contrast**: match-centre surfaces use `.glass-dark` / `.glass-dark-tile`; on dark backgrounds keep secondary text at `zinc-300`/`zinc-400` or lighter. Crests go through `CrestDrop`.
 * **Tests**: normalisers and probe policy changes come with `vitest` cases (`npm run test`).
 * **Tactile UI**: use `tactile` / `tactile-soft` for pressable surfaces, `app-card` for elevated cards, and `role="tab"` for tab controls (they get the tab sound automatically). Use `data-sound="none"` to silence a region, or `data-sound="vote"` (etc.) to pick a specific sound.
 * **Club links**: render team names and crests through `components/clubs/ClubLink.jsx` so they always point to `/club/[id]`.

@@ -24,17 +24,28 @@ import {
   Play,
   RefreshCw,
   ShieldAlert,
+  SkipForward,
   Volume1,
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import ServerSelector from '@/components/ServerSelector';
+import ServerSelector, { ServerMenu } from '@/components/ServerSelector';
 import {
+  autoRetryDelay,
   buildServerList,
   describeFailure,
   failoverReducer,
   initFailoverState,
+  serverKinds,
 } from '@/lib/player/servers';
+import { loadHls } from '@/lib/player/loadHls';
+import {
+  EMBED_IFRAME_ALLOW,
+  EMBED_REFERRER_POLICY,
+  classifyFrameLocation,
+  embedCheckUrl,
+  readFrameHref,
+} from '@/lib/player/embed';
 
 /* Failover timing. Watchdogs only count time while the tab is visible. */
 /** No first frame within this long (restarted once the HLS manifest parses) → the server is dead. */
@@ -74,20 +85,6 @@ const HLS_CONFIG = {
   },
 };
 
-/** Shared, memoised hls.js chunk: downloaded once, the first time an HLS server plays. */
-let hlsModule = null;
-
-function loadHls() {
-  hlsModule ??= import('hls.js')
-    .then((mod) => mod.default)
-    .catch((err) => {
-      // Let the next attempt try the network again instead of caching a rejection.
-      hlsModule = null;
-      throw err;
-    });
-  return hlsModule;
-}
-
 /** Map a fatal hls.js error to a failure reason. */
 function hlsFailureReason(Hls, data) {
   const { ErrorTypes, ErrorDetails } = Hls;
@@ -121,13 +118,24 @@ function startVisibleTimer(ms, onExpire) {
   return () => clearInterval(id);
 }
 
+/** Initial failover state: server keys plus their stream kinds (embed vs direct). */
+function initFromServers(list) {
+  return initFailoverState(list.map((s) => s.key), true, serverKinds(list));
+}
+
 /** Stream player with a server selector and automatic failover.
  *
  * Every source the page resolved becomes a server ("Server 1", "Server 2", …, "Backup").
  * When the active server fails — fatal hls.js error, media error that survives recovery,
- * no first frame, a long stall, or an embed that never loads — the player moves on to the
- * next server that has not been tried yet, and shows "all servers unavailable" with a
- * retry once every server has failed instead of spinning forever.
+ * no first frame, a long stall, an embed that never loads or whose signed link was
+ * refused, or a provider page our server reports as gone — the player moves on to the
+ * next server that has not been tried yet (direct HLS/MP4 backups first after an embed
+ * fails). Viewers can report a broken provider player with "Next server". Once every
+ * server has failed it shows "all servers unavailable" and retries the whole list on its
+ * own (10 s → 30 s → 60 s, then it waits for the viewer) instead of spinning forever.
+ *
+ * Embedded provider players run in an unsandboxed iframe with a permissive `allow` list:
+ * providers refuse to play inside `sandbox` ("Remove sandbox attributes on the iframe tag").
  *
  * DVR Rewind / Fast-Forward:
  *   - "-" button rewinds the video by 1 minute (delta passed via the window eviv:dvr event,
@@ -148,8 +156,9 @@ export default function StreamPlayer({
   const isUpcoming = matchStatus === 'upcoming';
   const servers = useMemo(() => buildServerList(channels, streamUrl), [channels, streamUrl]);
   const serverKeys = useMemo(() => servers.map((s) => s.key), [servers]);
+  const kindsByKey = useMemo(() => serverKinds(servers), [servers]);
 
-  const [state, dispatch] = useReducer(failoverReducer, serverKeys, initFailoverState);
+  const [state, dispatch] = useReducer(failoverReducer, servers, initFromServers);
   const { active, attempt, phase, failed, autoSwitch, switched } = state;
 
   // Resolved by key, not index: a refreshed list may reorder servers without interrupting playback.
@@ -172,8 +181,16 @@ export default function StreamPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [autoMuted, setAutoMuted] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const playerRef = useRef(null);
+  // Automatic "retry every server" rounds after the whole list failed.
+  const [autoRetryRound, setAutoRetryRound] = useState(0);
+  /** Seconds left, tagged with the attempt it belongs to (stale ticks are ignored). */
+  const [retryTick, setRetryTick] = useState({ attempt: 0, remaining: 0 });
+  /** Attempt whose automatic retry the viewer cancelled. */
+  const [retryCancelledAttempt, setRetryCancelledAttempt] = useState(0);
+
+  const stageRef = useRef(null);
   const videoRef = useRef(null);
   const frameRef = useRef(null);
 
@@ -188,8 +205,19 @@ export default function StreamPlayer({
 
   // A new server list (not just re-signed links) re-syncs the failover state.
   useEffect(() => {
-    dispatch({ type: 'sync', keys: serverKeys });
-  }, [serverKeys]);
+    dispatch({ type: 'sync', keys: serverKeys, kinds: kindsByKey });
+  }, [serverKeys, kindsByKey]);
+
+  // The in-player server menu is offered while the stage is fullscreen.
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange);
+    };
+  }, []);
 
   // Auto-switch preference survives reloads (read after mount to keep hydration stable).
   useEffect(() => {
@@ -213,6 +241,11 @@ export default function StreamPlayer({
   const onAutoplayMuted = useEffectEvent(() => {
     setIsMuted(true);
     setAutoMuted(true);
+  });
+  const onStablePlayback = useEffectEvent((stableAttempt) => {
+    dispatch({ type: 'stable', attempt: stableAttempt });
+    // Healthy playback again: automatic retries start from the shortest pause next time.
+    setAutoRetryRound(0);
   });
 
   // Keep the element in step with the volume/mute controls after the source is attached.
@@ -326,7 +359,7 @@ export default function StreamPlayer({
       stopConnectWatchdog();
       dispatch({ type: 'ready', attempt });
       // Played long enough without trouble → servers that failed earlier get another chance.
-      stops.push(startVisibleTimer(STABLE_PLAYBACK_MS, () => dispatch({ type: 'stable', attempt })));
+      stops.push(startVisibleTimer(STABLE_PLAYBACK_MS, () => onStablePlayback(attempt)));
     };
 
     // Called right after the source is attached: iOS only buffers native HLS once play() runs.
@@ -352,7 +385,34 @@ export default function StreamPlayer({
     };
 
     if (isEmbed) {
-      listen(frame, 'load', markReady);
+      // Unsandboxed provider frame: a cross-origin document means the provider page loaded.
+      // A readable same-origin `/api/…` document means our signed redirect refused the link
+      // (expired / invalid) and the frame is showing its error page instead of a player.
+      const inspectFrame = () => {
+        const state = classifyFrameLocation(readFrameHref(frame), window.location.origin);
+        if (state === 'blank') return; // initial about:blank; the real navigation follows
+        if (state === 'refused') fail('embed');
+        else markReady();
+      };
+      listen(frame, 'load', inspectFrame);
+      // The frame may already have navigated before this effect ran (fast or cached responses).
+      inspectFrame();
+
+      // Server-side probe of the provider page: dead links (404/410, unknown host) fail over
+      // right away instead of leaving a provider error on screen. Blocks never fail a server.
+      const checkUrl = embedCheckUrl(server.url);
+      if (checkUrl) {
+        const controller = new AbortController();
+        stops.push(() => controller.abort());
+        fetch(checkUrl, { cache: 'no-store', signal: controller.signal })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((result) => {
+            if (result?.health === 'offline') fail('network');
+          })
+          .catch(() => {
+            /* probe unavailable: rely on the frame itself */
+          });
+      }
     } else {
       listen(video, 'loadeddata', markReady);
       listen(video, 'playing', () => {
@@ -511,7 +571,7 @@ export default function StreamPlayer({
   };
 
   const toggleFullscreen = () => {
-    const root = playerRef.current;
+    const root = stageRef.current;
     if (!root) return;
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       document.exitFullscreen?.() ?? document.webkitExitFullscreen?.();
@@ -529,6 +589,48 @@ export default function StreamPlayer({
     dispatch({ type: 'retryAll' });
     startRefresh(() => router.refresh());
   };
+
+  /** Viewer-initiated "Retry all": a fresh start, so automatic rounds are re-armed too. */
+  const retryAllNow = () => {
+    setAutoRetryRound(0);
+    retryAllServers();
+  };
+
+  /** The viewer says the current server is not playing (e.g. a provider error page). */
+  const reportNotPlaying = () => dispatch({ type: 'skip', attempt });
+
+  /* ------------------------------------------------------------------------ */
+  /*  Automatic retry once every server failed (backed-off rounds)            */
+  /* ------------------------------------------------------------------------ */
+  const autoRetryMs = phase === 'exhausted' && servers.length > 0 && !isUpcoming ? autoRetryDelay(autoRetryRound) : null;
+  const autoRetryArmed = isHydrated && autoRetryMs !== null && retryCancelledAttempt !== attempt;
+  const onAutoRetry = useEffectEvent(() => {
+    setAutoRetryRound((round) => round + 1);
+    retryAllServers();
+  });
+
+  useEffect(() => {
+    if (!autoRetryArmed) return undefined;
+    let remaining = Math.round(autoRetryMs / 1000);
+    // Counts visible seconds only, like the playback watchdogs.
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(id);
+        onAutoRetry();
+        return;
+      }
+      setRetryTick({ attempt, remaining });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [autoRetryArmed, autoRetryMs, attempt]);
+
+  const retryCountdown = autoRetryArmed
+    ? retryTick.attempt === attempt
+      ? retryTick.remaining
+      : Math.round(autoRetryMs / 1000)
+    : null;
 
   /* ------------------------------------------------------------------------ */
   /*  Server status helper                                                    */
@@ -585,215 +687,250 @@ export default function StreamPlayer({
   /*  Render                                                                    */
   /* ------------------------------------------------------------------------- */
   return (
-    <div ref={playerRef} className="group relative rounded-2xl overflow-hidden shadow-2xl">
-      {/* Video element */}
-      {isUpcoming ? (
-        <div className="p-8 text-center text-zinc-400">
-          <Clock className="h-12 w-12 mx-auto mb-2" />
-          <p className="font-medium">Upcoming match</p>
-          <p className="text-sm">{matchTitle || ''}</p>
-        </div>
-      ) : isVideo && isHydrated && activeKey ? (
-        <video
-          ref={videoRef}
-          playsInline
-          muted={isMuted}
-          className={`w-full h-[350px] object-cover bg-black ${isTheaterMode ? 'lg:h-[70vh]' : ''}`}
-        />
-      ) : kind === 'embed' && isHydrated && activeServer ? (
-        <iframe
-          ref={frameRef}
-          src={activeServer.url}
-          title={matchTitle || 'Embedded player'}
-          className="aspect-video w-full border-0"
-          allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-          allowFullScreen
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-        />
-      ) : (
-        <div className="p-8 text-center text-zinc-400">
-          <span className="text-lime-500">No stream available</span>
-        </div>
-      )}
-
-      {/* Failure overlay: one server down, or every server exhausted */}
-      {isHydrated && !isUpcoming && isDown && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-navy-950/92 p-6 text-center backdrop-blur-sm">
-          <ShieldAlert className="h-8 w-8 text-red-400" aria-hidden="true" />
-          <p className="text-sm font-bold text-zinc-100">
-            {phase === 'exhausted' ? 'All servers unavailable' : 'This server is unavailable'}
-          </p>
-          <p className="max-w-sm text-xs text-zinc-400">
-            {activeKey ? describeFailure(failed[activeKey]) : 'No stream resolved for this match yet.'}
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={reloadStream}
-              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/40 bg-lime-500/10 px-3 py-1.5 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 active:scale-95"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Retry
-            </button>
-            {hasMultiple && phase === 'failed' && (
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'next' })}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300/40 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300 transition-all hover:bg-white/10 active:scale-95"
-              >
-                <ArrowRightLeft className="h-3.5 w-3.5" />
-                Try next server
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={retryAllServers}
-              disabled={isRefreshing}
-              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300/40 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-60"
-            >
-              <ArrowRightLeft className="h-3.5 w-3.5" />
-              {isRefreshing ? 'Re-signing links…' : 'Retry all'}
-            </button>
+    <div className="relative overflow-hidden rounded-2xl text-zinc-100 shadow-2xl">
+      {/* Stage: the media plus everything that floats over it (and what goes fullscreen) */}
+      <div ref={stageRef} className="player-stage group relative bg-black">
+        {/* Video element */}
+        {isUpcoming ? (
+          <div className="p-8 text-center text-zinc-400">
+            <Clock className="h-12 w-12 mx-auto mb-2" />
+            <p className="font-medium">Upcoming match</p>
+            <p className="text-sm">{matchTitle || ''}</p>
           </div>
-        </div>
-      )}
-
-      {/* Automatic switch notice */}
-      {switched && (
-        <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-lime-500/30 bg-navy-900/95 px-3 py-1.5 text-[10px] font-bold text-lime-300 shadow-lg">
-          <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>
-            {`Switched to ${serversEnriched[switched.to]?.label || 'another server'} · ${describeFailure(switched.reason)}`}
-          </span>
-          <button
-            type="button"
-            onClick={() => dispatch({ type: 'dismissSwitch' })}
-            className="cursor-pointer rounded px-1 text-zinc-400 transition-colors hover:text-zinc-100"
-            aria-label="Dismiss notice"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Custom controls overlay */}
-      {isVideo && isHydrated && activeKey && !isDown && (
-        <div
-          className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col gap-2.5 bg-gradient-to-t from-black/95 via-black/40 to-transparent p-4 transition-opacity duration-300 ${isPlaying ? 'opacity-0 focus-within:opacity-100 group-hover:opacity-100' : 'opacity-100'}`}
-        >
-          {/* Live timeline indicator */}
-          <div className="flex items-center gap-3">
-            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800/80">
-              <div
-                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-lime-500 to-lime-400"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-lime-500 dark:text-lime-400">
-              <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
-              {isBuffering ? 'Buffering' : isWatchingLive ? 'Live' : 'Watching'}
-            </span>
+        ) : isVideo && isHydrated && activeKey ? (
+          <video
+            ref={videoRef}
+            playsInline
+            muted={isMuted}
+            className={`w-full h-[350px] object-cover bg-black ${isTheaterMode ? 'lg:h-[70vh]' : ''}`}
+          />
+        ) : kind === 'embed' && isHydrated && activeServer ? (
+          // Never sandboxed: provider players refuse to run in a sandboxed frame.
+          <iframe
+            key={`${activeKey}#${attempt}`}
+            ref={frameRef}
+            src={activeServer.url}
+            title={matchTitle || 'Embedded player'}
+            className={`aspect-video w-full border-0 bg-black ${isTheaterMode ? 'lg:h-[70vh] lg:aspect-auto' : ''}`}
+            allow={EMBED_IFRAME_ALLOW}
+            allowFullScreen
+            referrerPolicy={EMBED_REFERRER_POLICY}
+            data-player-frame=""
+          />
+        ) : (
+          <div className="p-8 text-center text-zinc-400">
+            <span className="text-lime-500">No stream available</span>
           </div>
+        )}
 
-          <div className="flex items-center justify-between">
-            {/* Transport + DVR controls */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handlePlayPause}
-                className="cursor-pointer rounded-md border border-white/15 bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-90"
-                title={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-              </button>
-              <button
-                type="button"
-                onClick={handleDvrRewind}
-                disabled={!dvrEnabled}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40${
-                  dvrEnabled ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
-                }`}
-                title="Rewind 1 minute"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>{'-1'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleDvrForward}
-                disabled={!dvrEnabled}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40${
-                  dvrEnabled ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
-                }`}
-                title="Fast-forward 1 minute"
-              >
-                <ArrowRight className="h-3.5 w-3.5" />
-                <span>{'+1'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleGoLive}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90${
-                  isWatchingLive ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
-                }`}
-                title="Jump to live"
-              >
-                <span className="h-2 w-2 animate-pulse rounded-full bg-lime-500" />
-                LIVE
-              </button>
-            </div>
-
-            {/* PiP button */}
-            {pipSupported && (
-              <button
-                type="button"
-                onClick={handlePiPToggle}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90"
-                title="Picture in Picture"
-              >
-                <PictureInPicture className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* Volume control */}
-            <div className="group/volume flex items-center gap-2">
-              {autoMuted && isMuted && (
+        {/* Failure overlay: one server down, or every server exhausted */}
+        {isHydrated && !isUpcoming && isDown && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-navy-950/92 p-6 text-center backdrop-blur-sm">
+            <ShieldAlert className="h-8 w-8 text-red-400" aria-hidden="true" />
+            <p className="text-sm font-bold text-zinc-100">
+              {phase === 'exhausted' ? 'All servers unavailable' : 'This server is unavailable'}
+            </p>
+            <p className="max-w-sm text-xs text-zinc-300">
+              {activeKey ? describeFailure(failed[activeKey]) : 'No stream resolved for this match yet.'}
+            </p>
+            {phase === 'exhausted' && retryCountdown !== null && (
+              <p className="inline-flex items-center gap-2 rounded-full border border-lime-500/30 bg-lime-500/10 px-3 py-1 text-[11px] font-bold text-lime-300" data-auto-retry="">
+                <RefreshCw className="h-3 w-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                Retrying every server in {retryCountdown}s
                 <button
                   type="button"
-                  onClick={handleMuteToggle}
-                  className="cursor-pointer rounded-md border border-lime-500/40 bg-lime-500/15 px-2 py-1 text-[10px] font-bold text-lime-300 transition-colors hover:bg-lime-500/25"
+                  onClick={() => setRetryCancelledAttempt(attempt)}
+                  className="cursor-pointer rounded-full px-1.5 text-zinc-300 underline-offset-2 hover:text-white hover:underline"
                 >
-                  Tap to unmute
+                  Cancel
+                </button>
+              </p>
+            )}
+            {phase === 'exhausted' && autoRetryMs === null && servers.length > 0 && (
+              <p className="text-[11px] font-semibold text-zinc-400">Automatic retries paused — try again when you are ready.</p>
+            )}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={reloadStream}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/40 bg-lime-500/10 px-3 py-1.5 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 active:scale-95"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Retry
+              </button>
+              {hasMultiple && phase === 'failed' && (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'next' })}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300/40 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-200 transition-all hover:bg-white/10 active:scale-95"
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  Try next server
                 </button>
               )}
               <button
                 type="button"
-                onClick={handleMuteToggle}
-                className="cursor-pointer rounded-lg bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-90"
-                title={isMuted ? 'Unmute' : 'Mute'}
+                onClick={retryAllNow}
+                disabled={isRefreshing}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300/40 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-200 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-60"
               >
-                {isMuted ? (
-                  <VolumeX className="h-3.5 w-3.5 text-zinc-350" />
-                ) : volume < 0.4 ? (
-                  <Volume1 className="h-3.5 w-3.5" />
-                ) : (
-                  <Volume2 className="h-3.5 w-3.5" />
-                )}
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                {isRefreshing ? 'Re-signing links…' : phase === 'exhausted' && retryCountdown !== null ? 'Retry now' : 'Retry all'}
               </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                aria-label="Volume"
-                className="h-1 w-0 cursor-pointer appearance-none rounded-full bg-zinc-800 accent-lime-500 outline-none transition-all duration-300 focus:w-20 group-hover/volume:w-20"
-              />
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Automatic switch notice */}
+        {switched && (
+          <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-lime-500/30 bg-navy-900/95 px-3 py-1.5 text-[10px] font-bold text-lime-300 shadow-lg">
+            <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>
+              {`Switched to ${serversEnriched[switched.to]?.label || 'another server'} · ${describeFailure(switched.reason)}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'dismissSwitch' })}
+              className="cursor-pointer rounded px-1 text-zinc-300 transition-colors hover:text-zinc-100"
+              aria-label="Dismiss notice"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* Custom controls overlay */}
+        {isVideo && isHydrated && activeKey && !isDown && (
+          <div
+            className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col gap-2.5 bg-gradient-to-t from-black/95 via-black/40 to-transparent p-4 transition-opacity duration-300 ${isPlaying ? 'opacity-0 focus-within:opacity-100 group-hover:opacity-100' : 'opacity-100'}`}
+          >
+            {/* Live timeline indicator */}
+            <div className="flex items-center gap-3">
+              <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800/80">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-lime-500 to-lime-400"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-lime-500 dark:text-lime-400">
+                <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
+                {isBuffering ? 'Buffering' : isWatchingLive ? 'Live' : 'Watching'}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              {/* Transport + DVR controls */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePlayPause}
+                  className="cursor-pointer rounded-md border border-white/15 bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-90"
+                  title={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDvrRewind}
+                  disabled={!dvrEnabled}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40${
+                    dvrEnabled ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
+                  }`}
+                  title="Rewind 1 minute"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>{'-1'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDvrForward}
+                  disabled={!dvrEnabled}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40${
+                    dvrEnabled ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
+                  }`}
+                  title="Fast-forward 1 minute"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  <span>{'+1'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGoLive}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90${
+                    isWatchingLive ? ' border-lime-500/40 bg-lime-600/10 text-lime-400' : ''
+                  }`}
+                  title="Jump to live"
+                >
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-lime-500" />
+                  LIVE
+                </button>
+              </div>
+
+              {/* PiP button */}
+              {pipSupported && (
+                <button
+                  type="button"
+                  onClick={handlePiPToggle}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-lime-500/30 bg-lime-500/10 p-2 text-[10px] font-bold text-lime-400 transition-all hover:bg-lime-500/20 hover:text-lime-300 active:scale-90"
+                  title="Picture in Picture"
+                >
+                  <PictureInPicture className="h-3.5 w-3.5" />
+                </button>
+              )}
+
+              {/* Volume control */}
+              <div className="group/volume flex items-center gap-2">
+                {autoMuted && isMuted && (
+                  <button
+                    type="button"
+                    onClick={handleMuteToggle}
+                    className="cursor-pointer rounded-md border border-lime-500/40 bg-lime-500/15 px-2 py-1 text-[10px] font-bold text-lime-300 transition-colors hover:bg-lime-500/25"
+                  >
+                    Tap to unmute
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleMuteToggle}
+                  className="cursor-pointer rounded-lg bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-90"
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? (
+                    <VolumeX className="h-3.5 w-3.5 text-zinc-350" />
+                  ) : volume < 0.4 ? (
+                    <Volume1 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Volume2 className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  aria-label="Volume"
+                  className="h-1 w-0 cursor-pointer appearance-none rounded-full bg-zinc-800 accent-lime-500 outline-none transition-all duration-300 focus:w-20 group-hover/volume:w-20"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DVR status pill, pinned inside the video while it plays */}
+        {isVideo && isHydrated && activeKey && !isDown && (
+          <div className="pointer-events-none absolute left-3 top-3 z-20 flex items-center gap-2 rounded-full border border-lime-500/30 bg-black/65 px-3 py-1 text-[11px] font-bold text-lime-300 backdrop-blur-md" data-dvr-pill="">
+            <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
+            {statusLabel}
+          </div>
+        )}
+
+        {/* Compact server switcher while fullscreen (the selector below is out of view) */}
+        {hasMultiple && !isUpcoming && isFullscreen && (
+          <ServerMenu servers={serversEnriched} activeKey={activeKey} statusOf={statusOf} failed={failed} onSelect={selectServer} />
+        )}
+      </div>
 
       {/* Server selector: only when there is something to choose between */}
       {hasMultiple && !isUpcoming && (
@@ -808,40 +945,46 @@ export default function StreamPlayer({
         />
       )}
 
-      {/* Action toolbar (player status, Refresh, Theater, Fullscreen) */}
-      <div className="glass-panel flex flex-col justify-between gap-4 rounded-xl p-4 shadow-md lg:flex-row lg:items-center">
-        {kind === 'embed' ? (
-          <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-750/60 dark:bg-navy-950/40 lg:w-auto">
-            <div className="flex flex-col text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-lime-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-lime-600 dark:text-lime-400">
-                  Embedded Player Active
-                </span>
-              </div>
-              <span className="mt-0.5 block text-[10px] leading-none text-zinc-500 dark:text-zinc-500">
-                Provider player loads inside a sandboxed frame.
-              </span>
-            </div>
+      {/* Action toolbar (player status, Next server, Refresh, Theater, Fullscreen) */}
+      <div className="glass-dark flex flex-col justify-between gap-3 rounded-b-2xl p-3 sm:p-4 lg:flex-row lg:items-center" data-player-toolbar="">
+        <div className="glass-dark-tile flex w-full min-w-0 items-center gap-2.5 rounded-xl p-2.5 text-left lg:w-auto">
+          <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+            <span className={`absolute inline-flex h-full w-full rounded-full ${isDown ? 'bg-red-500' : 'live-dot bg-lime-500'}`} />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-[10px] font-extrabold uppercase tracking-wider text-lime-300">
+              {kind === 'embed' ? 'Provider player' : 'Direct stream'}
+              {activeServer ? ` · ${activeServer.label}` : ''}
+            </span>
+            <span className="mt-0.5 block truncate text-[11px] leading-snug text-zinc-300">
+              {kind === 'embed'
+                ? 'Full-permission frame · auto-failover & retry armed'
+                : 'Native HLS decoding · auto-failover & retry armed'}
+            </span>
           </div>
-        ) : (
-          <div className="flex w-full items-center gap-2.5 rounded-lg border border-zinc-300/40 bg-zinc-200/40 p-2.5 text-left shadow-inner dark:border-navy-750/60 dark:bg-navy-950/40 lg:w-auto">
-            <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-lime-600 dark:text-lime-400">
-                Native Player Active
-              </span>
-              <span className="mt-0.5 block text-[10px] leading-none text-zinc-500 dark:text-zinc-500">
-                Direct HLS decoder runs inside native media sandbox.
-              </span>
-            </div>
-          </div>
-        )}
+        </div>
 
-        <div className="flex w-full items-center justify-end gap-2 rounded-lg border border-zinc-300/40 bg-zinc-200/60 p-1.5 shadow-inner dark:border-navy-750/60 dark:bg-navy-900/60 lg:w-auto">
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto">
+          {activeKey && !isUpcoming && !isDown && (
+            <button
+              type="button"
+              onClick={reportNotPlaying}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                kind === 'embed'
+                  ? 'border-lime-500/45 bg-lime-500/10 text-lime-300 hover:bg-lime-500/20'
+                  : 'border-white/10 bg-white/5 text-zinc-200 hover:border-lime-500/40 hover:text-white'
+              }`}
+              title={hasMultiple ? 'Not playing? Switch to the next server' : 'Not playing? Reload the player'}
+            >
+              <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{hasMultiple ? 'Next server' : 'Reload player'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={reloadStream}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 transition-all hover:border-lime-500/40 hover:text-white active:scale-95"
             title="Reload Stream Connection"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isBuffering ? 'animate-spin' : ''}`} />
@@ -851,7 +994,8 @@ export default function StreamPlayer({
           <button
             type="button"
             onClick={() => setIsTheaterMode((on) => !on)}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${isTheaterMode ? 'border-lime-500/45 bg-lime-600/10 text-lime-600 shadow-sm hover:bg-lime-600/20 dark:text-lime-400' : 'border-zinc-300 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 hover:text-zinc-950 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'}`}
+            aria-pressed={isTheaterMode}
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${isTheaterMode ? 'border-lime-500/45 bg-lime-500/15 text-lime-300 hover:bg-lime-500/25' : 'border-white/10 bg-white/5 text-zinc-200 hover:border-lime-500/40 hover:text-white'}`}
             title={isTheaterMode ? 'Exit Theater Mode' : 'Enter Theater Mode'}
           >
             <Cpu className={`h-3.5 w-3.5 ${isTheaterMode ? 'animate-pulse' : ''}`} />
@@ -861,7 +1005,7 @@ export default function StreamPlayer({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 transition-all hover:border-lime-500/40 hover:text-white active:scale-95"
             title="Toggle Fullscreen"
           >
             <Maximize className="h-3.5 w-3.5" />
@@ -874,14 +1018,6 @@ export default function StreamPlayer({
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
-
-      {/* DVR status pill - always visible at top when video is playing */}
-      {isVideo && isHydrated && activeKey && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-navy-800/80 border border-lime-500/30 px-4 py-1.5 text-xs font-bold text-lime-400 dark:text-lime-300 transition-colors">
-          <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500 mr-1" />
-          {statusLabel}
-        </div>
-      )}
     </div>
   );
 }

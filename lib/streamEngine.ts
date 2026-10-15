@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import logger from './logger';
 import { Match, MatchStats, Channel } from './types';
 import {
@@ -21,6 +20,7 @@ import { getLiveChannels, toPlaybackUrl } from './broadcast/feeds';
 import type { LiveChannel } from './broadcast/types';
 import { getCacheManager } from './cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
+import { signStreamRedirect } from './streamRedirect';
 import { detectStreamKind } from './player/servers';
 import { teamSimilarity } from './utils/matching';
 
@@ -36,13 +36,8 @@ const providers = [
 ];
 
 export function getStreamRedirectUrl(originalUrl: string): string {
-  const encoded = Buffer.from(originalUrl).toString('base64url');
-  const expires = Date.now() + 4 * 60 * 60 * 1000; // 4 hours expiration
-  const signature = crypto
-    .createHmac('sha256', SECRET_KEY)
-    .update(`${encoded}:${expires}`)
-    .digest('hex');
-  return `/api/stream-redirect?u=${encoded}&expires=${expires}&sig=${signature}`;
+  // 4-hour HMAC-signed link (see lib/streamRedirect.ts).
+  return signStreamRedirect(originalUrl, { secret: SECRET_KEY });
 }
 
 /**

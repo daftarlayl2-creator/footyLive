@@ -89,7 +89,7 @@ function ChannelCard({ channel }) {
           <p className="text-sm font-bold leading-snug text-navy-800 dark:text-zinc-100 line-clamp-2 group-hover:text-lime-600 dark:group-hover:text-white transition-colors">
             {channel.name}
           </p>
-          <p className="mt-0.5 truncate text-[11px] text-navy-500 dark:text-zinc-500">
+          <p className="mt-0.5 truncate text-[11px] text-navy-500 dark:text-zinc-400">
             {channel.group || 'Live feed'}
             {channel.source ? ` · ${channel.source}` : ''}
           </p>
@@ -191,9 +191,9 @@ export default function LiveChannelsGrid({ initialChannels = null, initialChecke
             <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
             {counts.offline} unreachable
           </span>
-          <span className="text-navy-500 dark:text-zinc-500">{counts.total} total</span>
+          <span className="text-navy-500 dark:text-zinc-400">{counts.total} total</span>
           {checkedAt && (
-            <span className="text-navy-500 dark:text-zinc-500 font-medium">
+            <span className="text-navy-500 dark:text-zinc-400 font-medium">
               · checked {new Date(checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           )}
@@ -210,7 +210,7 @@ export default function LiveChannelsGrid({ initialChannels = null, initialChecke
             Show all statuses
           </label>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-navy-400 dark:text-zinc-500" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-navy-400 dark:text-zinc-400" />
             <input
               type="search"
               value={query}
@@ -261,7 +261,7 @@ export default function LiveChannelsGrid({ initialChannels = null, initialChecke
           <p className="text-sm font-bold text-navy-800 dark:text-zinc-200">
             {channels.length > 0 ? 'No channels match your filters' : 'No live channels in the feed right now'}
           </p>
-          <p className="mt-1 text-xs text-navy-500 dark:text-zinc-500">The list refreshes automatically every minute.</p>
+          <p className="mt-1 text-xs text-navy-500 dark:text-zinc-400">The list refreshes automatically every minute.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 transition-all duration-500 sm:grid-cols-2 lg:grid-cols-3">

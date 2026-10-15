@@ -1,58 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import logger from '@/lib/logger';
+import { probeEmbedTarget, refusalPage, verifyStreamRedirect } from '@/lib/streamRedirect';
 
-const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_123_abc';
-
+/**
+ * HMAC-validated redirect to an embedded provider player.
+ *
+ *  - Valid link → 302 to the provider page.
+ *  - Valid link + `check=1` → JSON health probe of the provider page
+ *    (`{ health: 'ok' | 'offline' | 'unknown' }`), used by the player to fail
+ *    over from dead links before the viewer stares at a provider error.
+ *  - Refused link → 403/400. Requests from an iframe get a small dark page
+ *    (the player detects it and switches server); everything else gets JSON.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const u = searchParams.get('u');
-  const expires = searchParams.get('expires');
-  const sig = searchParams.get('sig');
+  const verdict = verifyStreamRedirect(searchParams);
+  const ip = request.headers.get('x-forwarded-for') || 'unknown';
 
-  if (!u || !expires || !sig) {
-    logger.warn('Unauthorized access attempt: Missing credentials', {
-      ip: request.headers.get('x-forwarded-for') || 'unknown',
-      url: request.url
-    });
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const expiresTimestamp = parseInt(expires, 10);
-  if (isNaN(expiresTimestamp) || expiresTimestamp < Date.now()) {
-    logger.warn('Forbidden access attempt: Stream link expired', {
-      u,
-      expires,
-      ip: request.headers.get('x-forwarded-for') || 'unknown'
-    });
-    return NextResponse.json({ error: 'Stream link has expired' }, { status: 403 });
-  }
-
-  const expectedSig = crypto
-    .createHmac('sha256', SECRET_KEY)
-    .update(`${u}:${expires}`)
-    .digest('hex');
-
-  if (sig !== expectedSig) {
-    logger.warn('Forbidden access attempt: Signature mismatch', {
-      u,
-      expires,
-      sig,
-      expectedSig,
-      ip: request.headers.get('x-forwarded-for') || 'unknown'
-    });
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
-  }
-
-  try {
-    const decoded = Buffer.from(u, 'base64url').toString('utf-8');
-    if (!decoded.startsWith('http://') && !decoded.startsWith('https://')) {
-      logger.warn('Invalid redirect URL decoded', { decoded });
-      return NextResponse.json({ error: 'Invalid URL scheme' }, { status: 400 });
+  if (!verdict.ok) {
+    logger.warn(`Stream redirect refused: ${verdict.reason}`, { ip, expires: searchParams.get('expires') });
+    if (request.headers.get('sec-fetch-dest') === 'iframe') {
+      return new NextResponse(refusalPage(verdict.error), {
+        status: verdict.status,
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
     }
-    return NextResponse.redirect(decoded, 302);
-  } catch (err: any) {
-    logger.error('Failed decoding redirect URL', err, { u });
-    return NextResponse.json({ error: 'Invalid encoding' }, { status: 400 });
+    return NextResponse.json({ error: verdict.error }, { status: verdict.status });
   }
+
+  if (searchParams.get('check') === '1') {
+    const result = await probeEmbedTarget(verdict.target);
+    return NextResponse.json(result, { headers: { 'Cache-Control': 'private, max-age=60' } });
+  }
+
+  return NextResponse.redirect(verdict.target, 302);
 }

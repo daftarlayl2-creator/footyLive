@@ -287,7 +287,7 @@ function DashboardPage({ onLogout }) {
           <h2 className="text-xl font-bold text-zinc-100 mb-4">Manage Custom Channels</h2>
 
           {channels.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No channels yet. Add one above.</p>
+            <p className="text-zinc-600 dark:text-zinc-400 text-sm">No channels yet. Add one above.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-max">
@@ -312,7 +312,7 @@ function DashboardPage({ onLogout }) {
                             className="h-6 w-6 rounded-full object-cover"
                           />
                         ) : (
-                          <span className="text-zinc-500 text-xs">No logo</span>
+                          <span className="text-zinc-600 dark:text-zinc-400 text-xs">No logo</span>
                         )}
                       </td>
                       <td className="p-2 truncate overflow-hidden whitespace-nowrap text-[11px] text-zinc-400">
