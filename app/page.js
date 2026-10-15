@@ -14,13 +14,7 @@ export const metadata = {
     'Every football match of the day with real-time scores, live minutes, cards and statistics — plus reliable live streams.',
 };
 
-export default async function Home({ searchParams }) {
-  const resolvedSearchParams = await searchParams;
-  const tab = resolvedSearchParams?.tab || 'live';
-
-  const matches = await getMatches();
-  const banner = await getHeroBanner(matches).catch(() => null);
-
+function selectVisibleMatches(matches) {
   const now = Date.now();
   const dayAgo = now - 36 * 60 * 60 * 1000;
   const visible = matches.filter((m) => {
@@ -39,6 +33,16 @@ export default async function Home({ searchParams }) {
     if (a.status === 'finished') return b.timestamp - a.timestamp;
     return a.timestamp - b.timestamp;
   });
+  return visible;
+}
+
+export default async function Home({ searchParams }) {
+  const resolvedSearchParams = await searchParams;
+  const tab = resolvedSearchParams?.tab || 'live';
+
+  const matches = await getMatches();
+  const banner = await getHeroBanner(matches).catch(() => null);
+  const visible = selectVisibleMatches(matches);
 
   return (
     <div className="w-full space-y-5">

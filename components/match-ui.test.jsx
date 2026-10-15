@@ -31,6 +31,12 @@ vi.mock('@/lib/utils/favorites', () => ({
 const { default: MatchCard } = await import('./MatchCard');
 const { default: MatchGrid } = await import('./MatchGrid');
 const { default: LiveChannelsGrid, StatusIndicator } = await import('./LiveChannelsGrid');
+const { default: VotingBar } = await import('./predictions/VotingBar');
+const { default: MatchChatPanel } = await import('./chat/MatchChatPanel');
+const { default: PitchVisualization } = await import('./lineups/PitchVisualization');
+const { default: GoalAlerts } = await import('./goals/GoalAlerts');
+const { default: LiveMinute } = await import('./LiveMinute');
+const { default: MatchStatsSection } = await import('./MatchStatsSection');
 
 const LIVE_MATCH = {
   id: 'espn-700001',
@@ -217,3 +223,77 @@ describe('LiveChannelsGrid', () => {
     expect(renderToStaticMarkup(<StatusIndicator status="offline" />)).toContain('Unreachable');
   });
 });
+
+describe('Watch page interactive match components', () => {
+  it('renders VotingBar with home, draw and away prediction buttons', () => {
+    const html = renderToStaticMarkup(
+      <VotingBar
+        matchId="espn-700001"
+        homeTeam={{ name: 'Arsenal', badge: '' }}
+        awayTeam={{ name: 'Liverpool', badge: '' }}
+      />
+    );
+    expect(html).toContain('Who will win?');
+    expect(html).toContain('Arsenal');
+    expect(html).toContain('Draw');
+    expect(html).toContain('Liverpool');
+  });
+
+  it('renders MatchChatPanel with message list and reaction buttons', () => {
+    const html = renderToStaticMarkup(<MatchChatPanel matchId="espn-700001" />);
+    expect(html).toContain('Live Match Chat');
+    expect(html).toContain('No messages yet');
+    expect(html).toContain('Celebrate goal');
+  });
+
+  it('renders PitchVisualization with formation and player shirts', () => {
+    const html = renderToStaticMarkup(
+      <PitchVisualization
+        teamName="Arsenal"
+        formation="4-3-3"
+        players={[
+          { name: 'Raya', role: 'GK' },
+          { name: 'Saliba', role: 'DEF' },
+          { name: 'Odegaard', role: 'MID' },
+          { name: 'Saka', role: 'FWD' },
+        ]}
+      />
+    );
+    expect(html).toContain('Arsenal');
+    expect(html).toContain('4-3-3');
+    expect(html).toContain('Raya');
+    expect(html).toContain('Saka');
+  });
+
+  it('renders GoalAlerts button and LiveMinute DVR controls', () => {
+    const alertsHtml = renderToStaticMarkup(
+      <GoalAlerts
+        matchId="espn-700001"
+        homeTeam={{ name: 'Arsenal', badge: '' }}
+        awayTeam={{ name: 'Liverpool', badge: '' }}
+      />
+    );
+    expect(alertsHtml).toContain('Enable Goal Alerts');
+
+    const minuteHtml = renderToStaticMarkup(<LiveMinute apiMinute="62'" apiMinuteNumber={62} />);
+    expect(minuteHtml).toContain('LIVE: 62&#x27;');
+    expect(minuteHtml).toContain('Minus 1 minute');
+    expect(minuteHtml).toContain('Plus 1 minute');
+  });
+
+  it('renders MatchStatsSection with Tactical Lineups & Pitch even when boxscore is empty', () => {
+    const html = renderToStaticMarkup(
+      <MatchStatsSection
+        teamStats={[]}
+        commentary={[]}
+        rosters={null}
+        homeTeam={{ name: 'Arsenal', badge: '' }}
+        awayTeam={{ name: 'Liverpool', badge: '' }}
+      />
+    );
+    expect(html).toContain('Tactical Lineups');
+    expect(html).toContain('Arsenal');
+    expect(html).toContain('Liverpool');
+  });
+});
+

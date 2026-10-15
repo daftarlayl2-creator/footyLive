@@ -3,12 +3,32 @@ import StreamPlayer from '@/components/StreamPlayer';
 import MatchCountdown from '@/components/MatchCountdown';
 import MatchStatsSection from '@/components/MatchStatsSection';
 import LiveScoreboard from '@/components/LiveScoreboard';
+import VotingBar from '@/components/predictions/VotingBar';
+import MatchChatPanel from '@/components/chat/MatchChatPanel';
+import GoalAlerts from '@/components/goals/GoalAlerts';
 import AdSlot from '@/components/ads/AdSlot';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, MapPin, RefreshCw, Trophy } from 'lucide-react';
 
 export const revalidate = 10;
+
+function createFallbackMatch(matchId) {
+  return {
+    id: matchId,
+    title: 'Match Not Found',
+    tournament: '',
+    timestamp: new Date().getTime(),
+    homeTeam: { name: 'Home', badge: '' },
+    awayTeam: { name: 'Away', badge: '' },
+    sources: [],
+    fallbackChannels: [],
+    leagueLogo: '',
+    poster: '',
+    venue: '',
+    note: '',
+  };
+}
 
 export default async function WatchPage({ params, searchParams }) {
   const { matchId } = await params;
@@ -43,20 +63,7 @@ export default async function WatchPage({ params, searchParams }) {
   }
 
   if (!match) {
-    match = {
-      id: matchId,
-      title: 'Match Not Found',
-      tournament: '',
-      timestamp: Date.now(),
-      homeTeam: { name: 'Home', badge: '' },
-      awayTeam: { name: 'Away', badge: '' },
-      sources: [],
-      fallbackChannels: [],
-      leagueLogo: '',
-      poster: '',
-      venue: '',
-      note: '',
-    };
+    match = createFallbackMatch(matchId);
   }
 
   const dateStr = new Date(match.timestamp).toLocaleDateString([], {
@@ -73,11 +80,12 @@ export default async function WatchPage({ params, searchParams }) {
   const boxscore = stats?.boxscore;
   const teamStats = boxscore?.teams || [];
   const commentary = stats?.commentary || [];
+  const rosters = stats?.rosters || null;
 
   return (
     <div className="space-y-8 w-full max-w-6xl mx-auto">
-      {/* Back navigation */}
-      <div>
+      {/* Top navigation & Goal Alerts */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href={`/?tab=${backTab}`}
           className="inline-flex items-center gap-2 rounded-lg bg-navy-950/70 border border-navy-750 px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 hover:shadow-md transition-all group"
@@ -85,6 +93,14 @@ export default async function WatchPage({ params, searchParams }) {
           <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
           Back to Fixtures
         </Link>
+
+        <GoalAlerts
+          matchId={matchId}
+          homeTeam={match.homeTeam}
+          awayTeam={match.awayTeam}
+          homeScore={match.homeScore ?? 0}
+          awayScore={match.awayScore ?? 0}
+        />
       </div>
 
       {/* Scoreboard block */}
@@ -136,9 +152,12 @@ export default async function WatchPage({ params, searchParams }) {
         </p>
       )}
 
-      {/* Player + sidebar: streams on the left, match info & sponsor panel on the right */}
+      {/* Player + sidebar: streams on the left, match info, live chat & sponsor panel on the right */}
       <div className="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex w-full min-w-0 flex-col gap-6">
+          {/* Fan predictions bar above the stream player */}
+          <VotingBar matchId={matchId} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
+
           {/* Player window block: every resolved server goes to the player's selector / failover chain */}
           {channels.length > 0 || (streamUrl && !errorMsg) ? (
             <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
@@ -182,7 +201,7 @@ export default async function WatchPage({ params, searchParams }) {
           </div>
         </div>
 
-        {/* Sidebar: match info panel + 300x250 banner */}
+        {/* Sidebar: match info panel + live chat + 300x250 banner */}
         <aside className="flex w-full flex-col gap-6">
           <div className="glass-panel rounded-xl p-4 shadow-md">
             <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
@@ -218,14 +237,22 @@ export default async function WatchPage({ params, searchParams }) {
             </dl>
           </div>
 
+          <MatchChatPanel matchId={matchId} />
+
           <div className="flex w-full justify-center overflow-hidden">
             <AdSlot variant="banner" banner={AD_PLACEMENTS.watchSidebar} />
           </div>
         </aside>
       </div>
 
-      {/* Stats & commentary details block */}
-      <MatchStatsSection teamStats={teamStats} commentary={commentary} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
+      {/* Stats, tactical lineups & commentary details block */}
+      <MatchStatsSection
+        teamStats={teamStats}
+        commentary={commentary}
+        rosters={rosters}
+        homeTeam={match.homeTeam}
+        awayTeam={match.awayTeam}
+      />
     </div>
   );
 }

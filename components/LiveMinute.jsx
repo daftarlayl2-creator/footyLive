@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Minus, Radio } from 'lucide-react';
 
 export default function LiveMinute({ apiMinute, apiMinuteNumber }) {
-  const [offset, setOffset] = useState(0);
+  const [dvrState, setDvrState] = useState({ baseMinute: apiMinuteNumber, offset: 0 });
+  const offset = dvrState.baseMinute === apiMinuteNumber ? dvrState.offset : 0;
   const adjusted = (apiMinuteNumber || 0) + offset;
   const display = offset === 0
     ? (apiMinute || (apiMinuteNumber ? `${apiMinuteNumber}'` : ''))
@@ -13,35 +14,37 @@ export default function LiveMinute({ apiMinute, apiMinuteNumber }) {
   const isLive = offset === 0;
 
   const rewind = () => {
-    setOffset((o) => Math.max(o - 1, -30));
+    setDvrState((prev) => {
+      const current = prev.baseMinute === apiMinuteNumber ? prev.offset : 0;
+      return { baseMinute: apiMinuteNumber, offset: Math.max(current - 1, -30) };
+    });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('eviv:dvr', { detail: { deltaMinutes: -1 } }));
     }
   };
 
   const forward = () => {
-    setOffset((o) => Math.min(o + 1, 10));
+    setDvrState((prev) => {
+      const current = prev.baseMinute === apiMinuteNumber ? prev.offset : 0;
+      return { baseMinute: apiMinuteNumber, offset: Math.min(current + 1, 10) };
+    });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('eviv:dvr', { detail: { deltaMinutes: 1 } }));
     }
   };
 
   const goLive = () => {
-    setOffset(0);
+    setDvrState({ baseMinute: apiMinuteNumber, offset: 0 });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('eviv:dvr-live'));
     }
   };
 
-  useEffect(() => {
-    // Reset offset when the upstream minute changes.
-    setOffset(0);
-  }, [apiMinuteNumber]);
-
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div className="flex items-center gap-2">
         <button
+          type="button"
           onClick={rewind}
           className="rounded-full bg-navy-900 p-1 text-zinc-500 hover:bg-navy-750 hover:text-zinc-200 transition-colors shadow-inner"
           aria-label="Minus 1 minute"
@@ -54,6 +57,7 @@ export default function LiveMinute({ apiMinute, apiMinuteNumber }) {
         </span>
 
         <button
+          type="button"
           onClick={forward}
           className="rounded-full bg-navy-900 p-1 text-zinc-500 hover:bg-navy-750 hover:text-zinc-200 transition-colors shadow-inner"
           aria-label="Plus 1 minute"

@@ -1,83 +1,94 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bell, BellRing } from 'lucide-react';
 
 /**
- * Goal Alerts - Web Push API integration.
- * 
- * "🔔 Enable Goal Alerts" button using Web Push API.
- * Triggers desktop/mobile notification when goal scored.
- * 
- * Note: Full Web Push requires a VAPID key server setup. This component
- * provides the UI and a basic notification framework. The actual push
- * subscription would need a backend server with VAPID keys.
+ * Goal Alerts - Web Notification API integration.
+ *
+ * "🔔 Enable Goal Alerts" button. Requests notification permission when clicked
+ * and fires a desktop/mobile notification when a goal is scored.
  */
-export default function GoalAlerts({ matchId, homeTeam, awayTeam }) {
+export default function GoalAlerts({ matchId, homeTeam, awayTeam, homeScore = 0, awayScore = 0 }) {
   const [enabled, setEnabled] = useState(false);
-  const [showButton, setShowButton] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState('default');
+  const prevScores = useRef({ homeScore, awayScore });
 
-  // Check notification permission
+  const showGoalNotification = useCallback(
+    (scoringTeam, nextHomeScore, nextAwayScore) => {
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      const title = '⚽ GOAL!';
+      const body = `${scoringTeam} scored! ${homeTeam?.name || 'Home'} ${nextHomeScore} - ${nextAwayScore} ${awayTeam?.name || 'Away'}`;
+
+      try {
+        new Notification(title, {
+          body,
+          icon: '/icon.svg',
+          tag: `eviv-goal-${matchId || 'match'}`,
+        });
+      } catch {
+        // Ignore environments where the Notification constructor is restricted.
+      }
+    },
+    [awayTeam?.name, homeTeam?.name, matchId]
+  );
+
+  // Watch for live score increments once alerts are enabled
   useEffect(() => {
-    if (!('Notification' in window)) {
+    const prev = prevScores.current;
+    if (enabled && notificationPermission === 'granted') {
+      if (homeScore > prev.homeScore) {
+        showGoalNotification(homeTeam?.name || 'Home', homeScore, awayScore);
+      } else if (awayScore > prev.awayScore) {
+        showGoalNotification(awayTeam?.name || 'Away', homeScore, awayScore);
+      }
+    }
+    prevScores.current = { homeScore, awayScore };
+  }, [awayScore, awayTeam?.name, enabled, homeScore, homeTeam?.name, notificationPermission, showGoalNotification]);
+
+  // Enable goal alerts on user click
+  const enableAlerts = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
       setNotificationPermission('unsupported');
-      setShowButton(false);
       return;
     }
 
-    setNotificationPermission(Notification.permission);
-
-    // Request permission if not already set
-    if (Notification.permission === 'default') {
-      Notification.requestPermission().then((permission) => {
-        setNotificationPermission(permission);
-      });
+    let current = Notification.permission;
+    if (current === 'default') {
+      try {
+        current = await Notification.requestPermission();
+      } catch {
+        current = 'denied';
+      }
     }
-  }, []);
-
-  // Enable goal alerts
-  const enableAlerts = () => {
+    setNotificationPermission(current);
     setEnabled(true);
-    setShowButton(false);
   };
 
-  // Show goal notification
-  const showGoalNotification = (scoringTeam) => {
-    if (notificationPermission !== 'granted') return;
-
-    const title = '⚽ GOAL!';
-    const body = `${scoringTeam} scored! ${homeTeam?.name || 'Home'} ${awayTeam?.name || 'Away'}`;
-    
-    new Notification(title, {
-      body,
-      icon: '/placeholder-icon.png',
-      tag: 'eviv-goal',
-      renotify: true,
-      requireInteraction: true,
-    });
-  };
+  if (notificationPermission === 'unsupported') {
+    return null;
+  }
 
   return (
-    <div className="goal-alerts">
-      {showButton && !enabled && (
+    <div className="goal-alerts inline-flex items-center">
+      {!enabled ? (
         <button
+          type="button"
           onClick={enableAlerts}
-          className="flex items-center gap-2 rounded-lg bg-lime-500 px-4 py-2 text-[10px] font-bold text-navy-900 hover:bg-lime-400 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-lime-500 px-3.5 py-1.5 text-xs font-bold text-navy-950 hover:bg-lime-400 transition-colors cursor-pointer shadow-sm"
           title="Enable Goal Alerts"
         >
-          <Bell className="h-4 w-4" /> Enable Goal Alerts
+          <Bell className="h-3.5 w-3.5" />
+          Enable Goal Alerts
         </button>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-lime-500/30 bg-lime-500/10 px-3 py-1.5 text-xs font-bold text-lime-400">
+          <BellRing className="h-3.5 w-3.5" />
+          Goal Alerts Active
+        </span>
       )}
-
-      {enabled && (
-        <p className="text-zinc-300 text-sm mt-2">
-          Goal alerts active. You&apos;ll be notified when a goal is scored.
-        </p>
-      )}
-
-      {/* This would be called from the match feed when a goal is scored */}
-      {/* showGoalNotification('Home Team') */}
     </div>
   );
 }

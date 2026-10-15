@@ -1,13 +1,84 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { BarChart3, MessageSquare, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import PitchVisualization from '@/components/lineups/PitchVisualization';
 
-export default function MatchStatsSection({ teamStats, commentary, homeTeam, awayTeam }) {
+function normalizeRole(rawPos) {
+  const pos = String(rawPos || '').toUpperCase();
+  if (!pos) return null;
+  if (pos === 'G' || pos === 'GK' || pos.includes('GOAL')) return 'GK';
+  if (pos === 'D' || pos === 'DEF' || pos.includes('BACK') || ['CB', 'LB', 'RB', 'WB', 'LWB', 'RWB', 'CD'].includes(pos)) {
+    return 'DEF';
+  }
+  if (pos === 'M' || pos === 'MID' || pos.includes('MID') || ['CM', 'CDM', 'CAM', 'LM', 'RM', 'DM', 'AM'].includes(pos)) {
+    return 'MID';
+  }
+  if (pos === 'F' || pos === 'FW' || pos === 'FWD' || pos.includes('FORW') || pos.includes('STRIK') || ['ST', 'CF', 'LW', 'RW', 'LF', 'RF'].includes(pos)) {
+    return 'FWD';
+  }
+  return null;
+}
+
+function extractTeamLineup(rosterEntry, fallbackFormation = '4-3-3') {
+  if (!rosterEntry || typeof rosterEntry !== 'object') {
+    return { formation: fallbackFormation, players: undefined };
+  }
+  const formation = rosterEntry.formation || fallbackFormation;
+  const rawList = Array.isArray(rosterEntry.players)
+    ? rosterEntry.players
+    : Array.isArray(rosterEntry.roster)
+      ? rosterEntry.roster.filter((r) => r?.starter !== false)
+      : Array.isArray(rosterEntry.lineup)
+        ? rosterEntry.lineup
+        : [];
+
+  const players = rawList
+    .map((item) => {
+      const name =
+        item?.name ||
+        item?.playerName ||
+        item?.athlete?.shortName ||
+        item?.athlete?.displayName ||
+        '';
+      const role = normalizeRole(
+        item?.role ||
+          item?.position?.abbreviation ||
+          item?.position?.name ||
+          item?.position
+      );
+      if (!name || !role) return null;
+      return { name, role };
+    })
+    .filter(Boolean)
+    .slice(0, 11);
+
+  return {
+    formation,
+    players: players.length > 0 ? players : undefined,
+  };
+}
+
+export default function MatchStatsSection({ teamStats = [], commentary = [], rosters = null, homeTeam, awayTeam }) {
   const [showStats, setShowStats] = useState(true);
+  const [showLineups, setShowLineups] = useState(true);
   const [showCommentary, setShowCommentary] = useState(false);
 
-  if (!teamStats.length && !commentary.length) return null;
+  const hasTeamContext = Boolean(homeTeam?.name || awayTeam?.name);
+  if (!teamStats.length && !commentary.length && !rosters && !hasTeamContext) return null;
+
+  const rosterArray = Array.isArray(rosters) ? rosters : [];
+  const homeRosterRaw =
+    rosterArray.find((r) => String(r?.homeAway || '').toLowerCase() === 'home') ||
+    rosters?.home ||
+    rosterArray[0];
+  const awayRosterRaw =
+    rosterArray.find((r) => String(r?.homeAway || '').toLowerCase() === 'away') ||
+    rosters?.away ||
+    rosterArray[1];
+
+  const homeLineup = extractTeamLineup(homeRosterRaw, '4-3-3');
+  const awayLineup = extractTeamLineup(awayRosterRaw, '4-4-2');
 
   return (
     <div className="space-y-5">
@@ -15,6 +86,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
       {teamStats.length > 0 && (
         <div className="rounded-2xl border border-navy-750/80 bg-navy-950/80 overflow-hidden shadow-xl">
           <button
+            type="button"
             onClick={() => setShowStats(!showStats)}
             className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-750 cursor-pointer"
           >
@@ -30,7 +102,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
               <ChevronDown className="h-4 w-4 text-zinc-500" />
             )}
           </button>
-          
+
           {showStats && (
             <div className="px-6 py-6 space-y-5">
               {/* Teams Header row */}
@@ -56,8 +128,7 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                 const awayVal = teamStats[1]?.statistics?.[idx]?.displayValue || '-';
                 const homePct = teamStats[0]?.statistics?.[idx]?.percentage || 50;
                 const awayPct = teamStats[1]?.statistics?.[idx]?.percentage || 50;
-                
-                // Determine which side leads for visual emphasis
+
                 const homeNum = parseFloat(homeVal) || 0;
                 const awayNum = parseFloat(awayVal) || 0;
                 const homeLeads = homeNum > awayNum;
@@ -76,11 +147,10 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                         {awayVal}
                       </span>
                     </div>
-                    {/* Visual bar split */}
                     <div className="flex h-2 rounded-full overflow-hidden bg-navy-900/80 border border-navy-750 gap-0.5">
                       <div
                         className={`rounded-l-full transition-all duration-700 ease-out ${
-                          homeLeads 
+                          homeLeads
                             ? 'bg-gradient-to-r from-lime-500 to-lime-400 shadow-[0_0_8px_rgba(198,255,0,0.3)]'
                             : 'bg-gradient-to-r from-lime-500/50 to-lime-400/40'
                         }`}
@@ -88,8 +158,8 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
                       />
                       <div
                         className={`rounded-r-full transition-all duration-700 ease-out ml-auto ${
-                          awayLeads 
-                            ? 'bg-gradient-to-r from-sky-500 to-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.3)]' 
+                          awayLeads
+                            ? 'bg-gradient-to-r from-sky-500 to-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.3)]'
                             : 'bg-gradient-to-r from-sky-500/40 to-sky-400/30'
                         }`}
                         style={{ width: `${awayPct}%` }}
@@ -115,10 +185,49 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
         </div>
       )}
 
+      {/* Tactical Lineups & Pitch Visualization panel */}
+      {hasTeamContext && (
+        <div className="rounded-2xl border border-navy-750/80 bg-navy-950/80 overflow-hidden shadow-xl">
+          <button
+            type="button"
+            onClick={() => setShowLineups(!showLineups)}
+            className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-750 cursor-pointer"
+          >
+            <span className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime-500/10 border border-lime-500/20">
+                <Users className="h-4 w-4 text-lime-400" />
+              </div>
+              <span>Tactical Lineups &amp; Pitch</span>
+            </span>
+            {showLineups ? (
+              <ChevronUp className="h-4 w-4 text-zinc-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-zinc-500" />
+            )}
+          </button>
+
+          {showLineups && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
+              <PitchVisualization
+                teamName={homeTeam?.name || 'Home'}
+                formation={homeLineup.formation}
+                players={homeLineup.players}
+              />
+              <PitchVisualization
+                teamName={awayTeam?.name || 'Away'}
+                formation={awayLineup.formation}
+                players={awayLineup.players}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Commentary log panel */}
       {commentary.length > 0 && (
         <div className="rounded-2xl border border-navy-750/80 bg-navy-950/80 overflow-hidden shadow-xl">
           <button
+            type="button"
             onClick={() => setShowCommentary(!showCommentary)}
             className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-zinc-400 hover:text-white transition-colors border-b border-navy-750 cursor-pointer"
           >
@@ -137,11 +246,10 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
               <ChevronDown className="h-4 w-4 text-zinc-500" />
             )}
           </button>
-          
+
           {showCommentary && (
             <div className="px-5 py-4 space-y-0 max-h-80 overflow-y-auto divide-y divide-navy-800/80">
               {commentary.slice(0, 30).map((item, idx) => {
-                // Color-code by event type
                 const eventType = (item.type || '').toLowerCase();
                 const isGoal = eventType.includes('goal');
                 const isCard = eventType.includes('card') || eventType.includes('yellow') || eventType.includes('red');
@@ -154,12 +262,10 @@ export default function MatchStatsSection({ teamStats, commentary, homeTeam, awa
 
                 return (
                   <div key={idx} className="flex gap-4 text-xs py-3.5 items-start">
-                    {/* Time badge */}
                     <span className={`shrink-0 font-mono font-bold w-14 text-center border px-2 py-0.5 rounded-md text-[11px] ${timeBg}`}>
                       {item.time?.displayValue || 'KO'}
                     </span>
-                    
-                    {/* Log description */}
+
                     <div className="space-y-1 flex-1">
                       <p className={`font-medium leading-relaxed ${isGoal ? 'text-lime-300 font-bold' : 'text-zinc-300'}`}>
                         {isGoal && '⚽ '}{isCard && '🟨 '}{isSub && '🔄 '}{item.text}
