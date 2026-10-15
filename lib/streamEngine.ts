@@ -15,6 +15,8 @@ import {
 } from './providers/espn';
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
+import { IptvOrgProvider } from './providers/iptvOrg';
+import { selectVerifiedIptvOrgChannels } from './broadcast/iptvOrg';
 import { LiveFeedProvider, findMatchFeedChannels, selectActiveFeedChannels } from './providers/liveFeed';
 import { getLiveChannels, toPlaybackUrl } from './broadcast/feeds';
 import type { LiveChannel } from './broadcast/types';
@@ -22,7 +24,8 @@ import { getCacheManager } from './cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
 import { signStreamRedirect } from './streamRedirect';
 import { detectStreamKind } from './player/servers';
-import { teamSimilarity } from './utils/matching';
+import { rankChannelsByHealth } from './broadcast/streamHealth';
+import { inferStreamQuality, matchChannelScore } from './broadcast/matching';
 
 const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_123_abc';
 
@@ -33,6 +36,7 @@ const providers = [
   new CdnLiveProvider(),
   new StreamedPkProvider(),
   new LiveFeedProvider(),
+  new IptvOrgProvider(),
 ];
 
 export function getStreamRedirectUrl(originalUrl: string): string {
@@ -106,16 +110,15 @@ export function attachStreamSources(espnMatches: Match[], catalogue: Match[]): M
     const best = catalogue
       .map((candidate) => ({
         candidate,
-        score:
-          teamSimilarity(match.homeTeam?.name || '', candidate.homeTeam?.name || '') +
-          teamSimilarity(match.homeTeam?.name || '', candidate.awayTeam?.name || '') +
-          teamSimilarity(match.awayTeam?.name || '', candidate.homeTeam?.name || '') +
-          teamSimilarity(match.awayTeam?.name || '', candidate.awayTeam?.name || ''),
+        score: matchChannelScore(match.title, {
+          name: candidate.homeTeam?.name && candidate.awayTeam?.name
+            ? `${candidate.homeTeam.name} vs ${candidate.awayTeam.name}` : candidate.title,
+        }, match.homeTeam?.name, match.awayTeam?.name),
       }))
       .sort((a, b) => b.score - a.score)[0];
 
-    // 2.0 ≈ both sides matched; anything lower is not the same fixture.
-    if (!best || best.score < 2.0) return match;
+    // Both teams need distinct, confident evidence; one shared city is not enough.
+    if (!best || best.score === 0) return match;
 
     return {
       ...match,
@@ -135,16 +138,21 @@ export async function attachLiveFeedPreviews(matches: Match[], channels: LiveCha
   const unlinked = matches.filter((m) => m.source === 'espn' && m.status === 'live' && !m.sources?.length);
   if (!unlinked.length || !channels.length) return matches;
 
-  const exactById = new Map(unlinked.map((m) => [m.id, findMatchFeedChannels(channels, m.title)]));
+  const exactById = new Map(unlinked.map((m) => [m.id, findMatchFeedChannels(channels, m.title, m.homeTeam?.name, m.awayTeam?.name)]));
   const needsFallback = unlinked.some((m) => !exactById.get(m.id)?.length);
-  const fallback = needsFallback ? await selectActiveFeedChannels(channels) : [];
+  // A single shared sports-pool check bounds dashboard work; fixture-specific
+  // broadcaster selection happens when opening the player/Multi-View tile.
+  const [fallback, iptvFallback] = needsFallback ? await Promise.all([
+    selectActiveFeedChannels(channels),
+    selectVerifiedIptvOrgChannels(channels, { title: '' }),
+  ]) : [[], []];
 
   return matches.map((match) => {
     const exact = exactById.get(match.id);
     if (!exact) return match;
-    const selected = exact.length ? exact : fallback;
-    return selected.length
-      ? { ...match, feedStreamCount: selected.length, feedStreamIsFallback: exact.length === 0 }
+    const count = exact.length || fallback.length + iptvFallback.length;
+    return count
+      ? { ...match, feedStreamCount: count, feedStreamIsFallback: exact.length === 0 }
       : match;
   });
 }
@@ -188,7 +196,7 @@ export async function resolveAllStreams(
   preFetchedMatch: Match | null = null
 ): Promise<{ url: string; proxiedUrl: string; channels: Channel[]; serverCount: number }> {
   const cache = getCacheManager();
-  const cacheKey = `streams_${matchId}`;
+  const cacheKey = `streams_v2_${matchId}`;
 
   return cache.swr(cacheKey, async () => {
     const resolveTasks = providers.map(async provider => {
@@ -213,7 +221,7 @@ export async function resolveAllStreams(
     // active channels. Add them *after* any match-specific provider servers as
     // clearly labelled backups, not as a claim that they carry this fixture.
     if (isEspnMatchId(matchId) && preFetchedMatch?.status === 'live' &&
-        !allServers.some((server) => server.provider === 'livefeed')) {
+        !allServers.some((server) => server.provider === 'livefeed' || server.provider === 'iptv-org')) {
       try {
         const backups = await selectActiveFeedChannels(await getLiveChannels());
         allServers.push(...backups.map((ch) => ({
@@ -221,7 +229,7 @@ export async function resolveAllStreams(
           url: ch.url,
           proxiedUrl: toPlaybackUrl(ch),
           provider: 'livefeed-fallback',
-          quality: 'SD',
+          quality: inferStreamQuality(ch.name),
         })));
       } catch (err) {
         logger.warn('Live channel backups unavailable', { matchId, error: String(err) });
@@ -245,20 +253,23 @@ export async function resolveAllStreams(
         const proxiedUrl = server.proxiedUrl || getProxiedStreamUrl(server.url);
         uniqueServers.push({
           ...server,
-          name: `Server ${serverIndex++}`,
+          name: server.provider?.startsWith('iptv-org') ? server.name : `Server ${serverIndex}`,
+          // Labels remain positional in the player; preserve network names in tooltips.
           // Feed streams carry signed proxy links; never expose their raw upstream URL.
-          url: server.provider?.startsWith('livefeed') ? proxiedUrl : server.url,
+          url: /^(?:livefeed|iptv-org)/.test(server.provider || '') ? proxiedUrl : server.url,
           proxiedUrl,
           kind: detectStreamKind(proxiedUrl) ?? 'embed',
         });
+        serverIndex++;
       }
     }
 
+    const ranked = await rankChannelsByHealth(uniqueServers);
     return {
-      url: uniqueServers[0].url,
-      proxiedUrl: uniqueServers[0].proxiedUrl || getProxiedStreamUrl(uniqueServers[0].url),
-      channels: uniqueServers,
-      serverCount: uniqueServers.length,
+      url: ranked[0].url,
+      proxiedUrl: ranked[0].proxiedUrl || getProxiedStreamUrl(ranked[0].url),
+      channels: ranked,
+      serverCount: ranked.length,
     };
   }, 30);
 }

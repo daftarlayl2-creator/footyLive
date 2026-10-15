@@ -17,7 +17,8 @@
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { getLiveChannels, getStaticFallbackChannels } from '@/lib/broadcast/feeds';
-import { getChannelStatuses } from '@/lib/broadcast/probe';
+import { getChannelHealth } from '@/lib/broadcast/probe';
+import { inferStreamQuality } from '@/lib/broadcast/matching';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,14 +38,16 @@ export async function GET(request: Request) {
     channels = getStaticFallbackChannels();
   }
 
-  const statuses = probe ? await getChannelStatuses(channels) : {};
+  const health = probe ? await getChannelHealth(channels) : {};
   const payload = channels.map((ch) => ({
     id: ch.id,
     name: ch.name,
     group: ch.group || '',
     logo: ch.logo || '',
     source: ch.source,
-    status: statuses[ch.id] ?? 'unknown',
+    status: health[ch.id]?.status ?? 'unknown',
+    health: health[ch.id],
+    quality: ch.quality || inferStreamQuality(ch.name, ch.tvgId, ...(ch.tags ?? [])),
     // Every channel is playable through the proxy regardless of probe state.
     href: `/channel/${ch.id}`,
     playable: true,

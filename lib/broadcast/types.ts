@@ -14,6 +14,11 @@ export interface FeedEntry {
   group?: string;
   /** Stable identifier from the feed (tvg-id, id, …) if provided. */
   tvgId?: string;
+  /** Additional channel/event aliases from tvg-name or JSON tags. */
+  tags?: string[];
+  /** Parent fixture title retained when a nested stream is named only HD/FHD. */
+  matchTitle?: string;
+  quality?: string;
   /** Referer the upstream expects (from #EXTVLCOPT / #EXTHTTP / JSON headers). */
   referer?: string;
   /** Hostname of the feed the entry came from (for display only). */

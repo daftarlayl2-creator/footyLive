@@ -8,9 +8,9 @@ export default defineConfig({
   resolve: {
     alias: { '@': root },
   },
-  esbuild: {
-    // Components are plain JSX — the automatic runtime keeps them React-scope free.
-    jsx: 'automatic',
+  oxc: {
+    // Vite 8 / Vitest 5 use Oxc; keep JSX on React's automatic runtime.
+    jsx: { runtime: 'automatic' },
   },
   test: {
     environment: 'node',

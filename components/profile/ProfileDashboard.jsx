@@ -11,6 +11,7 @@ import CrestDrop from '@/components/clubs/CrestDrop';
 import UserAvatar from '@/components/auth/UserAvatar';
 import VerifiedBadge from '@/components/auth/VerifiedBadge';
 import AuthPanel from './AuthPanel';
+import AuthReturnNotice from './AuthReturnNotice';
 import FanStatsCard from './FanStatsCard';
 import ProfileEditor from './ProfileEditor';
 
@@ -118,24 +119,25 @@ function ProfileHero({ auth, guestName, level }) {
  * chat nickname); registered fans edit their display name, avatar and
  * primary favourite club, and everyone gets the Fan Stats card.
  */
-export default function ProfileDashboard() {
+export default function ProfileDashboard({ authReturn = null, authReason = null }) {
   const auth = useAuth();
   const stats = useFanStats();
   const guestName = useLocalValue(NICKNAME_STORAGE_KEY);
 
-  if (auth.status === 'loading') return <ProfileSkeleton />;
-
   return (
     <div className="flex flex-col gap-6" data-profile-dashboard={auth.status}>
+      <AuthReturnNotice authReturn={authReturn} reason={authReason} />
+      {auth.status === 'loading' ? <ProfileSkeleton /> : <>
       <ProfileHero auth={auth} guestName={guestName} level={stats.level} />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         {auth.user ? (
           <ProfileEditor key={auth.user.id} user={auth.user} favorites={stats.favorites} />
         ) : (
-          <AuthPanel provider={auth.provider} guestName={guestName} />
+          <AuthPanel provider={auth.provider} guestName={guestName} initialMode={authReturn ? 'signin' : 'signup'} />
         )}
         <FanStatsCard stats={stats} />
       </div>
+      </>}
     </div>
   );
 }

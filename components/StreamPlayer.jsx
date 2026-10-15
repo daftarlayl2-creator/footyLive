@@ -39,6 +39,8 @@ import {
   serverKinds,
 } from '@/lib/player/servers';
 import { loadHls } from '@/lib/player/loadHls';
+import { rankStreams } from '@/lib/player/health';
+import useStreamHealth from '@/lib/hooks/useStreamHealth';
 import {
   EMBED_IFRAME_ALLOW,
   EMBED_REFERRER_POLICY,
@@ -152,9 +154,17 @@ export default function StreamPlayer({
   channels,
   matchTitle,
   matchStatus,
+  compact = false,
+  initialMuted = false,
+  onRefreshLinks,
 }) {
   const isUpcoming = matchStatus === 'upcoming';
-  const servers = useMemo(() => buildServerList(channels, streamUrl), [channels, streamUrl]);
+  const sourceServers = useMemo(() => buildServerList(channels, streamUrl), [channels, streamUrl]);
+  const health = useStreamHealth(sourceServers, !isUpcoming);
+  const servers = useMemo(() => {
+    const observed = sourceServers.map((server) => ({ ...server, health: health[server.key] }));
+    return Object.keys(health).length ? rankStreams(observed) : observed;
+  }, [sourceServers, health]);
   const serverKeys = useMemo(() => servers.map((s) => s.key), [servers]);
   const kindsByKey = useMemo(() => serverKinds(servers), [servers]);
 
@@ -165,6 +175,7 @@ export default function StreamPlayer({
   const activeKey = state.keys[active] ?? null;
   const activeServer = servers.find((s) => s.key === activeKey) ?? null;
   const kind = activeServer?.kind ?? null;
+  const activeUrl = activeServer?.url || '';
   const isVideo = kind === 'hls' || kind === 'mp4';
   const hasMultiple = servers.length > 1;
   // Media elements mount only after hydration: a server-rendered iframe can finish loading
@@ -178,7 +189,7 @@ export default function StreamPlayer({
   const isBuffering = bufferingAttempt === attempt;
 
   const [volume, setVolume] = useState(0.8);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(initialMuted);
   const [autoMuted, setAutoMuted] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -206,7 +217,8 @@ export default function StreamPlayer({
   // A new server list (not just re-signed links) re-syncs the failover state.
   useEffect(() => {
     dispatch({ type: 'sync', keys: serverKeys, kinds: kindsByKey });
-  }, [serverKeys, kindsByKey]);
+    dispatch({ type: 'health', health, preferredKey: serverKeys[0] });
+  }, [serverKeys, kindsByKey, health]);
 
   // The in-player server menu is offered while the stage is fullscreen.
   useEffect(() => {
@@ -227,6 +239,13 @@ export default function StreamPlayer({
       /* storage unavailable */
     }
   }, []);
+
+  useEffect(() => {
+    if (!compact) return undefined;
+    const mute = () => { setIsMuted(true); setAutoMuted(false); };
+    window.addEventListener('eviv:multiview-mute', mute);
+    return () => window.removeEventListener('eviv:multiview-mute', mute);
+  }, [compact]);
 
   // The "switched server" notice disappears on its own.
   useEffect(() => {
@@ -256,8 +275,9 @@ export default function StreamPlayer({
     if (!isMuted) video.volume = volume;
   }, [isMuted, volume]);
 
-  // DVR / rewind controls, shared with <LiveMinute> through window events.
+  // Quad-view players must not seek each other through global DVR events.
   useEffect(() => {
+    if (compact) return undefined;
     const onDvr = (e) => {
       const video = videoRef.current;
       if (!video) return;
@@ -294,7 +314,7 @@ export default function StreamPlayer({
       window.removeEventListener('eviv:dvr', onDvr);
       window.removeEventListener('eviv:dvr-live', onLive);
     };
-  }, []);
+  }, [compact]);
 
   /* ------------------------------------------------------------------------ */
   /*  Playback: one run per attempt (hls.js / native HLS / plain media file)  */
@@ -302,7 +322,7 @@ export default function StreamPlayer({
   useEffect(() => {
     if (!isHydrated || isUpcoming || !activeKey) return undefined;
     const server = readServer(activeKey);
-    if (!server) return undefined;
+    if (!server || !activeUrl) return undefined;
 
     const isEmbed = server.kind === 'embed';
     const video = videoRef.current;
@@ -347,7 +367,7 @@ export default function StreamPlayer({
     }
 
     // No first frame within this long → the server is dead.
-    const stopConnectWatchdog = startVisibleTimer(
+    let stopConnectWatchdog = startVisibleTimer(
       isEmbed ? EMBED_TIMEOUT_MS : CONNECT_TIMEOUT_MS,
       () => fail('timeout')
     );
@@ -379,7 +399,7 @@ export default function StreamPlayer({
 
     // Native HLS (Safari) and plain media files: let the element do the work.
     const startNative = () => {
-      video.src = server.url || streamUrl;
+      video.src = activeUrl;
       video.load();
       autoplay();
     };
@@ -416,6 +436,7 @@ export default function StreamPlayer({
     } else {
       listen(video, 'loadeddata', markReady);
       listen(video, 'playing', () => {
+        markReady();
         setPlayingAttempt(attempt);
         setBufferingAttempt(0);
       });
@@ -479,16 +500,24 @@ export default function StreamPlayer({
             if (Hls?.isSupported()) {
               hls = new Hls(HLS_CONFIG);
               hls.attachMedia(video);
-              hls.loadSource(server.url || streamUrl);
+              hls.loadSource(activeUrl);
               hls.on(Hls.Events.MEDIA_ATTACHED, autoplay);
-              hls.on(Hls.Events.MANIFEST_PARSED, markReady);
+              hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                // A manifest is not a frame: dead segment URLs must still trip
+                // the no-first-frame watchdog and trigger automatic failover.
+                if (disposed || ready) return;
+                stopConnectWatchdog();
+                stopConnectWatchdog = startVisibleTimer(CONNECT_TIMEOUT_MS, () => fail('timeout'));
+                stops.push(stopConnectWatchdog);
+                autoplay();
+              });
               hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (disposed || !data?.fatal) return;
                 const reason = hlsFailureReason(Hls, data);
                 if (reason === 'media' && recoveries < MAX_MEDIA_RECOVERIES) {
                   // Media error — try a recovery before giving up on this server.
                   recoveries += 1;
-                  hls.startLoad();
+                  hls.recoverMediaError();
                   return;
                 }
                 fail(reason);
@@ -516,7 +545,7 @@ export default function StreamPlayer({
         video.load();
       }
     };
-  }, [isHydrated, isUpcoming, activeKey, attempt, kind, streamUrl]);
+  }, [isHydrated, isUpcoming, activeKey, activeUrl, attempt, kind]);
 
   /* ------------------------------------------------------------------------ */
   /*  DVR Rewind / Fast-Forward handlers (same window events as <LiveMinute>) */
@@ -586,8 +615,17 @@ export default function StreamPlayer({
 
   /** Forget every failure, start again from Server 1 and re-sign fresh links. */
   const retryAllServers = () => {
-    dispatch({ type: 'retryAll' });
-    startRefresh(() => router.refresh());
+    if (onRefreshLinks) {
+      startRefresh(async () => {
+        // Tiles must receive fresh signatures before starting another decoder;
+        // otherwise an expired singleton can exhaust again before links arrive.
+        try { await onRefreshLinks(); } catch { /* retain/retry the existing list */ }
+        dispatch({ type: 'retryAll' });
+      });
+    } else {
+      dispatch({ type: 'retryAll' });
+      startRefresh(() => router.refresh());
+    }
   };
 
   /** Viewer-initiated "Retry all": a fresh start, so automatic rounds are re-armed too. */
@@ -603,7 +641,7 @@ export default function StreamPlayer({
   /*  Automatic retry once every server failed (backed-off rounds)            */
   /* ------------------------------------------------------------------------ */
   const autoRetryMs = phase === 'exhausted' && servers.length > 0 && !isUpcoming ? autoRetryDelay(autoRetryRound) : null;
-  const autoRetryArmed = isHydrated && autoRetryMs !== null && retryCancelledAttempt !== attempt;
+  const autoRetryArmed = isHydrated && !isRefreshing && autoRetryMs !== null && retryCancelledAttempt !== attempt;
   const onAutoRetry = useEffectEvent(() => {
     setAutoRetryRound((round) => round + 1);
     retryAllServers();
@@ -641,10 +679,11 @@ export default function StreamPlayer({
       if (phase === 'connecting') return 'connecting';
       return 'failed';
     }
-    return failed[server.key] ? 'failed' : 'idle';
+    if (failed[server.key]) return 'failed';
+    return server.health?.status === 'offline' ? 'offline' : server.health?.status === 'live' ? 'live' : server.health?.status === 'checking' ? 'checking' : 'idle';
   };
 
-  const selectServer = (server) => dispatch({ type: 'select', index: server.index });
+  const selectServer = (server) => dispatch({ type: 'select', index: state.keys.indexOf(server.key) });
 
   const toggleAutoSwitch = () => {
     const enabled = !autoSwitch;
@@ -687,7 +726,7 @@ export default function StreamPlayer({
   /*  Render                                                                    */
   /* ------------------------------------------------------------------------- */
   return (
-    <div className="relative overflow-hidden rounded-2xl text-zinc-100 shadow-2xl">
+    <div className="relative overflow-hidden rounded-2xl text-zinc-100 shadow-2xl" data-stream-player={compact ? 'compact' : 'full'}>
       {/* Stage: the media plus everything that floats over it (and what goes fullscreen) */}
       <div ref={stageRef} className="player-stage group relative bg-black">
         {/* Video element */}
@@ -702,7 +741,7 @@ export default function StreamPlayer({
             ref={videoRef}
             playsInline
             muted={isMuted}
-            className={`w-full h-[350px] object-cover bg-black ${isTheaterMode ? 'lg:h-[70vh]' : ''}`}
+            className={`aspect-video w-full object-contain bg-black ${isTheaterMode ? 'lg:h-[70vh] lg:aspect-auto' : ''}`}
           />
         ) : kind === 'embed' && isHydrated && activeServer ? (
           // Never sandboxed: provider players refuse to run in a sandboxed frame.
@@ -786,7 +825,7 @@ export default function StreamPlayer({
           <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-lime-500/30 bg-navy-900/95 px-3 py-1.5 text-[10px] font-bold text-lime-300 shadow-lg">
             <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
             <span>
-              {`Switched to ${serversEnriched[switched.to]?.label || 'another server'} · ${describeFailure(switched.reason)}`}
+              {`Switched to ${activeServer?.label || 'another server'} · ${describeFailure(switched.reason)}`}
             </span>
             <button
               type="button"
@@ -818,7 +857,7 @@ export default function StreamPlayer({
               </span>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               {/* Transport + DVR controls */}
               <div className="flex items-center gap-2">
                 <button
@@ -829,6 +868,7 @@ export default function StreamPlayer({
                 >
                   {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                 </button>
+                {!compact && <>
                 <button
                   type="button"
                   onClick={handleDvrRewind}
@@ -864,6 +904,7 @@ export default function StreamPlayer({
                   <span className="h-2 w-2 animate-pulse rounded-full bg-lime-500" />
                   LIVE
                 </button>
+                </>}
               </div>
 
               {/* PiP button */}
@@ -922,18 +963,18 @@ export default function StreamPlayer({
         {isVideo && isHydrated && activeKey && !isDown && (
           <div className="pointer-events-none absolute left-3 top-3 z-20 flex items-center gap-2 rounded-full border border-lime-500/30 bg-black/65 px-3 py-1 text-[11px] font-bold text-lime-300 backdrop-blur-md" data-dvr-pill="">
             <span className="live-dot h-1.5 w-1.5 rounded-full bg-lime-500" />
-            {statusLabel}
+            {compact ? 'LIVE' : statusLabel}
           </div>
         )}
 
         {/* Compact server switcher while fullscreen (the selector below is out of view) */}
-        {hasMultiple && !isUpcoming && isFullscreen && (
+        {hasMultiple && !isUpcoming && (isFullscreen || compact) && (
           <ServerMenu servers={serversEnriched} activeKey={activeKey} statusOf={statusOf} failed={failed} onSelect={selectServer} />
         )}
       </div>
 
       {/* Server selector: only when there is something to choose between */}
-      {hasMultiple && !isUpcoming && (
+      {hasMultiple && !isUpcoming && !compact && (
         <ServerSelector
           servers={serversEnriched}
           activeKey={activeKey}
@@ -946,8 +987,8 @@ export default function StreamPlayer({
       )}
 
       {/* Action toolbar (player status, Next server, Refresh, Theater, Fullscreen) */}
-      <div className="glass-dark flex flex-col justify-between gap-3 rounded-b-2xl p-3 sm:p-4 lg:flex-row lg:items-center" data-player-toolbar="">
-        <div className="glass-dark-tile flex w-full min-w-0 items-center gap-2.5 rounded-xl p-2.5 text-left lg:w-auto">
+      <div className={compact ? "glass-dark flex flex-wrap items-center justify-between gap-2 rounded-b-2xl p-2" : "glass-dark flex flex-col justify-between gap-3 rounded-b-2xl p-3 sm:p-4 lg:flex-row lg:items-center"} data-player-toolbar="">
+        <div className={`glass-dark-tile flex min-w-0 items-center gap-2.5 rounded-xl text-left ${compact ? 'flex-1 p-2' : 'w-full p-2.5 lg:w-auto'}`}>
           <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
             <span className={`absolute inline-flex h-full w-full rounded-full ${isDown ? 'bg-red-500' : 'live-dot bg-lime-500'}`} />
           </span>
@@ -957,14 +998,16 @@ export default function StreamPlayer({
               {activeServer ? ` · ${activeServer.label}` : ''}
             </span>
             <span className="mt-0.5 block truncate text-[11px] leading-snug text-zinc-300">
-              {kind === 'embed'
-                ? 'Full-permission frame · auto-failover & retry armed'
-                : 'Native HLS decoding · auto-failover & retry armed'}
+              {activeServer?.health?.status === 'live'
+                ? `${activeServer.quality} · ${activeServer.health.latencyMs} ms · ${Math.round(activeServer.health.successRate * 100)}% probe success`
+                : compact ? 'Auto-failover on' : kind === 'embed'
+                  ? 'Provider frame · auto-failover & retry armed'
+                  : 'Checking stream health · auto-failover & retry armed'}
             </span>
           </div>
         </div>
 
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto">
+        <div className={`flex flex-wrap items-center justify-end gap-2 ${compact ? '' : 'w-full lg:w-auto'}`}>
           {activeKey && !isUpcoming && !isDown && (
             <button
               type="button"
@@ -991,7 +1034,7 @@ export default function StreamPlayer({
             <span>Refresh</span>
           </button>
 
-          <button
+          {!compact && <button
             type="button"
             onClick={() => setIsTheaterMode((on) => !on)}
             aria-pressed={isTheaterMode}
@@ -1000,7 +1043,7 @@ export default function StreamPlayer({
           >
             <Cpu className={`h-3.5 w-3.5 ${isTheaterMode ? 'animate-pulse' : ''}`} />
             <span>{isTheaterMode ? 'Normal Mode' : 'Theater'}</span>
-          </button>
+          </button>}
 
           <button
             type="button"
@@ -1013,6 +1056,10 @@ export default function StreamPlayer({
           </button>
         </div>
       </div>
+
+      {activeServer?.provider?.includes('fallback') && (
+        <p role="status" className="border-t border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold text-amber-200" data-unverified-backup="">Unverified backup channel — this source may show a different fixture.</p>
+      )}
 
       {/* Screen-reader announcements for failures and automatic switches */}
       <div role="status" aria-live="polite" className="sr-only">

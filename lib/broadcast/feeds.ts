@@ -14,12 +14,14 @@ import { getCacheManager } from '../cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl, parseSafeUpstreamUrl } from '../hlsProxy';
 import { parseM3U } from './m3u';
 import { parseJsonFeed } from './json';
+import { canonicalFeedUrl, isIptvOrgFeed, IPTV_ORG_SPORTS_API, IPTV_ORG_SPORTS_URL } from './sources';
 import type { FeedEntry, LiveChannel } from './types';
 
 // This is the file currently published by Live-events; live.m3u8 may be
 // published later, but is not present in the repository at the moment.
 export const DEFAULT_LIVE_FEEDS = [
   'https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u',
+  IPTV_ORG_SPORTS_URL,
 ];
 
 /** How long a loaded set of feeds is reused before re-fetching. The feeds
@@ -42,18 +44,22 @@ const PROMO_TITLE_RE = /promotion|download|telegram|whatsapp|t\.me|contact us|ad
 
 export function getFeedUrls(raw: string | undefined = process.env.LIVE_FEED_URLS): string[] {
   if (raw === undefined) return DEFAULT_LIVE_FEEDS;
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => /^https?:\/\//i.test(s));
+  const seen = new Set<string>();
+  return raw.split(',').map((s) => s.trim()).filter((url) => {
+    const key = canonicalFeedUrl(url);
+    if (!/^https?:\/\//i.test(url) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Parse feed text, sniffing M3U vs JSON from its content. */
 export function parseFeedText(text: string, feedUrl: string): FeedEntry[] {
   const trimmed = text.replace(/^\uFEFF/, '').trimStart();
   // #EXT-X-* identifies a media/variant HLS manifest, not a list of channels.
-  if (trimmed.startsWith('#EXTM3U') && /^#EXT-X-/m.test(trimmed)) return [];
-  if (trimmed.startsWith('#EXTM3U') || trimmed.includes('#EXTINF')) {
+  if (/^<(?:html|!doctype\s+html)\b/i.test(trimmed)) return [];
+  if (/^#EXTM3U/i.test(trimmed) && /^\s*#EXT-X-/im.test(trimmed)) return [];
+  if (/^#EXTM3U/i.test(trimmed) || /^\s*#EXTINF\s*:/im.test(trimmed)) {
     return parseM3U(text, feedUrl);
   }
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -70,7 +76,7 @@ export function isPlayableFeedUrl(url: string): boolean {
 
 /** Stable channel id: survives playlist refreshes that rotate URL tokens. */
 export function channelIdFor(entry: FeedEntry): string {
-  const key = `${entry.feedUrl}|${entry.tvgId || entry.name.trim().toLowerCase()}`;
+  const key = `${canonicalFeedUrl(entry.feedUrl)}|${entry.tvgId || entry.name.trim().toLowerCase()}`;
   return crypto.createHash('sha256').update(key).digest('hex').slice(0, 16);
 }
 
@@ -85,7 +91,9 @@ export function buildLiveChannels(entries: FeedEntry[]): LiveChannel[] {
 
   for (const entry of entries) {
     if (PROMO_TITLE_RE.test(entry.name)) continue;
-    if (!isPlayableFeedUrl(entry.url)) continue;
+    // Published IPTV-Org entries also use extensionless HLS endpoints. Keep
+    // those candidates, but never auto-inject them without a live media probe.
+    if (!isPlayableFeedUrl(entry.url) && !(isIptvOrgFeed(entry.feedUrl) && parseSafeUpstreamUrl(entry.url))) continue;
     if (seenUrls.has(entry.url)) continue;
     seenUrls.add(entry.url);
 
@@ -112,6 +120,7 @@ export function toPlaybackUrl(entry: Pick<FeedEntry, 'url' | 'referer'>): string
  * just a different transport — so it is used as an automatic fallback.
  */
 export function githubContentsApiUrl(url: string): string | null {
+  if (isIptvOrgFeed(url)) return IPTV_ORG_SPORTS_API;
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'https:' && parsed.hostname === 'api.github.com' &&
@@ -173,10 +182,32 @@ function githubContentsCandidates(feedUrl: string): string[] {
 }
 
 function assertPlaylist(text: string, feedUrl: string): string {
-  if (!parseFeedText(text, feedUrl).length) {
+  if (!buildLiveChannels(parseFeedText(text, feedUrl)).length) {
     throw new Error('Feed did not contain any channel entries');
   }
   return text;
+}
+
+/** Enforce the cap while reading, including chunked responses with no length. */
+async function readBoundedText(response: Response, limit: number): Promise<string> {
+  if (Number(response.headers.get('content-length')) > limit) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error('Feed exceeds size limit');
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > limit) { await reader.cancel(); throw new Error('Feed exceeds size limit'); }
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks, size).toString('utf8');
+  } finally { reader.releaseLock(); }
 }
 
 async function fetchFeedTextOnce(feedUrl: string): Promise<string> {
@@ -185,10 +216,8 @@ async function fetchFeedTextOnce(feedUrl: string): Promise<string> {
     cache: 'no-store',
     signal: AbortSignal.timeout(FEED_RAW_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  if (Number(res.headers.get('content-length')) > MAX_FEED_BYTES) throw new Error('Feed exceeds size limit');
-  const text = await res.text();
-  if (Buffer.byteLength(text, 'utf8') > MAX_FEED_BYTES) throw new Error('Feed exceeds size limit');
+  if (!res.ok) { await res.body?.cancel().catch(() => {}); throw new Error(`HTTP ${res.status}`); }
+  const text = await readBoundedText(res, MAX_FEED_BYTES);
   // A 200 HTML block (or a media HLS playlist, not a channel playlist) must
   // also trigger fallback. Otherwise it is cached as a successful empty feed.
   return assertPlaylist(text, feedUrl);
@@ -216,8 +245,8 @@ export async function fetchFeedText(feedUrl: string): Promise<string> {
         cache: 'no-store',
         signal: AbortSignal.timeout(FEED_API_TIMEOUT_MS),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = decodeGithubContents(await res.json());
+      if (!res.ok) { await res.body?.cancel().catch(() => {}); throw new Error(`HTTP ${res.status}`); }
+      const text = decodeGithubContents(JSON.parse(await readBoundedText(res, Math.ceil(MAX_FEED_BYTES * 1.4) + 4096)));
       if (!text) throw new Error('Missing or invalid base64 playlist');
       const playlist = assertPlaylist(text, feedUrl);
       logger.info('Live feed loaded through the GitHub contents API', { feed: feedUrl, apiUrl });
@@ -230,8 +259,21 @@ export async function fetchFeedText(feedUrl: string): Promise<string> {
   throw firstError ?? new Error('Feed fetch failed');
 }
 
-async function loadLiveChannels(): Promise<LiveChannel[]> {
-  const urls = getFeedUrls();
+const sourceMemory = new Map<string, FeedEntry[]>();
+const feedLoads = new Map<string, Promise<LiveChannel[]>>();
+
+function loadLiveChannels(urls: string[]): Promise<LiveChannel[]> {
+  const key = feedCacheKey(urls);
+  const existing = feedLoads.get(key);
+  if (existing) return existing;
+  const pending = refreshLiveChannels(urls).finally(() => {
+    if (feedLoads.get(key) === pending) feedLoads.delete(key);
+  });
+  feedLoads.set(key, pending);
+  return pending;
+}
+
+async function refreshLiveChannels(urls: string[]): Promise<LiveChannel[]> {
   if (urls.length === 0) return [];
 
   const results = await Promise.allSettled(
@@ -240,18 +282,27 @@ async function loadLiveChannels(): Promise<LiveChannel[]> {
 
   const entries: FeedEntry[] = [];
   results.forEach((r, i) => {
-    if (r.status === 'fulfilled') entries.push(...r.value);
-    else logger.error('Live feed fetch failed', r.reason, { feed: urls[i] });
+    if (r.status === 'fulfilled') {
+      sourceMemory.set(urls[i], r.value);
+      entries.push(...r.value);
+    } else {
+      logger.error('Live feed fetch failed', r.reason, { feed: urls[i] });
+      // A partial outage must not erase the other source's last-known list.
+      entries.push(...(sourceMemory.get(urls[i]) ?? []));
+    }
   });
 
   // Every feed failed → throw so the failure is not cached as an empty list.
-  if (results.every((r) => r.status === 'rejected')) {
+  if (!entries.length && results.every((r) => r.status === 'rejected')) {
     throw new Error('All live feeds failed');
   }
 
   const channels = buildLiveChannels(entries);
   if (!channels.length) throw new Error('Live feeds contained no playable channels');
   logger.info('Live feeds loaded', { feeds: urls.length, entries: entries.length, channels: channels.length });
+  // SWR may have returned a stale list already; publish its background result
+  // into memory as soon as it finishes, not another ten minutes later.
+  rememberChannelList(channels, feedCacheKey(urls));
   return channels;
 }
 
@@ -300,16 +351,22 @@ export function getStaticFallbackChannels(): LiveChannel[] {
 }
 
 /** Last successfully loaded channel list (survives transient feed failures). */
-let channelMemory: { channels: LiveChannel[]; fetchedAt: number } | null = null;
+let channelMemory: { channels: LiveChannel[]; fetchedAt: number; configKey: string } | null = null;
+
+function feedCacheKey(urls: string[]): string {
+  return `live_feed_channels_v3:${crypto.createHash('sha256').update(urls.map(canonicalFeedUrl).join('\n')).digest('hex').slice(0, 16)}`;
+}
 
 /** Remember a fresh channel list in the server-side memory cache. */
-export function rememberChannelList(channels: LiveChannel[]): void {
-  if (channels.length) channelMemory = { channels, fetchedAt: Date.now() };
+export function rememberChannelList(channels: LiveChannel[], configKey = feedCacheKey(getFeedUrls())): void {
+  if (channels.length) channelMemory = { channels, fetchedAt: Date.now(), configKey };
 }
 
 /** Test hook: clear the server-side memory cache. */
 export function resetChannelMemoryCache(): void {
   channelMemory = null;
+  sourceMemory.clear();
+  feedLoads.clear();
 }
 
 /**
@@ -324,16 +381,21 @@ export function resetChannelMemoryCache(): void {
  * Explicitly disabled feeds (`LIVE_FEED_URLS=''`) still yield an empty list.
  */
 export async function getLiveChannels(): Promise<LiveChannel[]> {
-  if (getFeedUrls().length === 0) return [];
+  const urls = getFeedUrls();
+  if (urls.length === 0) return [];
+  const configKey = feedCacheKey(urls);
+  // Never serve a cached pool from a different configured set of providers.
+  if (channelMemory?.configKey !== configKey) channelMemory = null;
+  for (const url of sourceMemory.keys()) if (!urls.includes(url)) sourceMemory.delete(url);
 
   if (channelMemory && Date.now() - channelMemory.fetchedAt <= FEED_CACHE_TTL_MS) {
     return channelMemory.channels;
   }
 
   try {
-    const channels = await getCacheManager().swr('live_feed_channels_v2', loadLiveChannels, FEED_CACHE_TTL_S);
+    const channels = await getCacheManager().swr(configKey, () => loadLiveChannels(urls), FEED_CACHE_TTL_S);
     if (channels.length) {
-      rememberChannelList(channels);
+      rememberChannelList(channels, configKey);
       return channels;
     }
   } catch (err) {

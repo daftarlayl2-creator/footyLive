@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMatchDetails, resolveAllStreams } from '@/lib/streamEngine';
 import { detectStreamKind } from '@/lib/player/servers';
 
-export const revalidate = 15; // stream links change less frequently, 15s is safe
+export const dynamic = 'force-dynamic';
+const headers = { 'Cache-Control': 'no-store' };
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +13,7 @@ export async function GET(
   try {
     const match = await getMatchDetails(matchId);
     if (!match) {
-      return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Match not found' }, { status: 404, headers });
     }
 
     const homeTeam = match.homeTeam?.name || '';
@@ -27,11 +28,11 @@ export async function GET(
       defaultUrl: resolved.proxiedUrl,
       // Proxy links URL-encode the upstream path, so classify by the URL they carry.
       isDirectHls: detectStreamKind(resolved.proxiedUrl) !== 'embed',
-    });
-  } catch (err: any) {
+    }, { headers });
+  } catch {
     return NextResponse.json(
-      { error: 'Failed to resolve stream routes: ' + err.message },
-      { status: 500 }
+      { error: 'Streams are temporarily unavailable. Please try again.' },
+      { status: 503, headers }
     );
   }
 }

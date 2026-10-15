@@ -1,7 +1,7 @@
 import { Match, Channel } from '../types';
 import { StreamProvider } from './types';
 import { fetchWithTimeout } from './baseProvider';
-import { teamsMatch } from '../utils/matching';
+import { matchChannelScore } from '../broadcast/matching';
 import { getCacheManager } from '../cache/cacheManager';
 import logger from '../logger';
 
@@ -57,7 +57,7 @@ export class CdnLiveProvider implements StreamProvider {
       
       for (const event of events) {
         const eventTitle = `${event.homeTeam || ''} vs ${event.awayTeam || ''}`;
-        if (teamsMatch(matchTitle, eventTitle)) {
+        if (matchChannelScore(matchTitle, { name: eventTitle }, homeTeam, awayTeam) > 0) {
           const eventChannels = event.channels || [];
           eventChannels.forEach((ch, idx) => {
             if (ch.url) {

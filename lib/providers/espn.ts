@@ -14,6 +14,7 @@
  *         tell us which league an event belongs to.
  */
 import logger from '../logger';
+import { fixtureBroadcasters } from '../broadcast/broadcasters';
 import { Match, MatchEvent, MatchGoal, MatchLiveDetails, MatchStats, Team } from '../types';
 import { getCountryForLeague, getLeaguePriority } from '../utils/matching';
 import { getCacheManager } from '../cache/cacheManager';
@@ -396,6 +397,7 @@ export function normalizeEspnEvent(event: any): Match | null {
     live,
     source: 'espn',
     leagueSlug: leagueSlugFromSeasonSlug(event?.season?.slug),
+    broadcasters: fixtureBroadcasters(competition),
   };
 }
 

@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   FEED_CACHE_TTL_S,
+  DEFAULT_LIVE_FEEDS,
   STATIC_FALLBACK_CHANNELS,
   getFeedUrls,
   getLiveChannels,
@@ -74,16 +75,16 @@ describe('getLiveChannels fallback chain', () => {
 
     await getLiveChannels();
     await getLiveChannels();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(DEFAULT_LIVE_FEEDS.length);
 
     // Just under the TTL: still cached. Past it: refreshed.
     now += FEED_CACHE_TTL_S * 1000 - 1;
     await getLiveChannels();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(DEFAULT_LIVE_FEEDS.length);
 
     now += 2;
     await getLiveChannels();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(DEFAULT_LIVE_FEEDS.length * 2);
   });
 
   it('never throws even when both fetch and fallbacks are exercised', async () => {

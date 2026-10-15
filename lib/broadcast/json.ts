@@ -64,10 +64,19 @@ export function parseJsonFeed(text: string, feedUrl: string): FeedEntry[] {
     const tvgId = pick(item, ['tvg_id', 'tvgId', 'id', 'channel_id']);
     const referer = refererOf(item);
 
+    const tags = (Array.isArray(item.tags) ? item.tags : typeof item.tags === 'string' ? item.tags.split(/[,|]/) : [])
+      .filter((tag): tag is string => typeof tag === 'string').map((tag) => tag.trim().slice(0, 160)).filter(Boolean).slice(0, 20);
+    const teamName = (value: unknown) => typeof value === 'string' ? value : value && typeof value === 'object' ? pick(value as Record<string, unknown>, ['name', 'displayName']) : undefined;
+    const home = teamName(item.homeTeam ?? item.home_team);
+    const away = teamName(item.awayTeam ?? item.away_team);
+    const matchTitle = home && away ? `${home} vs ${away}` : pick(item, ['matchTitle', 'match_title', 'event']) || name;
     const base = {
       logo: logo && isHttpUrl(logo) ? logo : undefined,
       group,
       tvgId,
+      tags,
+      matchTitle,
+      quality: pick(item, ['quality', 'resolution']),
       referer,
       source,
       feedUrl,
@@ -87,6 +96,7 @@ export function parseJsonFeed(text: string, feedUrl: string): FeedEntry[] {
             out.push({
               ...base,
               referer: refererOf(so) ?? referer,
+              quality: pick(so, ['quality', 'resolution']) ?? base.quality,
               name: pick(so, ['name', 'title']) || `${name} (${idx + 1})`,
               url,
             });

@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { Eye, EyeOff, Loader2, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
-import { MAX_DISPLAY_NAME_LENGTH, MIN_PASSWORD_LENGTH, signIn, signUp } from '@/lib/auth';
+import { MAX_DISPLAY_NAME_LENGTH, MIN_PASSWORD_LENGTH, resendConfirmation, signIn, signUp } from '@/lib/auth';
 import { MAX_NICKNAME_LENGTH, NICKNAME_STORAGE_KEY, sanitizeNickname } from '@/lib/chat';
 import { writeLocal } from '@/lib/hooks/useLocalValue';
 import { playSound } from '@/lib/sound/uiSound';
@@ -13,9 +13,9 @@ const INPUT =
 const LABEL = 'text-[11px] font-extrabold uppercase tracking-wider text-zinc-200';
 
 /** Guest → registered: create an account or sign in (Supabase Auth or device-local). */
-export default function AuthPanel({ provider, guestName }) {
+export default function AuthPanel({ provider, guestName, initialMode = 'signup' }) {
   const ids = { name: useId(), email: useId(), password: useId(), nickname: useId() };
-  const [mode, setMode] = useState('signup');
+  const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState({ displayName: guestName || '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,6 +50,16 @@ export default function AuthPanel({ provider, guestName }) {
       return;
     }
     playSound('success');
+  };
+
+  const resend = async () => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    const result = await resendConfirmation(form.email);
+    setBusy(false);
+    if (result.ok) setNotice(result.notice);
+    else setError(result.error);
   };
 
   const saveNickname = (event) => {
@@ -178,6 +188,12 @@ export default function AuthPanel({ provider, guestName }) {
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : mode === 'signup' ? <UserPlus className="h-4 w-4" aria-hidden="true" /> : <LogIn className="h-4 w-4" aria-hidden="true" />}
           {mode === 'signup' ? 'Create my account' : 'Sign in'}
         </button>
+
+        {mode === 'signin' && provider === 'supabase' && (
+          <button type="button" onClick={resend} disabled={busy} className="tactile w-full rounded-xl border border-white/15 px-3 py-2 text-xs font-bold text-sky-200 disabled:opacity-50">
+            Resend confirmation email
+          </button>
+        )}
 
         <p className="flex items-start gap-1.5 text-[11px] font-semibold leading-relaxed text-zinc-300">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-lime-300" aria-hidden="true" />

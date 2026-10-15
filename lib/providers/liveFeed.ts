@@ -1,14 +1,16 @@
 import { Channel } from '../types';
 import { StreamProvider } from './types';
-import { teamsMatch } from '../utils/matching';
+import { inferStreamQuality, matchChannelScore } from '../broadcast/matching';
 import { getLiveChannels, toPlaybackUrl } from '../broadcast/feeds';
 import { getChannelStatuses } from '../broadcast/probe';
 import type { ChannelStatus, LiveChannel } from '../broadcast/types';
 import logger from '../logger';
+import { isIptvOrgFeed } from '../broadcast/sources';
 
 /** Only confident two-team title matches are treated as match-specific. */
-export function findMatchFeedChannels(channels: LiveChannel[], matchTitle: string): LiveChannel[] {
-  return channels.filter((ch) => teamsMatch(matchTitle, ch.name));
+export function findMatchFeedChannels(channels: LiveChannel[], matchTitle: string, homeTeam?: string, awayTeam?: string): LiveChannel[] {
+  return channels.filter((channel) => !isIptvOrgFeed(channel.feedUrl)).map((channel, index) => ({ channel, index, score: matchChannelScore(matchTitle, channel, homeTeam, awayTeam) }))
+    .filter(({ score }) => score > 0).sort((a, b) => b.score - a.score || a.index - b.index).map(({ channel }) => channel);
 }
 
 export const MAX_MATCH_FALLBACK_SERVERS = 3;
@@ -22,8 +24,9 @@ const MAX_MATCH_FALLBACK_PROBES = 24;
  * the fixture, and playback still has to succeed through the signed proxy.
  */
 export async function selectActiveFeedChannels(channels: LiveChannel[]): Promise<LiveChannel[]> {
-  const football = channels.filter((ch) => !ch.group || /football|soccer/i.test(ch.group));
-  const eligible = football.length ? football : channels;
+  const legacy = channels.filter((channel) => !isIptvOrgFeed(channel.feedUrl));
+  const football = legacy.filter((ch) => !ch.group || /football|soccer|كرة القدم/i.test(ch.group));
+  const eligible = football.length ? football : legacy;
   const candidates = eligible.slice(0, MAX_MATCH_FALLBACK_PROBES);
   if (!candidates.length) return [];
   let statuses: Record<string, ChannelStatus> = {};
@@ -54,18 +57,18 @@ export class LiveFeedProvider implements StreamProvider {
 
   async resolveStreams(
     matchTitle: string,
-    _homeTeam: string,
-    _awayTeam: string,
+    homeTeam: string,
+    awayTeam: string,
     _matchId: string
   ): Promise<Channel[]> {
     const channels = await getLiveChannels();
-    return findMatchFeedChannels(channels, matchTitle)
+    return findMatchFeedChannels(channels, matchTitle, homeTeam, awayTeam)
       .map((ch) => ({
         name: ch.name,
         url: ch.url,
         proxiedUrl: toPlaybackUrl(ch),
         provider: this.id,
-        quality: 'HD',
+        quality: ch.quality || inferStreamQuality(ch.name, ch.tvgId, ...(ch.tags ?? [])),
       }));
   }
 }

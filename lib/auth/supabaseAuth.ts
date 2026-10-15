@@ -8,6 +8,7 @@
 import { sanitizeAvatarUrl, sanitizeFavoriteClub } from './localAuth';
 import type { AuthUser, Credentials, FavoriteClub, SignUpInput } from './types';
 import { normalizeEmail, sanitizeDisplayName } from './validation';
+import { validAuthTokens, type AuthTokens } from './return';
 
 export const AVATAR_BUCKET = 'avatars';
 
@@ -113,23 +114,35 @@ export function createSupabaseAuth({ url, anonKey, fetch: fetchImpl, timeoutMs =
   }
 
   function sessionFrom(json: any): SupabaseSession | null {
-    if (!json?.access_token || !json?.refresh_token || !json?.user) return null;
+    if (!json?.access_token || !json?.refresh_token || !json?.user?.id) return null;
     const expiresAt = Number.isFinite(json.expires_at)
       ? Number(json.expires_at) * 1000
       : now() + (Number(json.expires_in) || 3600) * 1000;
-    return { accessToken: json.access_token, refreshToken: json.refresh_token, expiresAt, user: mapGoTrueUser(json.user) };
+    const tokens = { accessToken: json.access_token, refreshToken: json.refresh_token, expiresAt };
+    return validAuthTokens(tokens) ? { ...tokens, user: mapGoTrueUser(json.user) } : null;
   }
 
-  async function signUp(input: SignUpInput) {
-    const result = await request('/auth/v1/signup', {
+  async function signUp(input: SignUpInput, options: { redirectTo?: string; codeChallenge?: string } = {}) {
+    const path = `/auth/v1/signup${options.redirectTo ? `?redirect_to=${encodeURIComponent(options.redirectTo)}` : ''}`;
+    const result = await request(path, {
       method: 'POST',
-      body: { email: normalizeEmail(input.email), password: input.password, data: { display_name: sanitizeDisplayName(input.displayName) } },
+      body: {
+        email: normalizeEmail(input.email), password: input.password,
+        data: { display_name: sanitizeDisplayName(input.displayName) },
+        ...(options.codeChallenge ? { code_challenge: options.codeChallenge, code_challenge_method: 's256' } : {}),
+      },
     });
     if (!result.ok) return result;
     const session = sessionFrom(result.json);
     if (session) return { ok: true as const, session, needsConfirmation: false };
     // Email confirmation required: GoTrue returns the (unconfirmed) user without a session.
     return { ok: true as const, session: null, needsConfirmation: true };
+  }
+
+  async function resendConfirmation(email: string, redirectTo?: string) {
+    return request(`/auth/v1/resend${redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : ''}`, {
+      method: 'POST', body: { type: 'signup', email: normalizeEmail(email) },
+    });
   }
 
   async function signIn(input: Credentials) {
@@ -150,6 +163,33 @@ export function createSupabaseAuth({ url, anonKey, fetch: fetchImpl, timeoutMs =
     return session
       ? { ok: true as const, session }
       : { ok: false as const, error: 'Unexpected refresh response.', status: 500, fatal: false };
+  }
+
+  async function sessionRequest(path: string, body: Record<string, unknown>) {
+    const result = await request(path, { method: 'POST', body });
+    if (!result.ok) return result;
+    const session = sessionFrom(result.json);
+    return session ? { ok: true as const, session } : { ok: false as const, error: 'The sign-in link did not return a session.', status: 400, code: 'invalid_session' };
+  }
+
+  /** OAuth and PKCE email callbacks. The verifier must be from the initiating browser. */
+  async function exchangeCodeForSession(code: string, verifier: string) {
+    return sessionRequest('/auth/v1/token?grant_type=pkce', { auth_code: code, code_verifier: verifier });
+  }
+
+  /** Supabase email templates can link directly to /auth/confirm?token_hash=…&type=email. */
+  async function verifyOtp(tokenHash: string, type: string) {
+    return sessionRequest('/auth/v1/verify', { token_hash: tokenHash, type });
+  }
+
+  /** Validate an implicit-flow / handoff access token against GoTrue, never a decoded JWT. */
+  async function sessionFromTokens(tokens: AuthTokens) {
+    if (!validAuthTokens(tokens)) return { ok: false as const, error: 'Missing session token.', status: 400, code: 'invalid_session' };
+    if (tokens.expiresAt <= now()) return refresh(tokens.refreshToken);
+    const result = await request('/auth/v1/user', { token: tokens.accessToken });
+    if (!result.ok) return result;
+    if (!result.json?.id) return { ok: false as const, error: 'Invalid session user.', status: 400, code: 'invalid_session' };
+    return { ok: true as const, session: { ...tokens, user: mapGoTrueUser(result.json) } };
   }
 
   async function updateUser(accessToken: string, data: Record<string, unknown>) {
@@ -176,7 +216,7 @@ export function createSupabaseAuth({ url, anonKey, fetch: fetchImpl, timeoutMs =
     return { ok: true as const, url: `${base}/storage/v1/object/public/${AVATAR_BUCKET}/${path}?v=${now()}` };
   }
 
-  return { signUp, signIn, refresh, updateUser, signOut, uploadAvatar };
+  return { signUp, signIn, resendConfirmation, refresh, exchangeCodeForSession, verifyOtp, sessionFromTokens, updateUser, signOut, uploadAvatar };
 }
 
 export type SupabaseAuth = ReturnType<typeof createSupabaseAuth>;

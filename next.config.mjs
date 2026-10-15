@@ -3,6 +3,9 @@ const nextConfig = {
   // Reduce dev file-system overhead on slow drives (suppresses benchmark warning)
   devIndicators: false,
 
+  // Arena's HTTPS preview proxies the dev server on a per-sandbox host.
+  allowedDevOrigins: ['*.e2b.app'],
+
   // Improve resilience on slow connections: extend fetch/render timeouts
   staticPageGenerationTimeout: 120,
 

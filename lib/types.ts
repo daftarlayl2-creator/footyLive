@@ -1,3 +1,5 @@
+import type { StreamHealth } from './player/health';
+
 export interface Team {
   /** Upstream (ESPN) team id when known — used for /club/{id} links. */
   id?: string;
@@ -19,6 +21,10 @@ export interface Channel {
   proxiedUrl?: string;
   provider?: string;
   quality?: string;
+  /** Mapping evidence; a network match alone does not confirm fixture coverage. */
+  coverage?: 'fixture' | 'broadcaster' | 'sports';
+  /** Automated media reachability, startup latency and recent probe reliability. */
+  health?: StreamHealth;
   /** How the player loads `proxiedUrl`: hls.js, a plain media file, or an iframe. */
   kind?: 'hls' | 'mp4' | 'embed';
 }
@@ -79,6 +85,8 @@ export interface Match {
   live?: MatchLiveDetails;
   /** Upstream league slug (ESPN, e.g. `eng.1`) when it is known. */
   leagueSlug?: string | null;
+  /** Explicit upstream TV/streaming names, not inferred broadcast rights. */
+  broadcasters?: string[];
   timestamp: number;
   tournament: string;
   country: string;

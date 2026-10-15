@@ -23,7 +23,9 @@
 * 🎨 **Burgundy & Lime Design System**: Tailwind v4 `@theme` tokens (legacy `navy-*` utility names now map to burgundy shades; `lime-*` maps to the new electric lime) drive every surface, button, active state and player control. Cards and live badges animate, respecting `prefers-reduced-motion`.
 * 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback. Provider embeds run in an **unsandboxed** iframe with a permissive `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"` list — provider players refuse to play inside `sandbox` ("Remove sandbox attributes on the iframe tag").
 * 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls. Embeds are watched too: a refused/expired signed link inside the frame and provider pages the server-side probe (`/api/stream-redirect?…&check=1`) reports gone fail over immediately, and after an embed fails the **direct HLS/MP4 backups are tried first**. Viewers can tap **Next server** when a provider shows its own error. Once every server failed, the player re-signs links and **retries the whole list on its own** (10 s → 30 s → 60 s, with a countdown and Cancel), plus a manual **Retry all**.
-* 🖥️ **Multistream Arena**: up to four matches side by side in a drag-to-resize grid with per-tile volume.
+* 🧠 **Health-Aware IPTV**: official IPTV-Org sports feed, two-team/broadcaster mapping, media-verified automatic backups and FHD/HD speed/stability ranking shared by the match player and Multi-View. Latency is measured from the server, not the viewer.
+* 🖥️ **Multistream Arena**: up to four independent live matches or IPTV channels in a responsive, resizable grid. Search, replace/remove sources, control per-tile audio and mute all without restarting streams.
+* 🏅 **Player Showcases (`/player/[id]`)**: full-card squad links, age/position/nationality banner, linked club crest, dated valuation, five season metrics and a glass Trophy Cabinet (الفيترينة) with individual/team filters and expandable honors. Missing provider statistics stay explicit; selected editorial honors/valuations are historical and sourced.
 * 🏆 **Standings, Top Scorers & Top Assists**: `/standings` has a scrollable league pill selector (Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Botola Pro, Europa League, Eredivisie, Primeira Liga, Saudi Pro League, MLS) and Table / Top Scorers / Top Assists tabs. Tables show Pos, Team, P, W, D, L, GF, GA, GD, Pts with qualification/relegation zones; phones get a combined `GF:GA` column so points never scroll off-screen. The league and tab live in the URL (`?league=esp.1&view=scorers`), so views can be shared.
 * 🛡️ **Club Pages (`/club/[id]`)**: every crest and club name (match cards, scoreboard, standings, leaderboards, fixtures) links to a club page. It has a hero in the official club colours with a high-res crest, plus founding year, stadium and current manager. Below that come the Wikipedia history/bio and tabs for **Form & Results**, **Fixtures** and **Squad**. ESPN data renders first; the Wikidata facts and bio stream in afterwards.
 * 💬 **Live Chat & One-Tap Predictions**: the chat input is never disabled. Messages appear instantly with delivery ticks and a one-tap retry, Enter sends, and focus stays in the field. Votes register on tap with a check-mark pop, ring pulse and chime; the tally updates immediately and a vote can be changed. Both sync through Supabase when it is configured. Without it they still work, stored in the browser and live-synced across tabs.
@@ -182,9 +184,9 @@ STREAM_SECRET="default_stream_hmac_secret_key_123_abc"
 # Optional: catalogue provider base URL (stream sources; defaults to https://api.watchfooty.st)
 # NEXT_PUBLIC_API_BASE="https://api.watchfooty.st"
 
-# Optional: comma-separated M3U/JSON live feed URLs (defaults to ibstvofficial/Live-events).
-# Set to an empty string to disable live feeds.
-# LIVE_FEED_URLS="https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u"
+# Optional: comma-separated M3U/JSON live feeds. Unset enables Live-events + IPTV-Org sports.
+# An explicit list replaces defaults; an empty string disables all live feeds.
+# LIVE_FEED_URLS="https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u,https://iptv-org.github.io/iptv/categories/sports.m3u"
 
 # Optional: cached image proxy base (defaults to the catalogue provider)
 # Optional: let /api/proxy reach LAN/loopback origins (local testing only)
@@ -309,6 +311,10 @@ Interactive documentation lives at [`/api-hub`](https://eviv.si/api-hub).
 | `/api/streams/[matchId]` | GET | Match-specific streams plus (live ESPN only) signed, unverified channel backups |
 | `/api/stream-redirect` | GET | HMAC-validated redirect to upstream embed URLs; `&check=1` returns a server-side probe of the provider page (`ok` / `offline` / `unknown`) |
 | `/api/proxy` | GET | Signed HLS relay: playlists rewritten server-side, segments streamed, `Range`/`206`/CORS preserved |
+| `/api/channels/[id]/streams` | GET | Signed, health-ranked source alternatives for a channel and Multi-View |
+| `/api/stream-health` | POST | Probe up to 12 valid signed media links; server latency, reachability and recent success rate |
+| `/auth/callback`, `/auth/confirm` | GET | Verify email token hashes or exchange PKCE codes; redirect to profile with an informative result |
+| `/auth/session` | POST | Same-origin, one-time HttpOnly auth handoff to the browser session |
 | `/api/live-channels` | GET | Feed channels + best-effort status (`live`, `unknown` → “Standby”, `offline`); never hides channels |
 | `/api/standings?league={slug}` | GET | League table (zones, ranks), top scorers and top assists; `mar.1` (Botola Pro) via TheSportsDB |
 | `/api/club/[id]` | GET | Club profile (`359`, `359-arsenal` or `real-madrid`): colours, standing, results, fixtures, squad, form + Wikipedia/Wikidata facts |
@@ -322,10 +328,16 @@ Interactive documentation lives at [`/api-hub`](https://eviv.si/api-hub).
 |--------|---------|-----|
 | `live` | Probe fetched a real playlist/media response | Lime pulsing **Live** pill |
 | `unknown` | Probe blocked (403/405/429/5xx), timed out, or unreadable body | Neutral **Standby** pill — still playable |
-| `offline` | Upstream answered 404/410 or served an HTML page | **Unreachable** pill — playback still attempted |
+| `offline` | Upstream answered 404/410 or served an HTML page | **Unreachable** pill — skipped by automatic source selection; manual controls remain available |
 | `checking` | Probe still running | Amber **Checking** pill |
 
-Every channel links to `/channel/{id}`, which mints a signed `/api/proxy` URL regardless of the probe result. For an unlinked *live* ESPN fixture only, up to three football feed channels (confirmed live first, standby next; known offline excluded) are offered as **unverified backups**. They are not claimed to broadcast that fixture; playback depends on the third-party source.
+Every channel links to `/channel/{id}`, which resolves signed, health-ranked `/api/proxy` sources without removing the channel from the catalog.
+
+**Official sports integration:** `https://iptv-org.github.io/iptv/categories/sports.m3u` is loaded dynamically by default alongside Live-events. If Pages is unavailable, the same file is fetched through GitHub's Contents API from the published **`gh-pages`** branch. Original high-resolution logos, groups, TVG identifiers and quality metadata are retained; the feed cache refreshes every ten minutes.
+
+For live fixtures, up to three **media-verified IPTV-Org sources** are automatically added to the match player and match tiles in Multi-View. Both-team fuzzy evidence takes priority, followed by actual broadcaster hints (beIN, ESPN, Canal+, etc.), then generic sports backups. Explicit network numbers/editions are respected. A bounded probe follows HLS variants and samples a real media segment; blocked, stale, offline, manifest-only or protected/key-dependent sources are not auto-injected. Rechecks use a 30-second cache and five-sample reliability history, preferring fast stable FHD/HD. A rotating probe window explores beyond dead front-of-list channels.
+
+**Reachability is not fixture coverage.** Network/general backups remain explicitly marked as possibly showing a different fixture and cannot displace a viable fixture-specific source. Legacy Live-events fallbacks retain their existing live-first/standby-next behavior (at most three, live ESPN fixtures only; known-offline sources excluded). Manually selected channels remain available even when a probe is blocked; only verified official siblings are auto-added as alternatives. See [integration and verification details](docs/feature-expansion.md#official-iptv-org-sports-integration).
 
 ---
 
@@ -390,3 +402,26 @@ Validation: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
 The feature tests cover real mounted score polling, notification-independent
 sound, duplicate suppression, preference persistence, favorites interactions,
 H2H orientation/de-duplication, probability totals and provider outages.
+
+
+## Confirmation, showcase & smart IPTV expansion
+
+Implementation and deployment details: [feature expansion guide](docs/feature-expansion.md).
+
+- Supabase email links now have `/auth/callback` and `/auth/confirm` routes,
+  PKCE/token-hash exchange, a same-origin session handoff, and clear recovery
+  banners instead of callback 404s. **Configure your public callback URL in
+  Supabase's redirect allowlist**; the guide also provides a cross-device
+  email template and preview-host instructions.
+- Every squad card opens a dedicated showcase with player/club context,
+  current or clearly labelled historical metrics, and interactive trophy
+  shelves. ESPN identity and competition splits are joined rather than
+  assuming the overview response contains a player object.
+- The shared smart player powers the watch page, channel pages and all four
+  Multi-View screens, with health/latency/stability ranking, guarded auto-switch
+  and independent decoder cleanup. Standby probes do not disable playback.
+
+Verification commands remain `npm run typecheck`, `npm run lint`, `npm test`
+and `npm run build`. New mounted regressions cover email returns, showcases,
+four independent IPTV streams, mute-all, and automatic failover. Real email
+and external-stream checks require configured Supabase and reachable providers.

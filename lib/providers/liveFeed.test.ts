@@ -29,6 +29,7 @@ import { LiveFeedProvider, findMatchFeedChannels, selectActiveFeedChannels } fro
 import { getChannelStatuses } from '../broadcast/probe';
 import { buildLiveChannels } from '../broadcast/feeds';
 import { PROXY_PATH } from '../hlsProxy';
+import { IPTV_ORG_SPORTS_URL } from '../broadcast/sources';
 
 describe('LiveFeedProvider', () => {
   it('returns proxied streams only for fixtures whose teams appear in the feed title', async () => {
@@ -59,6 +60,14 @@ describe('LiveFeedProvider', () => {
     const selected = await selectActiveFeedChannels(channels);
     expect(selected.map((ch) => ch.url)).toEqual([channels[2].url, channels[1].url]);
     expect(getChannelStatuses).toHaveBeenCalledWith(channels.slice(0, 3), { limit: 24 });
+  });
+
+  it('never lets official sports entries bypass their dedicated media-verification gate', async () => {
+    const official = buildLiveChannels([{ name: 'Arsenal vs Chelsea', url: 'https://cdn.example.com/official.m3u8', source: 'iptv-org.github.io', feedUrl: IPTV_ORG_SPORTS_URL }]);
+    expect(findMatchFeedChannels(official, 'Arsenal vs Chelsea')).toEqual([]);
+    const calls = vi.mocked(getChannelStatuses).mock.calls.length;
+    expect(await selectActiveFeedChannels(official)).toEqual([]);
+    expect(vi.mocked(getChannelStatuses).mock.calls.length).toBe(calls);
   });
 
   it('keeps unverified channels available when the probe service itself fails', async () => {

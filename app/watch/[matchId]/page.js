@@ -95,6 +95,8 @@ export default async function WatchPage({ params, searchParams }) {
           Back to Fixtures
         </Link>
 
+        <Link href="/multistream" className="tactile rounded-xl border border-lime-500/30 px-3 py-2 text-xs font-bold text-lime-600 dark:text-lime-300">Multi-View · up to 4 streams</Link>
+
         <GoalAlerts
           matchId={matchId}
           homeTeam={match.homeTeam}
