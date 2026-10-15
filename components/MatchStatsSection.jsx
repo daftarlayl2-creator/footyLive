@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { BarChart3, MessageSquare, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import PitchVisualization from '@/components/lineups/PitchVisualization';
 import ClubLink from '@/components/clubs/ClubLink';
+import CrestDrop from '@/components/clubs/CrestDrop';
 
 function normalizeRole(rawPos) {
   const pos = String(rawPos || '').toUpperCase();
@@ -98,9 +99,9 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
               <span>Match Statistics</span>
             </span>
             {showStats ? (
-              <ChevronUp className="h-4 w-4 text-zinc-500" />
+              <ChevronUp className="h-4 w-4 text-zinc-300" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-zinc-500" />
+              <ChevronDown className="h-4 w-4 text-zinc-300" />
             )}
           </button>
 
@@ -109,17 +110,13 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
               {/* Teams Header row */}
               <div className="flex items-center justify-between pb-4 border-b border-zinc-900">
                 <div className="flex items-center gap-2.5">
-                  {homeTeam?.badge && (
-                    <img src={homeTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-navy-900 ring-1 ring-zinc-800" />
-                  )}
+                  <CrestDrop src={homeTeam?.badge} name={homeTeam?.name} size="sm" tone="dark" />
                   <ClubLink team={homeTeam} className="text-xs font-bold uppercase tracking-wider text-zinc-300 transition-colors hover:text-lime-400">{homeTeam?.name || 'Home'}</ClubLink>
                 </div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-600">Comparison</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Comparison</span>
                 <div className="flex items-center gap-2.5">
                   <ClubLink team={awayTeam} className="text-xs font-bold uppercase tracking-wider text-zinc-300 transition-colors hover:text-lime-400">{awayTeam?.name || 'Away'}</ClubLink>
-                  {awayTeam?.badge && (
-                    <img src={awayTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-navy-900 ring-1 ring-zinc-800" />
-                  )}
+                  <CrestDrop src={awayTeam?.badge} name={awayTeam?.name} size="sm" tone="dark" />
                 </div>
               </div>
 
@@ -141,7 +138,7 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
                       <span className={`font-bold tabular-nums min-w-[3ch] text-left ${homeLeads ? 'text-lime-400' : 'text-zinc-300'}`}>
                         {homeVal}
                       </span>
-                      <span className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider">
+                      <span className="text-zinc-300 text-[11px] font-bold uppercase tracking-wider">
                         {stat.label || stat.name}
                       </span>
                       <span className={`font-bold tabular-nums min-w-[3ch] text-right ${awayLeads ? 'text-sky-400' : 'text-zinc-300'}`}>
@@ -174,11 +171,11 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
               <div className="flex items-center justify-center gap-6 pt-3 border-t border-navy-750">
                 <div className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-lime-500 to-lime-400" />
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{homeTeam?.name || 'Home'}</span>
+                  <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">{homeTeam?.name || 'Home'}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-sky-500 to-sky-400" />
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{awayTeam?.name || 'Away'}</span>
+                  <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">{awayTeam?.name || 'Away'}</span>
                 </div>
               </div>
             </div>
@@ -201,9 +198,9 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
               <span>Tactical Lineups &amp; Pitch</span>
             </span>
             {showLineups ? (
-              <ChevronUp className="h-4 w-4 text-zinc-500" />
+              <ChevronUp className="h-4 w-4 text-zinc-300" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-zinc-500" />
+              <ChevronDown className="h-4 w-4 text-zinc-300" />
             )}
           </button>
 
@@ -237,14 +234,14 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
                 <MessageSquare className="h-4 w-4 text-lime-400" />
               </div>
               <span>Live Play-by-Play Logs</span>
-              <span className="text-[10px] font-bold text-zinc-600 bg-navy-900 border border-navy-750 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-zinc-400 bg-navy-900 border border-navy-750 px-2 py-0.5 rounded-full">
                 {commentary.length}
               </span>
             </span>
             {showCommentary ? (
-              <ChevronUp className="h-4 w-4 text-zinc-500" />
+              <ChevronUp className="h-4 w-4 text-zinc-300" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-zinc-500" />
+              <ChevronDown className="h-4 w-4 text-zinc-300" />
             )}
           </button>
 

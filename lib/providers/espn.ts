@@ -14,7 +14,7 @@
  *         tell us which league an event belongs to.
  */
 import logger from '../logger';
-import { Match, MatchEvent, MatchLiveDetails, MatchStats, Team } from '../types';
+import { Match, MatchEvent, MatchGoal, MatchLiveDetails, MatchStats, Team } from '../types';
 import { getCountryForLeague, getLeaguePriority } from '../utils/matching';
 import { getCacheManager } from '../cache/cacheManager';
 
@@ -234,12 +234,14 @@ export function parseEspnDetails(competition: any, homeTeamId?: string): {
   events: MatchEvent[];
   cards: MatchLiveDetails['cards'];
   scorers: MatchLiveDetails['scorers'];
+  goals: MatchGoal[];
 } {
   const cards: MatchLiveDetails['cards'] = {
     home: { yellow: 0, red: 0 },
     away: { yellow: 0, red: 0 },
   };
   const scorers: MatchLiveDetails['scorers'] = { home: [], away: [] };
+  const goals: MatchGoal[] = [];
   const events: MatchEvent[] = [];
 
   for (const raw of competition?.details || []) {
@@ -272,13 +274,14 @@ export function parseEspnDetails(competition: any, homeTeamId?: string): {
       } else if (scoringSide) {
         scorers[scoringSide].push(minute || 'Goal');
       }
+      if (scoringSide) goals.push({ side: scoringSide, player: player || '', minute, penalty, ownGoal });
     }
 
     if (!label) continue;
     events.push({ type, label, minute, side, player, ownGoal, penalty });
   }
 
-  return { events, cards, scorers };
+  return { events, cards, scorers, goals };
 }
 
 /** Live "state" strings ESPN uses in `status.type.state`. */
@@ -347,7 +350,7 @@ export function normalizeEspnEvent(event: any): Match | null {
   const homeTeamId = homeRaw?.team?.id ? String(homeRaw.team.id) : undefined;
 
   const tournament = tournamentFromSeasonSlug(event?.season?.slug, event?.league?.name || 'Football');
-  const { events, cards, scorers } = parseEspnDetails(competition, homeTeamId);
+  const { events, cards, scorers, goals } = parseEspnDetails(competition, homeTeamId);
 
   const toScore = (raw: any): number => {
     const parsed = typeof raw?.score === 'string' ? Number.parseFloat(raw.score) : Number(raw?.score);
@@ -361,6 +364,7 @@ export function normalizeEspnEvent(event: any): Match | null {
           cards,
           events,
           scorers,
+          goals,
           period: statusBlock?.type?.description || '',
           detail: statusBlock?.type?.detail || '',
         }

@@ -100,7 +100,7 @@ export default function HighlightCard({ highlight, onPlay, featured = false, cla
         <h3 className="line-clamp-2 text-sm font-bold leading-snug text-zinc-100 transition-colors duration-300 group-hover:text-lime-400">
           {highlight.title || highlight.matchTitle || 'Match highlights'}
         </h3>
-        <p className="mt-auto flex min-w-0 items-center gap-1.5 truncate text-[11px] font-semibold text-zinc-500">
+        <p className="mt-auto flex min-w-0 items-center gap-1.5 truncate text-[11px] font-semibold text-zinc-400">
           {highlight.competition && (
             <span className="shrink-0 text-lime-500/90">{highlight.competition}</span>
           )}

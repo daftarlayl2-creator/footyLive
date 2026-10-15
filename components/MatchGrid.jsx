@@ -310,7 +310,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
           
           {/* Search bar */}
           <div className="relative flex-1 sm:flex-initial">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-400" />
             <input
               type="text"
               placeholder="Search teams or leagues..."
@@ -430,7 +430,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
                       )}
                       <span>{l.name}</span>
                       <span className={`text-[8px] px-1 py-0.2 rounded-md font-bold ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-zinc-100 dark:bg-navy-900 text-zinc-500'
+                        isActive ? 'bg-white/20 text-white' : 'bg-zinc-100 dark:bg-navy-900 text-zinc-600 dark:text-zinc-300'
                       }`}>
                         {count}
                       </span>
@@ -458,13 +458,13 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
             </Fragment>
           ))}
           {highlightsLoading && (
-            <div className="col-span-full flex items-center gap-2.5 text-zinc-500 text-sm">
+            <div className="col-span-full flex items-center gap-2.5 text-zinc-600 dark:text-zinc-400 text-sm">
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-lime-500/20 border-t-lime-500" />
               Loading highlights…
             </div>
           )}
           {!highlightsLoading && highlights.length === 0 && (
-            <p className="col-span-full text-zinc-500 text-sm">No recent highlights</p>
+            <p className="col-span-full text-zinc-600 dark:text-zinc-400 text-sm">No recent highlights</p>
           )}
           {(highlights.length === 0 || highlights.length % 6 !== 0) && (
             <div className="col-span-full flex w-full justify-center">
@@ -475,7 +475,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 glass-panel rounded-3xl">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 border border-zinc-200 dark:bg-navy-950 dark:border-navy-750 shadow-inner">
-            <svg className="h-6 w-6 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="h-6 w-6 text-zinc-400 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <circle cx="12" cy="12" r="10" />
               <path d="M8 12h8" />
             </svg>
@@ -489,7 +489,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
                   ? 'No completed matches yet'
                   : 'No upcoming fixtures scheduled'}
           </p>
-          <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-500 max-w-xs text-center leading-relaxed">
+          <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 max-w-xs text-center leading-relaxed">
             {search || selectedLeagues.length > 0
               ? 'Try adjusting search terms or clearing selected league filters.'
               : tab === 'live'

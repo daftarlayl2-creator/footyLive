@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Handshake, Loader2, Users, Vote } from 'lucide-react';
+import { Check, CircleX, Handshake, Loader2, Lock, Trophy, Users, Vote } from 'lucide-react';
 import { createRowId, getLocalSupabase, useSupabase } from '@/lib/supabase';
-import { useLocalValue, writeLocal } from '@/lib/hooks/useLocalValue';
+import { readLocal, useLocalValue, writeLocal } from '@/lib/hooks/useLocalValue';
+import useLiveMatch from '@/lib/hooks/useLiveMatch';
 import { NICKNAME_STORAGE_KEY } from '@/lib/chat';
+import { useAuth } from '@/lib/auth';
+import { RESULTS_STORAGE_KEY, mergeResult, outcomeOf, parseResultCache, serializeResultCache } from '@/lib/fanStats';
 import { isPrediction, parseStoredVote, tallyVotes, toPercentages, voteStorageKey } from '@/lib/predictions';
 import { playSound } from '@/lib/sound/uiSound';
-import TeamLogo from '@/components/clubs/TeamLogo';
+import CrestDrop from '@/components/clubs/CrestDrop';
 
 const TABLE = 'match_predictions';
 
@@ -16,18 +19,7 @@ function timestamp() {
   return Date.now();
 }
 
-const BAR_COLORS = { home: 'bg-lime-500', draw: 'bg-zinc-400 dark:bg-zinc-500', away: 'bg-navy-400' };
-
-function Crest({ team, fallback }) {
-  return (
-    <TeamLogo
-      src={team?.badge}
-      name={team?.name || fallback}
-      size={40}
-      className="bg-white p-1 shadow-sm ring-1 ring-navy-200 dark:bg-navy-950 dark:ring-navy-750"
-    />
-  );
-}
+const BAR_COLORS = { home: 'bg-lime-500', draw: 'bg-zinc-300', away: 'bg-sky-400' };
 
 /**
  * "Who will win?" prediction bar (above the player on /watch).
@@ -38,7 +30,7 @@ function Crest({ team, fallback }) {
  * option to change it). Votes sync through `match_predictions` and live
  * updates arrive over the realtime channel.
  */
-export default function VotingBar({ matchId, homeTeam, awayTeam }) {
+export default function VotingBar({ matchId, homeTeam, awayTeam, status, homeScore, awayScore }) {
   const id = String(matchId);
   const { supabase } = useSupabase();
   const [offline, setOffline] = useState(false);
@@ -47,6 +39,28 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
   const storedVote = useLocalValue(voteStorageKey(id));
   const myVote = useMemo(() => parseStoredVote(storedVote), [storedVote]);
   const nickname = useLocalValue(NICKNAME_STORAGE_KEY);
+  const auth = useAuth();
+  const voterName = (auth.status === 'authenticated' && auth.user?.displayName) || nickname || 'EVIV fan';
+
+  // Shares the scoreboard's polled match (no extra requests) to settle the vote at full time.
+  const { data: live } = useLiveMatch(status ? id : null, { status, homeScore, awayScore });
+  const finalOutcome = live.status === 'finished' ? outcomeOf(live.homeScore, live.awayScore) : null;
+  const votingClosed = Boolean(finalOutcome);
+
+  // Remember the final result for the profile's prediction accuracy.
+  useEffect(() => {
+    if (!finalOutcome) return;
+    const cache = parseResultCache(readLocal(RESULTS_STORAGE_KEY));
+    if (cache[id]?.status === 'finished') return;
+    const result = {
+      status: 'finished',
+      homeScore: live.homeScore,
+      awayScore: live.awayScore,
+      homeName: homeTeam?.name,
+      awayName: awayTeam?.name,
+    };
+    writeLocal(RESULTS_STORAGE_KEY, serializeResultCache(mergeResult(cache, id, result, Date.now())));
+  }, [finalOutcome, id, live.homeScore, live.awayScore, homeTeam?.name, awayTeam?.name]);
 
   const [rows, setRows] = useState(() => new Map());
   const [confirmation, setConfirmation] = useState(null);
@@ -112,6 +126,10 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
 
   const castVote = async (prediction) => {
     const stamp = timestamp();
+    if (votingClosed) {
+      playSound('tap');
+      return;
+    }
     if (myVote?.prediction === prediction) {
       setConfirmation({ prediction, key: stamp });
       playSound('tap');
@@ -138,7 +156,7 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
       result = await client.from(TABLE).insert({
         id: voteId,
         match_id: id,
-        username: nickname || 'EVIV fan',
+        username: voterName,
         prediction,
         created_at: new Date().toISOString(),
       });
@@ -156,27 +174,31 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
     setSync('saved');
   };
 
-  const subtitle = myVote
-    ? `Your pick: ${labelFor(myVote.prediction)} · tap another option to change`
-    : total === 0
-      ? 'Be the first to call it — one tap to vote'
-      : 'Tap a result to cast your vote';
+  const subtitle = votingClosed
+    ? 'Voting closed at full time'
+    : myVote
+      ? `Your pick: ${labelFor(myVote.prediction)} · tap another option to change`
+      : total === 0
+        ? 'Be the first to call it — one tap to vote'
+        : 'Tap a result to cast your vote';
+
+  const callWasRight = Boolean(finalOutcome && myVote && myVote.prediction === finalOutcome);
 
   return (
-    <section aria-label="Match prediction" data-sound="none" className="app-card relative overflow-hidden p-4 sm:p-5">
+    <section aria-label="Match prediction" data-sound="none" className="glass-dark relative overflow-hidden rounded-3xl p-4 sm:p-5">
       <span className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-lime-500/10 blur-3xl" />
 
       <div className="relative flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-lime-500/15 text-lime-600 dark:text-lime-400">
-            <Vote className="h-4.5 w-4.5" aria-hidden="true" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-lime-500/15 text-lime-300">
+            {votingClosed ? <Lock className="h-4 w-4" aria-hidden="true" /> : <Vote className="h-4.5 w-4.5" aria-hidden="true" />}
           </span>
           <div className="min-w-0">
-            <h2 className="text-sm font-extrabold tracking-tight text-navy-900 dark:text-white">Who will win?</h2>
-            <p className="truncate text-[11px] font-semibold text-navy-500 dark:text-zinc-400">{subtitle}</p>
+            <h2 className="text-sm font-extrabold tracking-tight text-white">Who will win?</h2>
+            <p className="truncate text-[11px] font-semibold text-zinc-300">{subtitle}</p>
           </div>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-navy-200 bg-navy-50 px-2.5 py-1 text-[11px] font-bold tabular-nums text-navy-700 dark:border-navy-750 dark:bg-navy-950 dark:text-zinc-300">
+        <span className="glass-dark-tile inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-zinc-100">
           <Users className="h-3.5 w-3.5" aria-hidden="true" />
           {total} {total === 1 ? 'vote' : 'votes'}
         </span>
@@ -192,12 +214,15 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
               type="button"
               onClick={() => castVote(option.key)}
               aria-pressed={selected}
+              aria-disabled={votingClosed ? 'true' : undefined}
               aria-label={`${option.key === 'draw' ? 'Draw' : `${option.label} to win`} — ${pct[option.key]}%`}
-              className={`tactile relative flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center ${
+              className={`tactile relative flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center ${
+                votingClosed ? 'cursor-default' : 'cursor-pointer'
+              } ${
                 selected
-                  ? 'border-lime-500 bg-lime-500/15 shadow-glow-lime dark:bg-lime-500/10'
-                  : 'border-navy-200 bg-white hover:border-lime-500/50 hover:bg-lime-500/5 dark:border-navy-750 dark:bg-navy-950/60 dark:hover:bg-navy-900'
-              }`}
+                  ? 'border-lime-500 bg-lime-500/15 shadow-glow-lime'
+                  : `glass-dark-tile ${votingClosed ? '' : 'glass-dark-tile-hover'}`
+              } ${finalOutcome === option.key ? 'ring-1 ring-lime-300/70' : ''}`}
             >
               {justConfirmed && (
                 <span key={confirmation.key} className="animate-ring-pulse pointer-events-none absolute inset-0 rounded-2xl" />
@@ -211,22 +236,22 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
                 </span>
               )}
               {option.key === 'draw' ? (
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-100 text-navy-700 ring-1 ring-navy-200 dark:bg-navy-950 dark:text-zinc-300 dark:ring-navy-750">
-                  <Handshake className="h-5 w-5" aria-hidden="true" />
+                <span className="crest-drop crest-drop--md crest-drop--dark text-zinc-100" aria-hidden="true">
+                  <Handshake className="crest-drop__img relative h-5 w-5" aria-hidden="true" />
                 </span>
               ) : (
-                <Crest team={option.team} fallback={option.label} />
+                <CrestDrop src={option.team?.badge} name={option.team?.name || option.label} size="md" tone="dark" />
               )}
               <span
                 className={`w-full truncate text-[11px] font-extrabold uppercase tracking-wide ${
-                  selected ? 'text-lime-700 dark:text-lime-300' : 'text-navy-700 dark:text-zinc-300'
+                  selected ? 'text-lime-200' : 'text-zinc-200'
                 }`}
               >
                 {option.label}
               </span>
               <span
                 className={`text-lg font-black tabular-nums leading-none ${
-                  selected ? 'text-navy-900 dark:text-white' : total ? 'text-navy-800 dark:text-zinc-100' : 'text-navy-400 dark:text-zinc-600'
+                  selected ? 'text-white' : total ? 'text-zinc-50' : 'text-zinc-400'
                 }`}
               >
                 {pct[option.key]}%
@@ -237,7 +262,7 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
       </div>
 
       {/* Segmented tally bar */}
-      <div className="relative mt-4 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-navy-100 dark:bg-navy-950" aria-hidden="true">
+      <div className="relative mt-4 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-black/35 ring-1 ring-white/5" aria-hidden="true">
         {['home', 'draw', 'away'].map((key) => (
           <span
             key={key}
@@ -246,22 +271,36 @@ export default function VotingBar({ matchId, homeTeam, awayTeam }) {
           />
         ))}
       </div>
-      <div className="mt-1.5 flex justify-between text-[10.5px] font-bold tabular-nums text-navy-500 dark:text-zinc-500">
+      <div className="mt-1.5 flex justify-between text-[10.5px] font-bold tabular-nums text-zinc-300">
         <span>{counts.home} home</span>
         <span>{counts.draw} draw</span>
         <span>{counts.away} away</span>
       </div>
 
+      {finalOutcome && myVote && (
+        <p
+          className={`relative mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-bold ${
+            callWasRight ? 'border-lime-500/40 bg-lime-500/10 text-lime-200' : 'border-white/10 bg-white/5 text-zinc-200'
+          }`}
+          data-vote-outcome={callWasRight ? 'correct' : 'wrong'}
+        >
+          {callWasRight ? <Trophy className="h-3.5 w-3.5" aria-hidden="true" /> : <CircleX className="h-3.5 w-3.5" aria-hidden="true" />}
+          {callWasRight
+            ? `You called it! ${labelFor(finalOutcome)}${finalOutcome === 'draw' ? '' : ' won'} ${live.homeScore}–${live.awayScore}`
+            : `Not this time · final score ${live.homeScore}–${live.awayScore}`}
+        </p>
+      )}
+
       <p aria-live="polite" className="min-h-[1.25rem] pt-2 text-[11.5px] font-bold">
         {confirmation && (
-          <span key={confirmation.key} className="animate-slide-up inline-flex items-center gap-1.5 text-lime-700 dark:text-lime-400">
+          <span key={confirmation.key} className="animate-slide-up inline-flex items-center gap-1.5 text-lime-300">
             {sync === 'saving' ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             ) : (
               <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
             )}
             Vote counted: {confirmation.prediction === 'draw' ? 'Draw' : `${labelFor(confirmation.prediction)} to win`}
-            {sync === 'device' && <span className="font-semibold text-navy-500 dark:text-zinc-400">· saved on this device</span>}
+            {sync === 'device' && <span className="font-semibold text-zinc-300">· saved on this device</span>}
           </span>
         )}
       </p>

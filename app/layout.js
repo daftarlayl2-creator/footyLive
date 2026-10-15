@@ -3,6 +3,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import AdSlot from '@/components/ads/AdSlot';
 import HeaderNav from '@/components/nav/HeaderNav';
+import AccountButton from '@/components/auth/AccountButton';
 import MobileBottomNav from '@/components/nav/MobileBottomNav';
 import SoundEffects from '@/components/ui/SoundEffects';
 import SoundToggle from '@/components/ui/SoundToggle';
@@ -82,6 +83,7 @@ export default function RootLayout({ children }) {
 
             <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <HeaderNav />
+              <AccountButton />
               <SoundToggle />
               <ThemeToggle />
             </nav>

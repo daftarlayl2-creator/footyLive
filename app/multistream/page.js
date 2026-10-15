@@ -1,8 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Volume2, VolumeX, Maximize, X, Plus, Search, RefreshCw, Layers, AlertCircle, Cpu } from 'lucide-react';
+import { useState, useEffect, useEffectEvent, useRef, useCallback } from 'react';
+import { Play, Pause, Volume2, VolumeX, Maximize, X, Plus, Search, RefreshCw, Layers, AlertCircle, Cpu } from 'lucide-react';
 import Link from 'next/link';
+import { detectStreamKind } from '@/lib/player/servers';
+import { loadHls } from '@/lib/player/loadHls';
+import { EMBED_IFRAME_ALLOW, EMBED_REFERRER_POLICY, classifyFrameLocation, readFrameHref } from '@/lib/player/embed';
+
+/** hls.js media-error recoveries per feed before the tile moves to the next server. */
+const MAX_MEDIA_RECOVERIES = 2;
+
+/** 'hls' | 'mp4' | 'embed' for a resolved stream (explicit kind wins over URL sniffing). */
+function streamKindOf(stream) {
+  if (!stream) return null;
+  if (stream.kind === 'hls' || stream.kind === 'mp4' || stream.kind === 'embed') return stream.kind;
+  return detectStreamKind(stream.proxiedUrl || stream.url);
+}
 
 export default function MultiStreamPage() {
   const [slots, setSlots] = useState([null, null, null, null]);
@@ -141,7 +154,7 @@ export default function MultiStreamPage() {
             Monitor and watch up to 4 dynamic football streams concurrently in real time. Combine matches, toggle sound feeds, and customize layouts.
           </p>
           {/* Quick Help for Gestures */}
-          <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 border-t border-zinc-100 dark:border-navy-750/60 mt-2">
+          <div className="text-[10px] text-zinc-400 dark:text-zinc-400 font-medium flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 border-t border-zinc-100 dark:border-navy-750/60 mt-2">
             <span className="font-extrabold text-lime-500">🎮 Hover Shortcuts:</span>
             <span>[S] Cycle Server</span>
             <span>[R] Refresh Feed</span>
@@ -311,7 +324,7 @@ export default function MultiStreamPage() {
                         </span>
                         <div className="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
                           <span>{m.homeTeam?.name}</span>
-                          <span className="text-zinc-400 dark:text-zinc-500 font-medium">vs</span>
+                          <span className="text-zinc-400 dark:text-zinc-400 font-medium">vs</span>
                           <span>{m.awayTeam?.name}</span>
                         </div>
                         {m.status === 'live' && (
@@ -340,7 +353,7 @@ export default function MultiStreamPage() {
                   );
                 })
               ) : (
-                <div className="py-12 text-center text-xs text-zinc-550 dark:text-zinc-500 font-semibold">
+                <div className="py-12 text-center text-xs text-zinc-550 dark:text-zinc-400 font-semibold">
                   No match fixtures found matching your search.
                 </div>
               )}
@@ -360,9 +373,11 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
   const [error, setError] = useState(null);
   const [muted, setMuted] = useState(slotIndex > 0); // Mute slot 2, 3, 4 by default so they don't blast concurrently!
   const [isPlaying, setIsPlaying] = useState(true);
-  const [hlsLoaded, setHlsLoaded] = useState(
-    () => typeof window !== 'undefined' && Boolean(window.Hls)
-  );
+  /** Bumped by "reload" so the active feed restarts from scratch. */
+  const [reloadNonce, setReloadNonce] = useState(0);
+  /** Server indices that failed in the current failover chain. */
+  const [failedFeeds, setFailedFeeds] = useState([]);
+  const [allFeedsFailed, setAllFeedsFailed] = useState(false);
   
   // Custom Hover State & Gestures
   const [isHovered, setIsHovered] = useState(false);
@@ -376,12 +391,9 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
 
   const activeStream = streams[activeStreamIdx];
   const streamUrl = activeStream?.proxiedUrl || activeStream?.url;
-  const isDirectHls = streamUrl && (
-    streamUrl.includes('.m3u8') || 
-    streamUrl.includes('.mpd') || 
-    streamUrl.includes('/hls/') || 
-    streamUrl.includes('.mp4')
-  );
+  // Classified like the match player: signed /api/proxy links carry their (encoded) upstream URL.
+  const streamKind = streamKindOf(activeStream);
+  const isDirectHls = Boolean(streamUrl) && (streamKind === 'hls' || streamKind === 'mp4');
 
   const showToast = (message) => {
     setGestureToast(message);
@@ -393,26 +405,54 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
   const toggleMute = useCallback(() => {
     const nextMute = !muted;
     setMuted(nextMute);
+    // Applied straight to the element: muting must never restart the stream.
     if (videoRef.current) {
       videoRef.current.muted = nextMute;
     }
   }, [muted]);
 
   const reloadFeed = useCallback(() => {
-    if (videoRef.current && isDirectHls) {
-      if (hlsRef.current) {
-        hlsRef.current.loadSource(streamUrl);
-        hlsRef.current.startLoad();
-      } else {
-        videoRef.current.src = streamUrl;
-        videoRef.current.load();
+    setAllFeedsFailed(false);
+    setReloadNonce((n) => n + 1);
+  }, []);
+
+  /** Manual server choice: a fresh failover chain starting from that server. */
+  const chooseFeed = useCallback((index) => {
+    setFailedFeeds([]);
+    setAllFeedsFailed(false);
+    setActiveStreamIdx(index);
+  }, []);
+
+  /** Manual cycling (keys, swipes, wheel) also starts a fresh failover chain. */
+  const resetFailover = () => {
+    setFailedFeeds([]);
+    setAllFeedsFailed(false);
+  };
+
+  /** Start over from Server 1 after every server failed. */
+  const retryAllFeeds = () => {
+    setFailedFeeds([]);
+    setAllFeedsFailed(false);
+    setActiveStreamIdx(0);
+    setReloadNonce((n) => n + 1);
+  };
+
+  /** The active feed failed: move to the next server nobody tried in this chain. */
+  const advanceAfterFailure = () => {
+    const failedNow = failedFeeds.includes(activeStreamIdx) ? failedFeeds : [...failedFeeds, activeStreamIdx];
+    setFailedFeeds(failedNow);
+    for (let step = 1; step < streams.length; step++) {
+      const next = (activeStreamIdx + step) % streams.length;
+      if (!failedNow.includes(next)) {
+        setActiveStreamIdx(next);
+        showToast(`🔌 Server ${activeStreamIdx + 1} failed · switching to Server ${next + 1}`);
+        return;
       }
-    } else {
-      const curr = activeStreamIdx;
-      setActiveStreamIdx(-1);
-      setTimeout(() => setActiveStreamIdx(curr), 50);
     }
-  }, [activeStreamIdx, isDirectHls, streamUrl]);
+    setAllFeedsFailed(true);
+  };
+  const onFeedFailure = useEffectEvent(advanceAfterFailure);
+  const readMuted = useEffectEvent(() => muted);
 
   // Keyboard gestures handler when hovering over this viewport
   useEffect(() => {
@@ -429,6 +469,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
       if (key === 's') {
         e.preventDefault();
         if (streams.length > 1) {
+          resetFailover();
           setActiveStreamIdx((prev) => {
             const next = (prev + 1) % streams.length;
             showToast(`🔌 Feed: Server ${next + 1} (${streams[next]?.quality || 'SD'})`);
@@ -451,20 +492,6 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isHovered, streams, activeStreamIdx, muted, streamUrl, isDirectHls, reloadFeed, toggleMute]);
-
-  // Load HLS Client script if HLS stream is resolved
-  useEffect(() => {
-    if (!isDirectHls || hlsLoaded) return;
-    if (window.Hls) {
-      Promise.resolve().then(() => setHlsLoaded(true));
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js';
-    script.async = true;
-    script.onload = () => setHlsLoaded(true);
-    document.body.appendChild(script);
-  }, [isDirectHls, hlsLoaded]);
 
   // Resolve streams from custom stream API endpoint
   useEffect(() => {
@@ -491,43 +518,78 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     resolveStreams();
   }, [slotData.id]);
 
-  // HLS Direct Playback setup
+  // Direct playback (hls.js, native HLS or a plain media file) with automatic failover.
+  // Mute is applied to the element directly, so toggling it never restarts the feed.
   useEffect(() => {
-    if (!isDirectHls || !hlsLoaded || !videoRef.current) return;
+    if (!isDirectHls || allFeedsFailed || !videoRef.current) return undefined;
 
     const video = videoRef.current;
-    
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
+    let disposed = false;
+    let recoveries = 0;
+    let hls = null;
 
-    video.muted = muted;
-    setIsPlaying(true);
+    video.muted = readMuted();
+    const play = () => {
+      video.play()?.then(() => !disposed && setIsPlaying(true)).catch(() => {});
+    };
+    const fail = () => {
+      if (!disposed) onFeedFailure();
+    };
+    const onVideoError = () => {
+      if (!hls) fail(); // hls.js reports its own, more precise errors
+    };
+    video.addEventListener('error', onVideoError);
 
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    const startNative = () => {
       video.src = streamUrl;
-      video.play().catch(() => {});
-    } else if (window.Hls) {
-      const hls = new window.Hls({
-        maxBufferSize: 10 * 1024 * 1024,
-        maxBufferLength: 15,
-      });
-      hlsRef.current = hls;
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-      hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-      });
+      video.load();
+      play();
+    };
+
+    if (streamKind === 'mp4') {
+      startNative();
+    } else {
+      loadHls()
+        .then((Hls) => {
+          if (disposed) return;
+          if (Hls?.isSupported()) {
+            hls = new Hls({ maxBufferSize: 10 * 1024 * 1024, maxBufferLength: 15, backBufferLength: 20 });
+            hlsRef.current = hls;
+            hls.loadSource(streamUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, play);
+            hls.on(Hls.Events.ERROR, (_event, data) => {
+              if (disposed || !data?.fatal) return;
+              if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recoveries < MAX_MEDIA_RECOVERIES) {
+                recoveries += 1;
+                hls.recoverMediaError();
+                return;
+              }
+              fail();
+            });
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            startNative();
+          } else {
+            fail();
+          }
+        })
+        .catch(fail);
     }
 
     return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
+      disposed = true;
+      video.removeEventListener('error', onVideoError);
+      if (hls) hls.destroy();
+      hlsRef.current = null;
+      video.removeAttribute('src');
+      video.load();
     };
-  }, [streamUrl, isDirectHls, hlsLoaded, muted]);
+  }, [streamUrl, streamKind, isDirectHls, allFeedsFailed, reloadNonce]);
+
+  /** Unsandboxed provider frame: a readable /api/… document means our signed link was refused. */
+  const handleFrameLoad = (event) => {
+    if (classifyFrameLocation(readFrameHref(event.currentTarget), window.location.origin) === 'refused') advanceAfterFailure();
+  };
 
   const handlePlayPause = () => {
     if (!videoRef.current) return;
@@ -572,6 +634,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
 
     if (Math.abs(dragDeltaX) > 60) {
       if (streams.length > 1) {
+        resetFailover();
         if (dragDeltaX > 0) {
           // Swipe Right -> Previous Server
           setActiveStreamIdx((prev) => {
@@ -600,6 +663,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     e.preventDefault();
     e.stopPropagation();
     if (streams.length > 1) {
+      resetFailover();
       setActiveStreamIdx((prev) => {
         const next = (prev + 1) % streams.length;
         showToast(`🔌 Feed: Server ${next + 1} (${streams[next]?.quality || 'SD'})`);
@@ -614,6 +678,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     if (streams.length <= 1) return;
     e.preventDefault();
     e.stopPropagation();
+    resetFailover();
     if (e.deltaY > 0) {
       setActiveStreamIdx((prev) => (prev + 1) % streams.length);
       showToast(`🔌 Server Cycle: Next Feed`);
@@ -684,7 +749,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
               onWheel={handleWheelServer}
               onChange={(e) => {
                 const idx = parseInt(e.target.value);
-                setActiveStreamIdx(idx);
+                chooseFeed(idx);
                 showToast(`🔌 Switched to Server ${idx + 1}`);
               }}
               className="text-[9px] font-extrabold uppercase px-1 py-0.5 rounded bg-black/60 border border-navy-750 text-white cursor-pointer focus:outline-none"
@@ -692,7 +757,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
             >
               {streams.map((s, index) => (
                 <option key={index} value={index} className="bg-navy-950">
-                  S{index + 1} ({s.quality || 'SD'})
+                  S{index + 1} ({s.quality || 'SD'}){failedFeeds.includes(index) ? ' ✕' : ''}
                 </option>
               ))}
             </select>
@@ -716,13 +781,26 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
         {resolving ? (
           <div className="flex flex-col items-center justify-center space-y-2.5">
             <RefreshCw className="h-6 w-6 text-lime-500 animate-spin" />
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500">Resolving Streaming Signals...</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-300">Resolving Streaming Signals...</span>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center p-4 text-center space-y-2 max-w-xs">
             <AlertCircle className="h-6 w-6 text-amber-500" />
-            <h4 className="text-xs font-bold text-zinc-300">Stream Unavailable</h4>
-            <p className="text-[10px] text-zinc-500">{error}</p>
+            <h4 className="text-xs font-bold text-zinc-200">Stream Unavailable</h4>
+            <p className="text-[10px] text-zinc-400">{error}</p>
+          </div>
+        ) : allFeedsFailed ? (
+          <div className="flex flex-col items-center justify-center p-4 text-center space-y-2 max-w-xs" role="status">
+            <AlertCircle className="h-6 w-6 text-red-400" />
+            <h4 className="text-xs font-bold text-zinc-100">All servers failed</h4>
+            <p className="text-[10px] text-zinc-400">Every server for this match stopped responding.</p>
+            <button
+              type="button"
+              onClick={retryAllFeeds}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-lime-500/40 bg-lime-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-lime-300 hover:bg-lime-500/20"
+            >
+              <RefreshCw className="h-3 w-3" /> Retry all servers
+            </button>
           </div>
         ) : isDirectHls ? (
           <video
@@ -731,19 +809,19 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
             playsInline
             onClick={handlePlayPause}
           />
-        ) : activeStreamIdx === -1 ? (
-          <div className="flex items-center justify-center">
-            <RefreshCw className="h-5 w-5 text-zinc-500 animate-spin" />
-          </div>
-        ) : (
+        ) : streamUrl ? (
+          // Never sandboxed: provider players refuse to run in a sandboxed frame.
           <iframe
-            key={`${streamUrl}-compat`}
+            key={`${streamUrl}#${reloadNonce}`}
             src={streamUrl}
+            title={`${slotData.homeName} vs ${slotData.awayName} — screen ${slotIndex + 1}`}
             className="absolute inset-0 h-full w-full border-0"
             allowFullScreen
-            allow="autoplay; fullscreen"
+            allow={EMBED_IFRAME_ALLOW}
+            referrerPolicy={EMBED_REFERRER_POLICY}
+            onLoad={handleFrameLoad}
           />
-        )}
+        ) : null}
       </div>
 
       {/* Screen HUD controls (bottom overlay on hover) */}
@@ -755,8 +833,10 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
               <button
                 onClick={handlePlayPause}
                 className="p-1 rounded bg-black/60 hover:bg-white/10 text-white transition-colors"
+                aria-label={isPlaying ? 'Pause feed' : 'Play feed'}
+                title={isPlaying ? 'Pause feed' : 'Play feed'}
               >
-                {isPlaying ? <VolumeX className="h-3 w-3" /> : <Play className="h-3 w-3 fill-white" />}
+                {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3 fill-white" />}
               </button>
             )}
 
@@ -775,7 +855,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
           <div className="flex items-center gap-2">
             {/* Dynamic Screen Sizing Slider */}
             <div className="flex items-center gap-1.5 bg-black/60 border border-navy-750/80 px-2 py-0.5 rounded-lg select-none">
-              <span className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-400">Size: {size}%</span>
+              <span className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-300">Size: {size}%</span>
               <input
                 type="range"
                 min="25"

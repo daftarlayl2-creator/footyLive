@@ -8,7 +8,7 @@ import wikiSummary from '../providers/__fixtures__/wiki-summary-arsenal.json';
 import wikiSearchInter from '../providers/__fixtures__/wiki-search-inter.json';
 import wikiSearchRaja from '../providers/__fixtures__/wiki-search-raja.json';
 import { clubHref, nameFromSlug, parseClubParam, slugifyClubName } from './links';
-import { heroPalette, luminance, normalizeHex } from './colors';
+import { dropTint, heroPalette, luminance, normalizeHex, rgbTriplet } from './colors';
 import { resizedEspnImage, initialsForClub } from './images';
 import {
   formFromResults,
@@ -48,6 +48,18 @@ describe('club links', () => {
     expect(parseClubParam('Maghreb%20de%20F%C3%A8s')).toEqual({ espnId: null, slug: 'maghreb-de-fes' });
     expect(parseClubParam('%E0%A4%A')).toEqual({ espnId: null, slug: 'e0-a4-a' });
     expect(nameFromSlug('brighton-and-hove-albion')).toBe('brighton and hove albion');
+  });
+});
+
+describe('crest drop tints', () => {
+  it('converts hex colours to rgb triplets and lifts near-black kits', () => {
+    expect(rgbTriplet('#e20520')).toBe('226 5 32');
+    expect(rgbTriplet('fff')).toBe('255 255 255');
+    expect(rgbTriplet('not-a-colour')).toBeNull();
+    expect(dropTint('#e20520')).toBe('226 5 32');
+    // Black is lifted so the glow stays visible on dark glass.
+    expect(dropTint('#000000')).toBe('102 102 102');
+    expect(dropTint(null)).toBeNull();
   });
 });
 

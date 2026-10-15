@@ -56,7 +56,7 @@ export default function HighlightsGrid({ highlights = [], loading = false }) {
           <div className="rounded-3xl border border-navy-750 bg-navy-900/60 p-10 text-center">
             <Clapperboard className="mx-auto h-8 w-8 text-lime-500/70" aria-hidden="true" />
             <p className="mt-3 text-sm font-bold text-zinc-200">No recent highlights</p>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-zinc-400">
               Fresh goals and full match replays land here as soon as the big channels upload them.
             </p>
           </div>

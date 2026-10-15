@@ -13,7 +13,7 @@ const STATUS_META = {
   playing: { dot: 'bg-lime-500', ping: true, text: 'Playing' },
   connecting: { dot: 'bg-amber-400', ping: true, text: 'Connecting' },
   failed: { dot: 'bg-red-500', ping: false, text: 'Failed' },
-  idle: { dot: 'bg-zinc-400 dark:bg-zinc-600', ping: false, text: 'Standby' },
+  idle: { dot: 'bg-zinc-400', ping: false, text: 'Standby' },
 };
 
 function StatusDot({ status }) {
@@ -31,8 +31,8 @@ function QualityBadge({ quality }) {
     <span
       className={`rounded border px-1.5 py-0.5 text-[9px] font-extrabold uppercase ${
         quality === 'HD'
-          ? 'border-lime-500/25 bg-lime-500/10 text-lime-600 dark:text-lime-400'
-          : 'border-zinc-300 bg-zinc-200/70 text-zinc-500 dark:border-navy-750 dark:bg-navy-900 dark:text-zinc-500'
+          ? 'border-lime-500/30 bg-lime-500/10 text-lime-300'
+          : 'border-white/10 bg-white/5 text-zinc-300'
       }`}
     >
       {quality}
@@ -49,12 +49,15 @@ function serverTooltip(server, status, reason) {
   ].join(' · ');
 }
 
-/** Segmented "Server 1 · Server 2 · Backup" selector shown under the player. */
+/**
+ * Segmented "Server 1 · Server 2 · Backup" selector shown under the player.
+ * Dark glass in both themes: it is part of the player chrome.
+ */
 export default function ServerSelector({ servers, activeKey, statusOf, failed, autoSwitch, onSelect, onToggleAutoSwitch }) {
   return (
-    <div className="glass-panel rounded-xl p-3 shadow-md sm:p-4">
+    <div className="glass-dark border-x-0 border-b-0 p-3 sm:p-4" data-server-selector="">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-zinc-700 dark:text-zinc-400">
+        <span className="mr-1 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-zinc-300">
           <ServerIcon className="h-3.5 w-3.5 text-lime-500" aria-hidden="true" />
           Servers
         </span>
@@ -76,11 +79,11 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
                 className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition-all active:scale-95 ${
                   isActive
                     ? isFailed
-                      ? 'border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400'
-                      : 'border-lime-500/45 bg-lime-600/10 text-lime-700 shadow-sm dark:text-lime-300 dark:shadow-[0_0_15px_rgba(198,255,0,0.12)]'
+                      ? 'border-red-500/45 bg-red-500/15 text-red-300'
+                      : 'border-lime-500/50 bg-lime-500/15 text-lime-200 shadow-[0_0_15px_rgba(198,255,0,0.14)]'
                     : isFailed
-                      ? 'border-red-500/20 bg-red-500/[0.04] text-zinc-500 hover:border-red-500/40 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300'
-                      : 'border-zinc-300 bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:border-navy-750 dark:bg-navy-950 dark:text-zinc-400 dark:hover:bg-navy-900 dark:hover:text-zinc-200'
+                      ? 'border-red-500/25 bg-red-500/[0.06] text-zinc-400 hover:border-red-500/45 hover:text-zinc-200'
+                      : 'border-white/10 bg-white/[0.04] text-zinc-200 hover:border-lime-500/40 hover:bg-white/[0.08] hover:text-white'
                 }`}
               >
                 <StatusDot status={status} />
@@ -102,12 +105,12 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
           aria-checked={autoSwitch}
           onClick={onToggleAutoSwitch}
           title="Automatically move to the next server when the current one fails"
-          className="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-zinc-300 transition-colors hover:text-white"
         >
           Auto-switch
           <span
             className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${
-              autoSwitch ? 'bg-lime-500' : 'bg-zinc-300 dark:bg-zinc-800'
+              autoSwitch ? 'bg-lime-500' : 'bg-zinc-700'
             }`}
           >
             <span
@@ -187,7 +190,7 @@ export function ServerMenu({ servers, activeKey, statusOf, failed, onSelect }) {
               >
                 <StatusDot status={status} />
                 <span className="flex-1">{server.label}</span>
-                <span className={`text-[9px] font-extrabold uppercase ${status === 'failed' ? 'text-red-400' : 'text-zinc-500'}`}>
+                <span className={`text-[9px] font-extrabold uppercase ${status === 'failed' ? 'text-red-400' : 'text-zinc-400'}`}>
                   {status === 'failed' ? 'Failed' : server.quality}
                 </span>
                 <Check className={`h-3.5 w-3.5 text-lime-400 ${isActive ? '' : 'invisible'}`} />

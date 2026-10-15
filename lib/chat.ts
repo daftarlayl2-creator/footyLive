@@ -16,6 +16,10 @@ export interface ChatMessage {
   avatar?: string;
   message: string;
   created_at: string;
+  /** Registered fan's account id (absent for guests and older rows). */
+  user_id?: string | null;
+  /** Sent by a verified (registered) fan. */
+  verified?: boolean;
   /** Client-only delivery state for optimistic messages. */
   _status?: DeliveryStatus;
 }
@@ -89,4 +93,15 @@ export function hueFor(name: string): number {
   let hash = 0;
   for (const char of String(name || '')) hash = (hash * 31 + char.codePointAt(0)!) >>> 0;
   return hash % 360;
+}
+
+/** Shows the verified seal only for rows that carry both the flag and an account id. */
+export function isVerifiedMessage(message: Pick<ChatMessage, 'verified' | 'user_id'> | null | undefined): boolean {
+  return Boolean(message?.verified && message?.user_id);
+}
+
+/** Legacy row shape (for backends whose table predates user_id / verified). */
+export function legacyChatRecord<T extends ChatMessage>(record: T): ChatMessage {
+  const { user_id: _userId, verified: _verified, _status, ...rest } = record;
+  return rest;
 }

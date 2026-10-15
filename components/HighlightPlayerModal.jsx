@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { CalendarDays, ExternalLink, Eye, Tv, X } from 'lucide-react';
+import { stripIframeSandbox } from '@/lib/player/embed';
 
 function relativeTime(iso) {
   const t = Date.parse(iso || '');
@@ -125,10 +126,11 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
                 allowFullScreen
               />
             ) : highlight.embed ? (
-              // Legacy providers without a video id still work via raw embed code.
-              <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: highlight.embed }} />
+              // Legacy providers without a video id still work via raw embed code. Any
+              // `sandbox` in that markup is stripped: provider players refuse to run sandboxed.
+              <div className="h-full w-full [&_iframe]:h-full [&_iframe]:w-full" dangerouslySetInnerHTML={{ __html: stripIframeSandbox(highlight.embed) }} />
             ) : (
-              <p className="flex h-full w-full items-center justify-center text-sm text-zinc-500">
+              <p className="flex h-full w-full items-center justify-center text-sm text-zinc-400">
                 No video available
               </p>
             )}
@@ -136,7 +138,7 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
           <p className="min-w-0">
             Playing inside EVIV Live — the stream comes straight from YouTube&rsquo;s official player.
           </p>

@@ -209,7 +209,7 @@ export function LeadersList({ rows, metric }) {
                   <TeamLogo src={row.team.logo} name={row.team.name} size={16} />
                   <span className="truncate">{row.team.name}</span>
                 </ClubLink>
-                <p className="hidden text-[11px] font-semibold text-navy-500 md:block dark:text-zinc-500">
+                <p className="hidden text-[11px] font-semibold text-navy-500 md:block dark:text-zinc-400">
                   {[row.player.jersey ? `#${row.player.jersey}` : null, row.appearances !== undefined ? `${row.appearances} apps` : null]
                     .filter(Boolean)
                     .join(' · ')}
@@ -224,7 +224,7 @@ export function LeadersList({ rows, metric }) {
 
             <div className="text-right">
               <p className="text-xl font-black leading-none tabular-nums text-navy-900 dark:text-white">{row.value}</p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-navy-500 dark:text-zinc-500">
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-navy-500 dark:text-zinc-400">
                 {metricLabel}
                 {row.appearances !== undefined && <span className="md:hidden"> · {row.appearances} apps</span>}
               </p>
@@ -488,7 +488,7 @@ export default function StandingsView({ leagues, initialLeague, initialView = 't
       </div>
 
       {data && (
-        <p className="px-1 text-center text-[10.5px] font-semibold text-navy-400 dark:text-zinc-500">
+        <p className="px-1 text-center text-[10.5px] font-semibold text-navy-400 dark:text-zinc-400">
           Data: {data.source === 'thesportsdb' ? 'TheSportsDB' : 'ESPN'} · refreshed automatically every few minutes
         </p>
       )}

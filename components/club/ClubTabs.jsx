@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CalendarDays, ChevronDown, History, Landmark, Shirt, Users } from 'lucide-react';
 import ClubLink from '@/components/clubs/ClubLink';
 import TeamLogo from '@/components/clubs/TeamLogo';
+import CrestDrop from '@/components/clubs/CrestDrop';
 import FormStrip from '@/components/club/FormStrip';
 import LocalDateTime from '@/components/ui/LocalDateTime';
 
@@ -50,7 +51,7 @@ function ResultRow({ match }) {
   return (
     <li className="flex items-center gap-3 border-t border-navy-100 px-4 py-3 first:border-t-0 dark:border-navy-750/70">
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-[11px] font-semibold text-navy-500 dark:text-zinc-500">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold text-navy-500 dark:text-zinc-400">
           <LocalDateTime iso={match.date} variant="date" />
           <span aria-hidden="true">·</span>
           <span className="truncate">{match.competition}</span>
@@ -60,7 +61,7 @@ function ResultRow({ match }) {
           <ClubLink team={theirs} className="tactile-soft flex min-w-0 items-center gap-2 rounded-lg font-bold text-navy-900 hover:text-lime-700 dark:text-zinc-100 dark:hover:text-lime-400">
             <TeamLogo src={theirs.logo} name={theirs.name} size={22} />
             <span className="truncate text-sm">
-              <span className="text-[11px] font-semibold text-navy-400 dark:text-zinc-500">{match.isHome ? 'vs ' : '@ '}</span>
+              <span className="text-[11px] font-semibold text-navy-400 dark:text-zinc-400">{match.isHome ? 'vs ' : '@ '}</span>
               {theirs.name}
             </span>
           </ClubLink>
@@ -97,7 +98,7 @@ function ResultsTab({ results, form }) {
         <div>
           <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-navy-500 dark:text-zinc-400">Recent form</p>
           <p className="mt-1 text-sm font-bold text-navy-800 dark:text-zinc-200">
-            {tally.W || 0}W · {tally.D || 0}D · {tally.L || 0}L <span className="text-navy-500 dark:text-zinc-500">· {points} pts from last {last5.length}</span>
+            {tally.W || 0}W · {tally.D || 0}D · {tally.L || 0}L <span className="text-navy-500 dark:text-zinc-400">· {points} pts from last {last5.length}</span>
           </p>
         </div>
         <FormStrip form={form} size="lg" className="[&>li:last-child]:ring-lime-500/60" />
@@ -140,12 +141,12 @@ function NextMatchCard({ match }) {
         {[match.home, null, match.away].map((side, index) =>
           side ? (
             <div key={index} className="flex min-w-0 flex-col items-center gap-2 text-center">
-              <TeamLogo src={side.logo} name={side.name} size={52} />
+              <CrestDrop src={side.logo} name={side.name} size={58} />
               <span className="w-full truncate text-sm font-extrabold text-navy-900 dark:text-white">{side.name}</span>
             </div>
           ) : (
             <div key={index} className="flex flex-col items-center gap-1 text-center">
-              <span className="text-[11px] font-black uppercase text-navy-400 dark:text-zinc-500">vs</span>
+              <span className="text-[11px] font-black uppercase text-navy-500 dark:text-zinc-400">vs</span>
               <LocalDateTime iso={match.date} variant="time" className="text-lg font-black tabular-nums text-navy-900 dark:text-white" />
               <LocalDateTime iso={match.date} variant="date" className="text-[11px] font-bold text-navy-500 dark:text-zinc-400" />
             </div>
@@ -169,10 +170,10 @@ function FixtureRow({ match }) {
     <li className="flex items-center gap-3 border-t border-navy-100 px-4 py-3 first:border-t-0 dark:border-navy-750/70">
       <div className="w-16 shrink-0 text-center">
         <LocalDateTime iso={match.date} variant="date" className="block text-[11px] font-extrabold text-navy-700 dark:text-zinc-300" />
-        <LocalDateTime iso={match.date} variant="time" className="block text-[11px] font-semibold tabular-nums text-navy-500 dark:text-zinc-500" />
+        <LocalDateTime iso={match.date} variant="time" className="block text-[11px] font-semibold tabular-nums text-navy-500 dark:text-zinc-400" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[11px] font-semibold text-navy-500 dark:text-zinc-500">
+        <p className="truncate text-[11px] font-semibold text-navy-500 dark:text-zinc-400">
           {match.competition}
           {match.status === 'postponed' && <span className="ml-1 font-extrabold text-amber-600 dark:text-amber-400">· Postponed</span>}
         </p>
@@ -249,7 +250,7 @@ function PlayerCard({ player, accent }) {
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
         {player.flag && <img src={player.flag} alt={player.nationality || ''} title={player.nationality} loading="lazy" className="h-3.5 w-5 rounded-[3px] object-cover shadow-sm" />}
-        {stats.length > 0 && <span className="text-[10px] font-bold tabular-nums text-navy-500 dark:text-zinc-500">{stats.join(' · ')}</span>}
+        {stats.length > 0 && <span className="text-[10px] font-bold tabular-nums text-navy-500 dark:text-zinc-400">{stats.join(' · ')}</span>}
       </div>
     </li>
   );

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, Check, CheckCheck, MessageCircle, Pencil, RotateCw, SendHorizontal, X } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowDown, BadgeCheck, Check, CheckCheck, MessageCircle, Pencil, RotateCw, SendHorizontal, X } from 'lucide-react';
 import { createRowId, getLocalSupabase, useSupabase } from '@/lib/supabase';
-import { useLocalValue, writeLocal } from '@/lib/hooks/useLocalValue';
+import { readLocal, useLocalValue, writeLocal } from '@/lib/hooks/useLocalValue';
 import {
   CHAT_HISTORY_LIMIT,
   MAX_MESSAGE_LENGTH,
@@ -11,14 +12,19 @@ import {
   NICKNAME_STORAGE_KEY,
   generateFanName,
   hueFor,
-  initialsFor,
   isChatMessage,
+  isVerifiedMessage,
+  legacyChatRecord,
   mergeMessages,
   normalizeMessageText,
   sanitizeNickname,
   upsertMessage,
 } from '@/lib/chat';
+import { useAuth } from '@/lib/auth';
+import { CHAT_ACTIVITY_STORAGE_KEY, nextChatActivity, parseChatActivity } from '@/lib/fanStats';
 import { playSound } from '@/lib/sound/uiSound';
+import UserAvatar from '@/components/auth/UserAvatar';
+import VerifiedBadge from '@/components/auth/VerifiedBadge';
 
 const TABLE = 'match_messages';
 
@@ -40,18 +46,23 @@ function formatTime(iso) {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function Avatar({ name }) {
-  const hue = hueFor(name);
-  return (
-    <span
-      aria-hidden="true"
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white shadow-sm"
-      style={{ background: `linear-gradient(135deg, hsl(${hue} 65% 42%), hsl(${(hue + 40) % 360} 70% 30%))` }}
-    >
-      {initialsFor(name)}
-    </span>
-  );
+/** Chat rows only carry small avatars: http(s) pictures or brand presets (never data: URLs). */
+function shareableAvatar(avatarUrl) {
+  return typeof avatarUrl === 'string' && (/^https:\/\//i.test(avatarUrl) || avatarUrl.startsWith('preset:')) ? avatarUrl : '/icon.svg';
 }
+
+/** Counts messages / reactions for the profile's Fan Stats (this device). */
+function recordChatActivity(matchId, kind) {
+  const next = nextChatActivity(parseChatActivity(readLocal(CHAT_ACTIVITY_STORAGE_KEY)), matchId, kind, Date.now());
+  writeLocal(CHAT_ACTIVITY_STORAGE_KEY, JSON.stringify(next));
+}
+
+/** False once the shared table rejected the user_id / verified columns (older schema). */
+let extendedColumnsSupported = true;
+const supportsExtendedColumns = () => extendedColumnsSupported;
+const markLegacySchema = () => {
+  extendedColumnsSupported = false;
+};
 
 const STATUS_PILL = {
   connecting: { label: 'Connecting…', dot: 'bg-amber-400 animate-pulse', text: 'text-amber-600 dark:text-amber-400' },
@@ -77,7 +88,9 @@ export default function MatchChatPanel({ matchId, userName }) {
   const client = offline ? getLocalSupabase() : supabase;
 
   const storedName = useLocalValue(NICKNAME_STORAGE_KEY);
-  const displayName = storedName || userName || '';
+  const auth = useAuth();
+  const account = auth.status === 'authenticated' ? auth.user : null;
+  const displayName = account?.displayName || storedName || userName || '';
 
   const [messages, setMessages] = useState([]);
   const [connection, setConnection] = useState('connecting');
@@ -161,17 +174,29 @@ export default function MatchChatPanel({ matchId, userName }) {
     if (list) list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
   };
 
-  const deliver = async (record) => {
-    let error = null;
+  const insert = async (row) => {
     try {
-      ({ error } = await client.from(TABLE).insert(record));
+      const { error } = await client.from(TABLE).insert(row);
+      return error;
     } catch (err) {
-      error = err;
+      return err;
+    }
+  };
+
+  const deliver = async (record) => {
+    const extended = record.user_id !== undefined || record.verified !== undefined;
+    let error = await insert(extended && !supportsExtendedColumns() ? legacyChatRecord(record) : record);
+    if (error && extended && supportsExtendedColumns() && client.mode === 'remote') {
+      // Shared table without user_id / verified columns (or stricter policies): send the classic row.
+      const retry = await insert(legacyChatRecord(record));
+      if (!retry) markLegacySchema();
+      error = retry;
     }
     setMessages((current) =>
       current.map((m) => (m.id === record.id && m._status !== 'sent' ? { ...m, _status: error ? 'failed' : 'sent' } : m))
     );
     if (error) playSound('error');
+    else recordChatActivity(record.match_id, 'message');
   };
 
   const send = () => {
@@ -189,9 +214,11 @@ export default function MatchChatPanel({ matchId, userName }) {
       id: createRowId(),
       match_id: id,
       username: name,
-      avatar: '/icon.svg',
+      avatar: account ? shareableAvatar(account.avatarUrl) : '/icon.svg',
       message: text,
       created_at: new Date().toISOString(),
+      // Registered fans: account id + verified seal (guests keep the classic row shape).
+      ...(account ? { user_id: account.id, verified: Boolean(account.verified) } : {}),
     };
     sentIdsRef.current.add(record.id);
     atBottomRef.current = true;
@@ -213,6 +240,7 @@ export default function MatchChatPanel({ matchId, userName }) {
       avatar: message.avatar || '/icon.svg',
       message: message.message,
       created_at: message.created_at,
+      ...(message.user_id ? { user_id: message.user_id, verified: Boolean(message.verified) } : {}),
     });
   };
 
@@ -220,6 +248,7 @@ export default function MatchChatPanel({ matchId, userName }) {
     const burst = { id: createRowId(), emoji, left: randomBurstOffset() };
     setBursts((current) => [...current.slice(-11), burst]);
     playSound('pop');
+    recordChatActivity(id, 'reaction');
   };
 
   const startEditingName = () => {
@@ -265,7 +294,19 @@ export default function MatchChatPanel({ matchId, userName }) {
 
       {/* Identity */}
       <div className="flex items-center justify-between gap-2 px-4 pt-2 text-[11px]">
-        {editingName ? (
+        {account ? (
+          <div className="flex w-full min-w-0 items-center justify-between gap-2">
+            <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-navy-600 dark:text-zinc-300">
+              <UserAvatar name={account.displayName} avatarUrl={account.avatarUrl} size={20} />
+              Chatting as
+              <span className="truncate font-extrabold text-navy-900 dark:text-zinc-100">{account.displayName}</span>
+              {account.verified && <VerifiedBadge size={14} />}
+            </span>
+            <Link href="/profile" className="tactile shrink-0 rounded-full px-1.5 py-0.5 font-bold text-lime-700 hover:underline dark:text-lime-300">
+              Edit profile
+            </Link>
+          </div>
+        ) : editingName ? (
           <form onSubmit={saveName} className="flex w-full items-center gap-1.5">
             <label htmlFor={`chat-name-${id}`} className="sr-only">
               Chat nickname
@@ -303,6 +344,16 @@ export default function MatchChatPanel({ matchId, userName }) {
             <Pencil className="h-3 w-3" aria-hidden="true" />
           </button>
         )}
+        {!account && !editingName && (
+          <Link
+            href="/profile"
+            className="tactile inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 font-bold text-sky-700 hover:underline dark:text-sky-300"
+            title="Create a free account to get the verified badge"
+          >
+            <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+            Get verified
+          </Link>
+        )}
       </div>
 
       {/* Floating reactions */}
@@ -329,10 +380,11 @@ export default function MatchChatPanel({ matchId, userName }) {
           className="h-full space-y-2 overflow-y-auto overscroll-contain px-3 py-3"
         >
           {messages.map((message) => {
-            const mine = Boolean(displayName) && message.username === displayName;
+            const mine = account?.id && message.user_id ? message.user_id === account.id : Boolean(displayName) && message.username === displayName;
+            const verified = isVerifiedMessage(message);
             return (
               <li key={message.id} className={`animate-slide-up flex items-end gap-2 ${mine ? 'justify-end' : ''}`}>
-                {!mine && <Avatar name={message.username} />}
+                {!mine && <UserAvatar name={message.username} avatarUrl={message.avatar} size={28} verified={verified} />}
                 <div
                   className={`max-w-[78%] rounded-2xl px-3 py-2 text-[13px] leading-snug shadow-sm ${
                     mine
@@ -341,12 +393,13 @@ export default function MatchChatPanel({ matchId, userName }) {
                   } ${message._status === 'failed' ? 'opacity-70 ring-1 ring-red-500/60' : ''}`}
                 >
                   {!mine && (
-                    <p className="mb-0.5 text-[11px] font-extrabold" style={{ color: `hsl(${hueFor(message.username)} 70% 55%)` }}>
-                      {message.username}
+                    <p className="mb-0.5 flex items-center gap-1 text-[11px] font-extrabold" style={{ color: `hsl(${hueFor(message.username)} 70% 55%)` }}>
+                      <span className="truncate">{message.username}</span>
+                      {verified && <VerifiedBadge size={13} />}
                     </p>
                   )}
                   <p className="whitespace-pre-wrap break-words">{message.message}</p>
-                  <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${mine ? 'text-navy-900/60' : 'text-navy-500 dark:text-zinc-500'}`}>
+                  <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${mine ? 'text-navy-900/60' : 'text-navy-500 dark:text-zinc-400'}`}>
                     {formatTime(message.created_at)}
                     {mine && message._status === 'sending' && <Check className="h-3 w-3 opacity-60" aria-label="Sending" />}
                     {mine && message._status === 'sent' && <CheckCheck className="h-3 w-3" aria-label="Delivered" />}
@@ -371,7 +424,7 @@ export default function MatchChatPanel({ matchId, userName }) {
               <span className="text-3xl" aria-hidden="true">
                 💬
               </span>
-              <p className="text-xs font-semibold text-navy-500 dark:text-zinc-500">No messages yet. Be the first to chat!</p>
+              <p className="text-xs font-semibold text-navy-500 dark:text-zinc-400">No messages yet. Be the first to chat!</p>
             </li>
           )}
         </ol>
@@ -433,7 +486,7 @@ export default function MatchChatPanel({ matchId, userName }) {
           {input.length > MAX_MESSAGE_LENGTH - 60 && (
             <span
               className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold tabular-nums ${
-                remaining <= 10 ? 'text-red-500' : 'text-navy-400 dark:text-zinc-500'
+                remaining <= 10 ? 'text-red-500' : 'text-navy-400 dark:text-zinc-400'
               }`}
             >
               {remaining}

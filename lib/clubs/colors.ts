@@ -73,3 +73,20 @@ export function heroPalette(color?: string | null, alternate?: string | null): H
     swatches,
   };
 }
+
+/** "r g b" triplet for CSS custom properties (`rgb(var(--x) / 0.4)`), or null. */
+export function rgbTriplet(value: string | null | undefined): string | null {
+  const hex = normalizeHex(value);
+  if (!hex) return null;
+  return toRgb(hex).join(' ');
+}
+
+/**
+ * Tint for the glow inside a liquid-glass crest: very dark kit colours are
+ * lifted towards white so the caustic glow stays visible on dark glass.
+ */
+export function dropTint(value: string | null | undefined): string | null {
+  const hex = normalizeHex(value);
+  if (!hex) return null;
+  return rgbTriplet(luminance(hex) < 0.06 ? mixHex(hex, '#ffffff', 0.4) : hex);
+}

@@ -9,6 +9,10 @@
  *  - `failoverReducer()` is the state machine the player drives: when the
  *    current server fails it moves on to the next one nobody has tried yet in
  *    this failover chain, and reports `exhausted` once every server failed.
+ *    After an embedded provider page fails, direct HLS/MP4 backups are tried
+ *    first (they do not depend on a third-party page). Viewers can also report
+ *    a broken embed (`skip`), and `autoRetryDelay()` paces the automatic
+ *    "retry every server" rounds once the whole list is exhausted.
  */
 
 export type StreamKind = 'hls' | 'mp4' | 'embed';
@@ -161,7 +165,12 @@ export function buildServerList(
 /*  Failover state machine                                                    */
 /* -------------------------------------------------------------------------- */
 
-export type FailureReason = 'network' | 'media' | 'timeout' | 'stalled' | 'unsupported';
+/**
+ *  - network / media / timeout / stalled / unsupported: detected by the player
+ *  - embed:    the embedded provider page refused to load (expired or rejected link)
+ *  - reported: the viewer said this server is not playing ("Try next server")
+ */
+export type FailureReason = 'network' | 'media' | 'timeout' | 'stalled' | 'unsupported' | 'embed' | 'reported';
 
 /**
  *  - connecting: the active server is loading
@@ -186,6 +195,8 @@ export interface FailoverState {
   autoSwitch: boolean;
   /** Set when the player switched servers on its own, for the on-screen notice. */
   switched: { from: number; to: number; reason: FailureReason } | null;
+  /** Stream kind per server key; lets failover prefer direct backups after an embed fails. */
+  kinds: Record<string, StreamKind>;
 }
 
 export type FailoverAction =
@@ -203,12 +214,22 @@ export type FailoverAction =
   | { type: 'stable'; attempt: number }
   /** The active server failed. */
   | { type: 'fail'; attempt: number; reason: FailureReason }
+  /**
+   * The viewer reported that the active server is not playing (typically an
+   * embedded provider page showing its own error). Always moves on, even with
+   * auto-switch off; a lone server is simply reloaded.
+   */
+  | { type: 'skip'; attempt: number }
   /** The page passed a different server list. */
-  | { type: 'sync'; keys: string[] }
+  | { type: 'sync'; keys: string[]; kinds?: Record<string, StreamKind> }
   | { type: 'setAutoSwitch'; enabled: boolean }
   | { type: 'dismissSwitch' };
 
-export function initFailoverState(keys: string[], autoSwitch = true): FailoverState {
+export function initFailoverState(
+  keys: string[],
+  autoSwitch = true,
+  kinds: Record<string, StreamKind> = {}
+): FailoverState {
   return {
     keys,
     active: 0,
@@ -218,28 +239,58 @@ export function initFailoverState(keys: string[], autoSwitch = true): FailoverSt
     tried: keys.length ? [keys[0]] : [],
     autoSwitch,
     switched: null,
+    kinds,
   };
 }
+
+/** `{ [key]: kind }` for a server list (feeds `initFailoverState` / `sync`). */
+export function serverKinds(servers: Array<Pick<PlayerServer, 'key' | 'kind'>>): Record<string, StreamKind> {
+  return Object.fromEntries(servers.map((s) => [s.key, s.kind]));
+}
+
+const isDirectKind = (kind: StreamKind | undefined) => kind === 'hls' || kind === 'mp4';
 
 /**
  * Next server to try after `active`: walk the list in order (wrapping round),
  * skip servers already tried in this chain, and prefer ones that have not
- * failed earlier. Returns -1 when every server has been tried.
+ * failed earlier. When `kinds` says the active server is an embedded provider
+ * page, untried direct HLS/MP4 backups come first. Returns -1 when every
+ * server has been tried.
  */
 export function pickNextServer(
   keys: string[],
   active: number,
   tried: string[],
-  failed: Record<string, unknown>
+  failed: Record<string, unknown>,
+  kinds?: Record<string, StreamKind>
 ): number {
-  let previouslyFailed = -1;
+  const candidates: number[] = [];
   for (let step = 1; step < keys.length; step++) {
     const i = (active + step) % keys.length;
-    if (tried.includes(keys[i])) continue;
-    if (!(keys[i] in failed)) return i;
-    if (previouslyFailed === -1) previouslyFailed = i;
+    if (!tried.includes(keys[i])) candidates.push(i);
   }
-  return previouslyFailed;
+  const fresh = candidates.filter((i) => !(keys[i] in failed));
+  if (kinds && kinds[keys[active]] === 'embed') {
+    const direct = fresh.find((i) => isDirectKind(kinds[keys[i]]));
+    if (direct !== undefined) return direct;
+  }
+  return fresh[0] ?? candidates[0] ?? -1;
+}
+
+/**
+ * Pause before automatic "retry every server" round `round` (0-based) once the
+ * whole list is exhausted; `null` when the player should stop retrying on its
+ * own and leave it to the viewer.
+ */
+export const AUTO_RETRY_DELAYS_MS = [10_000, 30_000, 60_000] as const;
+
+export function autoRetryDelay(round: number): number | null {
+  return Number.isInteger(round) && round >= 0 && round < AUTO_RETRY_DELAYS_MS.length ? AUTO_RETRY_DELAYS_MS[round] : null;
+}
+
+function sameKinds(a: Record<string, StreamKind>, b: Record<string, StreamKind>): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
 }
 
 function withoutKey<T>(record: Record<string, T>, key: string): Record<string, T> {
@@ -287,7 +338,7 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
 
     case 'next': {
       if (!total) return state;
-      const next = pickNextServer(state.keys, state.active, state.tried, state.failed);
+      const next = pickNextServer(state.keys, state.active, state.tried, state.failed, state.kinds);
       if (next === -1) {
         const index = (state.active + 1) % total;
         return start(state, index, [state.keys[index]], null);
@@ -315,7 +366,7 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
       const tried = state.tried.includes(key) ? state.tried : [...state.tried, key];
       if (!state.autoSwitch) return { ...state, failed, tried, phase: 'failed', switched: null };
 
-      const next = pickNextServer(state.keys, state.active, tried, failed);
+      const next = pickNextServer(state.keys, state.active, tried, failed, state.kinds);
       if (next === -1) return { ...state, failed, tried, phase: 'exhausted', switched: null };
       return start({ ...state, failed }, next, [...tried, state.keys[next]], {
         from: state.active,
@@ -324,14 +375,34 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
       });
     }
 
+    case 'skip': {
+      if (action.attempt !== state.attempt) return state;
+      if (state.phase !== 'connecting' && state.phase !== 'ready') return state;
+      // Nothing to switch to: the best a viewer can ask for is a fresh load.
+      if (total < 2) return start(state, state.active, [state.keys[state.active]], null);
+      const key = state.keys[state.active];
+      const failed: Record<string, FailureReason> = { ...state.failed, [key]: 'reported' };
+      const tried = state.tried.includes(key) ? state.tried : [...state.tried, key];
+      const next = pickNextServer(state.keys, state.active, tried, failed, state.kinds);
+      if (next === -1) return { ...state, failed, tried, phase: 'exhausted', switched: null };
+      return start({ ...state, failed }, next, [...tried, state.keys[next]], {
+        from: state.active,
+        to: next,
+        reason: 'reported',
+      });
+    }
+
     case 'sync': {
       const { keys } = action;
-      if (keys.length === total && keys.every((k, i) => k === state.keys[i])) return state;
+      const kinds = action.kinds && !sameKinds(action.kinds, state.kinds) ? action.kinds : state.kinds;
+      if (keys.length === total && keys.every((k, i) => k === state.keys[i])) {
+        return kinds === state.kinds ? state : { ...state, kinds };
+      }
 
       const present = new Set(keys);
       const failed = Object.fromEntries(Object.entries(state.failed).filter(([k]) => present.has(k)));
       const tried = state.tried.filter((k) => present.has(k));
-      const base: FailoverState = { ...state, keys, failed, tried, switched: null };
+      const base: FailoverState = { ...state, keys, kinds, failed, tried, switched: null };
 
       if (keys.length === 0) return { ...base, active: 0, phase: 'exhausted', attempt: state.attempt + 1 };
 
@@ -369,6 +440,8 @@ const FAILURE_COPY: Record<FailureReason, string> = {
   timeout: 'Server took too long to respond',
   stalled: 'Playback stalled',
   unsupported: 'Format not supported by this browser',
+  embed: 'Provider player refused to load',
+  reported: 'Reported as not playing',
 };
 
 export function describeFailure(reason: FailureReason | null | undefined): string {
