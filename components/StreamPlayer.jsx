@@ -26,6 +26,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import ServerSelector, { ServerMenu } from '@/components/ServerSelector';
+import BrandLogo from '@/components/BrandLogo';
 import {
   buildServerList,
   describeFailure,
@@ -54,6 +55,8 @@ const HLS_CONFIG = {
   maxBufferSize: 20 * 1024 * 1024,
   // Keeps memory bounded over a 90+ minute match.
   backBufferLength: 30,
+  liveDurationInfinity: true,
+  maxLiveSyncPlaybackRate: 1,
   // Live latency uses hls.js' default of 3 target durations. A fixed 3 s sits closer to the
   // live edge than a single segment of most sports streams and makes them rebuffer constantly.
   //
@@ -183,6 +186,35 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
     setIsMuted(true);
     setAutoMuted(true);
   });
+
+  // DVR / rewind controls dispatched from the scoreboard timer.
+  useEffect(() => {
+    const onDvr = (e) => {
+      const video = videoRef.current;
+      if (!video) return;
+      const delta = (e?.detail?.deltaMinutes || 0) * 60;
+      try {
+        video.currentTime = Math.max(0, (video.currentTime || 0) + delta);
+      } catch {}
+    };
+    const onLive = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      try {
+        if (video.seekable && video.seekable.length) {
+          video.currentTime = video.seekable.end(video.seekable.length - 1);
+        } else if (Number.isFinite(video.duration)) {
+          video.currentTime = video.duration;
+        }
+      } catch {}
+    };
+    window.addEventListener('eviv:dvr', onDvr);
+    window.addEventListener('eviv:dvr-live', onLive);
+    return () => {
+      window.removeEventListener('eviv:dvr', onDvr);
+      window.removeEventListener('eviv:dvr-live', onLive);
+    };
+  }, []);
 
   /* ------------------------------------------------------------------------ */
   /*  Playback: one run per attempt (hls.js / native HLS / plain media file)  */
@@ -519,6 +551,11 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
         }`}
         style={isTheaterMode ? undefined : { aspectRatio: '16/9' }}
       >
+        {/* EVIV watermark */}
+        <div className="pointer-events-none absolute left-3 top-3 z-20 opacity-20 eviv-watermark">
+          <BrandLogo className="h-6 w-auto" />
+        </div>
+
         {/* Media layer: one fresh element per attempt */}
         {showMedia &&
           (isVideo ? (
