@@ -499,3 +499,5 @@ export function findChannelSources(channels: LiveChannel[], id: string): LiveCha
 export async function getChannelSources(id: string): Promise<LiveChannel[]> {
   return findChannelSources(await getLiveChannels(), id);
 }
+
+export { GUOVIN_IPTV_API_URL, GUOVIN_IPTV_API_IPV4_URL, GUOVIN_IPTV_API_IPV6_URL } from './sources';
