@@ -61,7 +61,7 @@ describe('player showcase', () => {
 
   it('filters individual/team honors and expands a glass trophy card to show seasons and source', async () => {
     await render(<TrophyCabinet honors={honors} note="Selected honors through 2024" />);
-    expect(container.textContent).toContain('الفيترينة');
+    expect(container.textContent).not.toContain('الفيترينة');
     expect(container.querySelectorAll('li')).toHaveLength(3);
     expect(container.querySelector('li').className).toContain('backdrop-blur-xl');
     await click(button('Team trophies'));

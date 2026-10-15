@@ -14,7 +14,7 @@ import { getCacheManager } from '../cache/cacheManager';
 import { buildProxyUrl, isDirectStreamUrl, parseSafeUpstreamUrl } from '../hlsProxy';
 import { parseM3U } from './m3u';
 import { parseJsonFeed } from './json';
-import { canonicalFeedUrl, isIptvOrgFeed, IPTV_ORG_SPORTS_API, IPTV_ORG_SPORTS_URL } from './sources';
+import { canonicalFeedUrl, isIptvOrgFeed, IPTV_ORG_SPORTS_API, IPTV_ORG_SPORTS_URL, GUOVIN_IPTV_API_URL } from './sources';
 import type { FeedEntry, LiveChannel } from './types';
 
 // This is the file currently published by Live-events; live.m3u8 may be
@@ -22,6 +22,7 @@ import type { FeedEntry, LiveChannel } from './types';
 export const DEFAULT_LIVE_FEEDS = [
   'https://raw.githubusercontent.com/ibstvofficial/Live-events/main/playlist.m3u',
   IPTV_ORG_SPORTS_URL,
+  GUOVIN_IPTV_API_URL,
 ];
 
 /** How long a loaded set of feeds is reused before re-fetching. The feeds
@@ -224,6 +225,22 @@ async function fetchFeedTextOnce(feedUrl: string): Promise<string> {
 }
 
 /** Fetch one playlist, retrying via GitHub's base64 Contents API when raw fetching fails. */
+/** Fallback URLs for the Guovin IPTV-API GitHub Pages playlist. */
+function guovinFallbackUrls(feedUrl: string): string[] {
+  try {
+    const url = new URL(feedUrl);
+    if (url.protocol !== 'https:' || url.hostname !== 'guovin.github.io') return [];
+    if (!/^\/iptv-api\/(result|ipv4|ipv6)\.m3u$/.test(url.pathname)) return [];
+    return [
+      'https://guovin.github.io/iptv-api/result.m3u',
+      'https://guovin.github.io/iptv-api/ipv4.m3u',
+      'https://guovin.github.io/iptv-api/ipv6.m3u',
+    ].filter((candidate) => candidate !== feedUrl);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchFeedText(feedUrl: string): Promise<string> {
   let firstError: unknown;
   // A Contents API URL may also be supplied directly in LIVE_FEED_URLS.
@@ -253,6 +270,17 @@ export async function fetchFeedText(feedUrl: string): Promise<string> {
       return playlist;
     } catch (err: any) {
       logger.debug('GitHub contents fallback failed', { feed: feedUrl, apiUrl, error: err?.message });
+    }
+  }
+
+  // Guovin publishes complete, IPv4-only and IPv6-only variants. Try the
+  // sibling variants when the requested one is unavailable.
+  for (const fallbackUrl of guovinFallbackUrls(feedUrl)) {
+    try {
+      return await fetchFeedTextOnce(fallbackUrl);
+    } catch (err: any) {
+      logger.debug('Guovin playlist fallback failed', { feed: feedUrl, fallbackUrl, error: err?.message });
+      if (!firstError) firstError = err;
     }
   }
 

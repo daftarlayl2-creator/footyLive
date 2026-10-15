@@ -17,7 +17,6 @@ export default function TrophyCabinet({ honors = [], note }) {
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/80">Legacy & silverware</p>
           <h2 id={`${id}-heading`} className="mt-1 flex items-center gap-2 text-xl font-black text-white">
             <Trophy className="h-5 w-5 text-amber-300" aria-hidden="true" /> Trophy cabinet
-            <span lang="ar" dir="rtl" className="ml-1 text-sm text-amber-100/80">الفيترينة</span>
           </h2>
         </div>
         <div role="group" aria-label="Filter trophies" className="flex flex-wrap gap-1 rounded-xl border border-white/10 bg-black/20 p-1">
