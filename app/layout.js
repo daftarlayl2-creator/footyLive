@@ -30,12 +30,20 @@ export default function RootLayout({ children }) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Always paint dark first; only an explicit preference opts into light mode.
+              // Always paint dark mode as default; light mode can be opted into.
               try {
-                if (localStorage.getItem('theme') === 'light') {
+                const stored = localStorage.getItem('theme');
+                if (stored === 'light') {
                   document.documentElement.classList.remove('dark');
+                } else {
+                  // Force dark by default (no 'dark' class = dark mode via color-scheme)
+                  document.documentElement.classList.add('dark');
+                  document.documentElement.setAttribute('color-scheme', 'dark');
                 }
-              } catch (_) {}
+              } catch (_) {
+                document.documentElement.classList.add('dark');
+                document.documentElement.setAttribute('color-scheme', 'dark');
+              }
             `
           }}
         />
@@ -90,6 +98,14 @@ export default function RootLayout({ children }) {
               >
                 <Layers className="h-4 w-4 sm:hidden" aria-hidden="true" />
                 <span className="hidden sm:inline">Multi-View</span>
+              </a>
+              <a
+                href="/standings"
+                aria-label="League Standings"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-navy-750 px-2 text-zinc-300 transition-all hover:border-lime-500/50 hover:bg-lime-500/5 hover:text-lime-400 sm:px-3 sm:text-xs sm:font-bold"
+              >
+                <Star className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Standings</span>
               </a>
               <ThemeToggle />
             </nav>

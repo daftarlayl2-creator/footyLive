@@ -16,6 +16,7 @@ export interface HeroBanner {
   backgroundImage: string;
   badge: string;
   priority: number;
+  kenBurns: boolean;
 }
 
 const BACKGROUNDS: Record<string, string> = {
@@ -61,7 +62,46 @@ function taglineFor(name: string): string {
   return `${name || 'Matchday'} — Live on EVIV`;
 }
 
-export async function getHeroBanner(matches?: Match[]): Promise<HeroBanner> {
+/**
+ * Generates a Ken Burns zoom effect style string for the hero background.
+ * The background scales up slightly and translates minimally to create a
+ * dynamic parallax effect while keeping text readable.
+ */
+function kenBurnsStyle(imageUrl: string): string {
+  return `
+    background-image: url('${imageUrl}');
+    background-size: cover;
+    background-position: center;
+    animation: kenBurns 18s ease-in-out infinite alternate;
+    will-change: transform;
+  `;
+}
+
+export interface BannerResult {
+  competition: string;
+  headline?: string;
+  tagline: string;
+  title: string;
+  subtitle: string;
+  backgroundImage: string;
+  background: string;
+  image: string;
+  imageUrl: string;
+  backgroundUrl: string;
+  bg: string;
+  badge: string;
+  priority: number;
+  kenBurns: boolean;
+  style?: string;
+}
+
+/**
+ * Reads ESPN fixtures, detects the top competition today, and returns a
+ * fully-styled hero banner with Ken Burns zoom effect.
+ * 
+ * Priority order: UCL > Europa > Premier/La Liga > Botola Pro/World Cup > General Matchday
+ */
+export async function getHeroBanner(matches?: Match[]): Promise<BannerResult> {
   const list = matches && matches.length ? matches : await getEspnMatches().catch(() => [] as Match[]);
 
   // Group matches by competition and pick the highest-priority one today.
@@ -74,6 +114,7 @@ export async function getHeroBanner(matches?: Match[]): Promise<HeroBanner> {
   let best = 'General Matchday';
   let bestScore = Number.POSITIVE_INFINITY;
   let bestCount = -1;
+
   for (const [name, count] of counts.entries()) {
     const score = scoreCompetition(name);
     if (score < bestScore || (score === bestScore && count > bestCount)) {
@@ -85,25 +126,39 @@ export async function getHeroBanner(matches?: Match[]): Promise<HeroBanner> {
 
   const competition = best;
   const backgroundImage = backgroundFor(competition);
+  const tagline = taglineFor(competition);
+
+  // Select the first match' s image from that competition for Ken Burns
+  const matchForCompetition = list.find((m) => (m.tournament || '').toLowerCase() === competition.toLowerCase());
+  const primaryImage = matchForCompetition ? (matchForCompetition.poster || backgroundImage) : backgroundImage;
+
   return {
     competition,
-    tagline: taglineFor(competition),
+    tagline,
     title: competition,
-    headline: taglineFor(competition),
+    headline: tagline,
     subtitle: 'Live scores, match minutes and streams — all in one place.',
     backgroundImage,
     background: backgroundImage,
-    image: backgroundImage,
-    imageUrl: backgroundImage,
-    backgroundUrl: backgroundImage,
-    bg: backgroundImage,
+    image: primaryImage,
+    imageUrl: primaryImage,
+    backgroundUrl: primaryImage,
+    bg: primaryImage,
     badge: competition,
     priority: bestScore,
+    kenBurns: true,
+    // Apply Ken Burns style using the primary image for this competition
+    style: kenBurnsStyle(primaryImage),
   };
 }
 
 export const getBanner = getHeroBanner;
 export const getDynamicBanner = getHeroBanner;
-export const bannerProvider = { get: getHeroBanner, getHeroBanner, getBanner, getDynamicBanner };
+export const bannerProvider = {
+  get: getHeroBanner,
+  getHeroBanner,
+  getBanner,
+  getDynamicBanner,
+};
 
 export default bannerProvider;
