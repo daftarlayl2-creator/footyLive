@@ -14,6 +14,8 @@
 
 import { getSupabaseCredentials, setSupabaseAccessTokenProvider } from '../supabase/client';
 import { dataUrlToBlob } from './avatar';
+import { createPkcePair, rememberVerifier } from './pkce';
+import { type AuthTokens } from './return';
 import {
   LOCAL_ACCOUNTS_KEY,
   createLocalAuth,
@@ -287,7 +289,17 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
   getAuthSnapshot();
 
   if (e.provider === 'supabase' && e.remote) {
-    const result = await e.remote.signUp(input);
+    let options: { redirectTo?: string; codeChallenge?: string } = {};
+    if (typeof window !== 'undefined') {
+      try {
+        const { verifier, challenge } = await createPkcePair();
+        rememberVerifier(verifier);
+        options = { redirectTo: `${window.location.origin}/auth/callback`, codeChallenge: challenge };
+      } catch {
+        return { ok: false, error: 'Secure sign-up is unavailable. Please use HTTPS and allow browser cookies.' };
+      }
+    }
+    const result = await e.remote.signUp(input, options);
     if (!result.ok) return { ok: false, error: result.error };
     if (result.session) {
       setSupabaseSession(result.session);
@@ -306,6 +318,18 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
   if (!result.ok) return result;
   setLocalSession(result.user);
   return { ok: true, user: result.user };
+}
+
+export async function resendConfirmation(email: string): Promise<AuthResult> {
+  const error = validateEmail(email);
+  if (error) return { ok: false, error };
+  const e = environment();
+  if (!e.remote) return { ok: false, error: 'Device-local accounts do not need email confirmation.' };
+  const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
+  const result = await e.remote.resendConfirmation(email, redirectTo);
+  return result.ok
+    ? { ok: true, user: null, notice: 'If this account needs confirmation, a fresh link is on its way. Check your inbox and spam folder.' }
+    : { ok: false, error: result.error };
 }
 
 export async function signIn(input: Credentials): Promise<AuthResult> {
@@ -327,6 +351,19 @@ export async function signIn(input: Credentials): Promise<AuthResult> {
   if (!result.ok) return result;
   setLocalSession(result.user);
   return { ok: true, user: result.user };
+}
+
+/** Complete a callback using the same persistent / cross-tab session as password sign-in. */
+export async function signInWithTokens(tokens: AuthTokens): Promise<AuthResult> {
+  const e = environment();
+  if (!e.remote) return { ok: false, error: 'Supabase Auth is not configured.' };
+  getAuthSnapshot();
+  const current = session;
+  const result = await e.remote.sessionFromTokens(tokens);
+  if (!result.ok) return { ok: false, error: result.error };
+  if (env !== e || session !== current) return { ok: false, error: 'Sign-in was cancelled. Please try again.' };
+  setSupabaseSession(result.session);
+  return { ok: true, user: getAuthSnapshot().user };
 }
 
 export async function signOut(): Promise<void> {

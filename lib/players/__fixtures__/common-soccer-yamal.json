@@ -1,0 +1,45 @@
+{
+  "source": "https://site.web.api.espn.com/apis/common/v3/sports/soccer/all/athletes/362150",
+  "overviewSource": "https://site.web.api.espn.com/apis/common/v3/sports/soccer/all/athletes/362150/overview",
+  "retrievedAt": "2026-10-15",
+  "note": "Trimmed public ESPN responses for contract tests; news, video and unrelated links omitted.",
+  "identity": {
+    "athlete": {
+      "id": "362150",
+      "displayName": "Lamine Yamal",
+      "fullName": "Lamine Yamal",
+      "jersey": "10",
+      "position": { "displayName": "Forward" },
+      "team": {
+        "id": "83",
+        "displayName": "Barcelona",
+        "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/83.png" }],
+        "links": [{ "rel": ["standings", "desktop", "team"], "href": "https://www.espn.com/soccer/standings/_/league/esp.1" }]
+      },
+      "statsSummary": {
+        "displayName": "2026-27 LALIGA Stats",
+        "statistics": [
+          { "name": "starts-subIns", "value": 8, "displayValue": "8 (0)" },
+          { "name": "totalGoals", "value": 7, "displayValue": "7" },
+          { "name": "goalAssists", "value": 5, "displayValue": "5" },
+          { "name": "totalShots", "value": 44, "displayValue": "44" }
+        ]
+      },
+      "displayDOB": "13/7/2007",
+      "age": 19,
+      "citizenship": "Spain",
+      "flag": { "href": "https://a.espncdn.com/i/teamlogos/countries/500/esp.png", "alt": "Spain" }
+    },
+    "season": { "year": 2026, "type": { "name": "2026-27 LALIGA" } }
+  },
+  "overview": {
+    "statistics": {
+      "names": ["starts", "foulsCommitted", "foulsSuffered", "yellowCards", "redCards", "totalGoals", "goalAssists", "totalShots", "shotsOnTarget", "offsides"],
+      "splits": [
+        { "displayName": "2026-27 UEFA Nations League", "teamId": "164", "leagueSlug": "uefa.nations", "stats": ["4", "0", "2", "0", "0", "4", "1", "14", "4", "1"] },
+        { "displayName": "2026-27 Champions League", "teamId": "83", "leagueSlug": "uefa.champions", "stats": ["2", "2", "2", "0", "0", "1", "4", "9", "2", "2"] },
+        { "displayName": "2026-27 LALIGA", "teamId": "83", "leagueSlug": "esp.1", "stats": ["8", "8", "12", "1", "0", "7", "5", "44", "14", "10"] }
+      ]
+    }
+  }
+}

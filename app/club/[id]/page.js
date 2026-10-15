@@ -97,6 +97,7 @@ export default async function ClubPage({ params }) {
       </Suspense>
 
       <ClubTabs
+        club={club}
         results={core.results}
         fixtures={core.fixtures}
         squad={groupSquad(core.squad)}

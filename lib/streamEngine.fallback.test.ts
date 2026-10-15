@@ -3,12 +3,15 @@ import type { Match } from './types';
 import type { LiveChannel } from './broadcast/types';
 import { buildLiveChannels } from './broadcast/feeds';
 import { PROXY_PATH, verifyProxySignature } from './hlsProxy';
+import { IPTV_ORG_SPORTS_URL } from './broadcast/sources';
+import { resetIptvOrgSelection } from './broadcast/iptvOrg';
 
 const services = vi.hoisted(() => ({
   espnMatches: vi.fn(),
   catalogue: vi.fn(),
   feed: vi.fn(),
   statuses: vi.fn(),
+  health: vi.fn(),
 }));
 
 vi.mock('./providers/espn', async () => {
@@ -36,7 +39,10 @@ vi.mock('./broadcast/feeds', async () => {
   const actual = await vi.importActual<typeof import('./broadcast/feeds')>('./broadcast/feeds');
   return { ...actual, getLiveChannels: services.feed };
 });
-vi.mock('./broadcast/probe', () => ({ getChannelStatuses: services.statuses }));
+vi.mock('./broadcast/probe', () => ({
+  getChannelStatuses: services.statuses,
+  getChannelHealth: services.health,
+}));
 vi.mock('./cache/cacheManager', () => ({
   getCacheManager: () => ({ swr: (_key: string, load: () => unknown) => load() }),
 }));
@@ -69,6 +75,8 @@ function proxyTarget(link: string): string {
 }
 
 beforeEach(() => {
+  resetIptvOrgSelection();
+  services.health.mockReset().mockResolvedValue({});
   services.espnMatches.mockReset().mockResolvedValue([match()]);
   services.catalogue.mockReset().mockResolvedValue([]);
   services.feed.mockReset().mockResolvedValue(CHANNELS);
@@ -133,5 +141,66 @@ describe('ESPN live stream backups', () => {
     expect(livePreview.feedStreamCount).toBeUndefined();
     await expect(resolveAllStreams('Arsenal vs Liverpool', 'espn-700001', 'Arsenal', 'Liverpool', match()))
       .rejects.toThrow('No streams available');
+  });
+});
+
+
+const OFFICIAL = buildLiveChannels([
+  { name: 'ESPN 2 HD (720p)', url: 'https://sports.example.com/espn2/index.m3u8', source: 'iptv-org.github.io', feedUrl: IPTV_ORG_SPORTS_URL },
+  { name: 'beIN SPORTS XTRA (1080p)', url: 'https://sports.example.com/bein/index.m3u8', source: 'iptv-org.github.io', feedUrl: IPTV_ORG_SPORTS_URL },
+  { name: 'ESPN 2 blocked', url: 'https://sports.example.com/blocked/index.m3u8', source: 'iptv-org.github.io', feedUrl: IPTV_ORG_SPORTS_URL },
+]);
+const working = (targets: Array<{ id: string; url: string }>) => Object.fromEntries(targets.map(({ id, url }) => [id, {
+  status: url.includes('/blocked/') ? 'unknown' : 'live', mediaVerified: !url.includes('/blocked/'),
+  latencyMs: url.includes('/espn2/') ? 100 : 50, checkedAt: Date.now(), successRate: 1, samples: 5,
+}]));
+
+describe('official sports integration in the shared match/Multi-View resolver', () => {
+  it('injects only media-verified official backups, prefers the reported network, and signs all links', async () => {
+    services.feed.mockResolvedValue(OFFICIAL);
+    services.health.mockImplementation(async (targets) => working(targets));
+    const fixture = match({ broadcasters: ['ESPN 2'] });
+    const resolved = await resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture);
+    expect(resolved.channels.map(({ coverage }) => coverage)).toEqual(['broadcaster', 'sports']);
+    expect(resolved.channels.map(({ provider }) => provider)).toEqual(['iptv-org-fallback-broadcaster', 'iptv-org-fallback-sports']);
+    expect(resolved.channels[0].name).toBe('ESPN 2 HD (720p)');
+    expect(resolved.channels.every(({ health }) => health?.mediaVerified)).toBe(true);
+    expect(resolved.channels.map(({ url }) => proxyTarget(url))).toEqual(OFFICIAL.slice(0, 2).map(({ url }) => url));
+    expect(resolved.channels.every(({ url, proxiedUrl }) => url === proxiedUrl)).toBe(true);
+    expect(resolved.channels.some(({ url }) => proxyTarget(url).includes('/blocked/'))).toBe(false);
+    expect(services.statuses).not.toHaveBeenCalled();
+  });
+
+  it('never bypasses the health gate through the legacy feed provider, even for a two-team title', async () => {
+    services.feed.mockResolvedValue([{ ...OFFICIAL[0], name: 'Arsenal vs Liverpool' }]);
+    await expect(resolveAllStreams('Arsenal vs Liverpool', 'espn-700001', 'Arsenal', 'Liverpool', match())).rejects.toThrow('No streams available');
+    expect(services.statuses).not.toHaveBeenCalled();
+  });
+
+  it('uses media-verified two-team evidence as fixture-specific rather than pretending every network is exact', async () => {
+    services.feed.mockResolvedValue([{ ...OFFICIAL[0], name: 'Arsenal vs Liverpool (720p)' }]);
+    services.health.mockImplementation(async (targets) => working(targets));
+    const resolved = await resolveAllStreams('Arsenal vs Liverpool', 'espn-700001', 'Arsenal', 'Liverpool', match());
+    expect(resolved.channels[0]).toMatchObject({ provider: 'iptv-org', coverage: 'fixture', health: { mediaVerified: true } });
+  });
+
+  it('keeps catalogue fixture servers ahead of unrelated official broadcasters', async () => {
+    services.feed.mockResolvedValue(OFFICIAL);
+    services.health.mockImplementation(async (targets) => working(targets));
+    const fixture = match({ broadcasters: ['ESPN 2'], sources: [{ id: 'primary', source: 'wf', label: 'Fixture', url: 'https://catalogue.example.com/arsenal.m3u8' }] });
+    const resolved = await resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture);
+    expect(resolved.channels.map(({ provider }) => provider)).toEqual(['watchfooty', 'iptv-org-fallback-broadcaster', 'iptv-org-fallback-sports']);
+  });
+
+  it('does not offer unverified official preview counts or automatic backups for upcoming fixtures', async () => {
+    services.feed.mockResolvedValue(OFFICIAL);
+    const [unverified] = await getMatches();
+    expect(unverified.feedStreamCount).toBeUndefined();
+    services.health.mockImplementation(async (targets) => working(targets));
+    const [verified] = await getMatches();
+    expect(verified).toMatchObject({ feedStreamCount: 2, feedStreamIsFallback: true });
+    expect(JSON.stringify(verified)).not.toContain('sports.example.com');
+    const fixture = match({ status: 'upcoming', broadcasters: ['ESPN 2'] });
+    await expect(resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture)).rejects.toThrow('No streams available');
   });
 });

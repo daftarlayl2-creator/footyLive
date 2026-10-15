@@ -33,9 +33,11 @@ describe('serverLabel', () => {
 });
 
 describe('normalizeQuality', () => {
-  it('maps every HD flavour to HD and everything else to SD', () => {
-    for (const q of ['HD', 'hd', 'FHD', '1080p', '720P', '4K', ' uhd ']) expect(normalizeQuality(q)).toBe('HD');
-    for (const q of ['SD', '480p', '', undefined, null, 'auto']) expect(normalizeQuality(q)).toBe('SD');
+  it('keeps FHD distinct from HD, and preserves explicitly automatic quality', () => {
+    for (const q of ['HD', 'hd', '720P']) expect(normalizeQuality(q)).toBe('HD');
+    for (const q of ['FHD', '1080p', '4K', ' uhd ']) expect(normalizeQuality(q)).toBe('FHD');
+    for (const q of ['SD', '480p', '', undefined, null]) expect(normalizeQuality(q)).toBe('SD');
+    expect(normalizeQuality('auto')).toBe('Auto');
   });
 });
 
@@ -93,7 +95,7 @@ describe('buildServerList', () => {
     ]);
     expect(servers.map((s) => s.label)).toEqual(['Server 1', 'Server 2', 'Backup']);
     expect(servers.map((s) => s.kind)).toEqual(['hls', 'embed', 'mp4']);
-    expect(servers.map((s) => s.quality)).toEqual(['HD', 'SD', 'HD']);
+    expect(servers.map((s) => s.quality)).toEqual(['FHD', 'SD', 'HD']);
     expect(servers[0].url.startsWith('/api/proxy?')).toBe(true);
     expect(servers.map((s) => s.index)).toEqual([0, 1, 2]);
   });

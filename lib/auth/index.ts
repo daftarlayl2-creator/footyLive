@@ -12,6 +12,8 @@ export {
   getAuthProvider,
   getAuthSnapshot,
   signIn,
+  signInWithTokens,
+  resendConfirmation,
   signOut,
   signUp,
   subscribeAuth,

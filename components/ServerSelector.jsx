@@ -14,6 +14,9 @@ const STATUS_META = {
   connecting: { dot: 'bg-amber-400', ping: true, text: 'Connecting' },
   failed: { dot: 'bg-red-500', ping: false, text: 'Failed' },
   idle: { dot: 'bg-zinc-400', ping: false, text: 'Standby' },
+  live: { dot: 'bg-lime-500', ping: false, text: 'Healthy' },
+  checking: { dot: 'bg-amber-400', ping: true, text: 'Checking' },
+  offline: { dot: 'bg-red-500', ping: false, text: 'Offline' },
 };
 
 function StatusDot({ status }) {
@@ -30,7 +33,7 @@ function QualityBadge({ quality }) {
   return (
     <span
       className={`rounded border px-1.5 py-0.5 text-[9px] font-extrabold uppercase ${
-        quality === 'HD'
+        quality === 'HD' || quality === 'FHD'
           ? 'border-lime-500/30 bg-lime-500/10 text-lime-300'
           : 'border-white/10 bg-white/5 text-zinc-300'
       }`}
@@ -45,8 +48,10 @@ function serverTooltip(server, status, reason) {
     server.label,
     server.quality,
     server.kind === 'embed' ? 'Embedded player' : 'Native HLS player',
-    status === 'failed' ? `Failed: ${describeFailure(reason)}` : STATUS_META[status].text,
-  ].join(' · ');
+    status === 'failed' ? `Failed: ${describeFailure(reason)}` : (STATUS_META[status] ?? STATUS_META.idle).text,
+    server.health?.latencyMs != null ? `${server.health.latencyMs} ms server probe` : null,
+    server.health?.samples ? `${Math.round(server.health.successRate * 100)}% success / ${server.health.samples} probes` : null,
+  ].filter(Boolean).join(' · ');
 }
 
 /**
@@ -66,7 +71,7 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
           {servers.map((server) => {
             const status = statusOf(server);
             const isActive = server.key === activeKey;
-            const isFailed = status === 'failed';
+            const isFailed = status === 'failed' || status === 'offline';
             const tooltip = serverTooltip(server, status, failed[server.key]);
             return (
               <button
@@ -94,6 +99,7 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
                   <Zap className="h-3 w-3 opacity-60" aria-hidden="true" />
                 )}
                 <QualityBadge quality={server.quality} />
+                {server.health?.latencyMs != null && <span className="text-[9px] font-semibold tabular-nums opacity-70">{server.health.latencyMs} ms</span>}
               </button>
             );
           })}
@@ -104,7 +110,7 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
           role="switch"
           aria-checked={autoSwitch}
           onClick={onToggleAutoSwitch}
-          title="Automatically move to the next server when the current one fails"
+          title="Automatically use the highest-ranked healthy backup when a stream fails"
           className="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-zinc-300 transition-colors hover:text-white"
         >
           Auto-switch

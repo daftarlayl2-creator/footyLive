@@ -15,8 +15,10 @@
  *    "retry every server" rounds once the whole list is exhausted.
  */
 
+import type { StreamHealth } from './health';
+
 export type StreamKind = 'hls' | 'mp4' | 'embed';
-export type ServerQuality = 'HD' | 'SD';
+export type ServerQuality = 'FHD' | 'HD' | 'SD' | 'Auto';
 
 /** Shape of the channel objects pages hand to the player (see `Channel` in lib/types). */
 export interface ChannelLike {
@@ -25,7 +27,9 @@ export interface ChannelLike {
   proxiedUrl?: string;
   quality?: string;
   provider?: string;
+  coverage?: 'fixture' | 'broadcaster' | 'sports';
   kind?: string;
+  health?: StreamHealth;
 }
 
 export interface PlayerServer {
@@ -42,6 +46,8 @@ export interface PlayerServer {
   /** Original channel name, for tooltips. */
   name: string;
   provider?: string;
+  coverage?: 'fixture' | 'broadcaster' | 'sports';
+  health?: StreamHealth;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -113,7 +119,10 @@ export function serverKey(url: string): string {
 const HD_QUALITIES = new Set(['HD', 'FHD', 'UHD', '4K', '2160P', '1440P', '1080P', '1080I', '720P']);
 
 export function normalizeQuality(quality: string | null | undefined): ServerQuality {
-  return quality && HD_QUALITIES.has(String(quality).trim().toUpperCase()) ? 'HD' : 'SD';
+  const q = String(quality || '').trim().toUpperCase();
+  if (['FHD', 'UHD', '4K', '2160P', '1440P', '1080P', '1080I'].includes(q)) return 'FHD';
+  if (q === 'AUTO') return 'Auto';
+  return HD_QUALITIES.has(q) ? 'HD' : 'SD';
 }
 
 /** "Server 1", "Server 2", … with the last of several servers called "Backup". */
@@ -145,6 +154,8 @@ export function buildServerList(
       quality: normalizeQuality(ch.quality),
       name: ch.name || '',
       provider: ch.provider,
+      coverage: ch.coverage,
+      health: ch.health,
     });
   }
 
@@ -170,7 +181,7 @@ export function buildServerList(
  *  - embed:    the embedded provider page refused to load (expired or rejected link)
  *  - reported: the viewer said this server is not playing ("Try next server")
  */
-export type FailureReason = 'network' | 'media' | 'timeout' | 'stalled' | 'unsupported' | 'embed' | 'reported';
+export type FailureReason = 'network' | 'media' | 'timeout' | 'stalled' | 'unsupported' | 'embed' | 'reported' | 'health';
 
 /**
  *  - connecting: the active server is loading
@@ -197,6 +208,9 @@ export interface FailoverState {
   switched: { from: number; to: number; reason: FailureReason } | null;
   /** Stream kind per server key; lets failover prefer direct backups after an embed fails. */
   kinds: Record<string, StreamKind>;
+  health: Record<string, StreamHealth>;
+  healthOptimized: boolean;
+  manualSelection: boolean;
 }
 
 export type FailoverAction =
@@ -222,6 +236,7 @@ export type FailoverAction =
   | { type: 'skip'; attempt: number }
   /** The page passed a different server list. */
   | { type: 'sync'; keys: string[]; kinds?: Record<string, StreamKind> }
+  | { type: 'health'; health: Record<string, StreamHealth>; preferredKey?: string }
   | { type: 'setAutoSwitch'; enabled: boolean }
   | { type: 'dismissSwitch' };
 
@@ -240,6 +255,9 @@ export function initFailoverState(
     autoSwitch,
     switched: null,
     kinds,
+    health: {},
+    healthOptimized: false,
+    manualSelection: false,
   };
 }
 
@@ -262,13 +280,18 @@ export function pickNextServer(
   active: number,
   tried: string[],
   failed: Record<string, unknown>,
-  kinds?: Record<string, StreamKind>
+  kinds?: Record<string, StreamKind>,
+  health: Record<string, StreamHealth> = {}
 ): number {
   const candidates: number[] = [];
   for (let step = 1; step < keys.length; step++) {
     const i = (active + step) % keys.length;
-    if (!tried.includes(keys[i])) candidates.push(i);
+    if (!tried.includes(keys[i]) && health[keys[i]]?.status !== 'offline') candidates.push(i);
   }
+  // When health is available the display order is already ranked by the
+  // engine/hook. Always try the highest-ranked remaining backup, not merely
+  // the next position after the failed server.
+  if (Object.keys(health).length) candidates.sort((a, b) => a - b);
   const fresh = candidates.filter((i) => !(keys[i] in failed));
   if (kinds && kinds[keys[active]] === 'embed') {
     const direct = fresh.find((i) => isDirectKind(kinds[keys[i]]));
@@ -329,7 +352,7 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
       if (!Number.isInteger(index) || index < 0 || index >= total) return state;
       // Clicking the server that is already loading/playing must not restart it.
       if (index === state.active && (state.phase === 'connecting' || state.phase === 'ready')) return state;
-      return start(state, index, [state.keys[index]], null);
+      return start({ ...state, manualSelection: true }, index, [state.keys[index]], null);
     }
 
     case 'reload':
@@ -338,7 +361,7 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
 
     case 'next': {
       if (!total) return state;
-      const next = pickNextServer(state.keys, state.active, state.tried, state.failed, state.kinds);
+      const next = pickNextServer(state.keys, state.active, state.tried, state.failed, state.kinds, state.health);
       if (next === -1) {
         const index = (state.active + 1) % total;
         return start(state, index, [state.keys[index]], null);
@@ -348,7 +371,7 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
 
     case 'retryAll':
       if (!total) return state;
-      return start({ ...state, failed: {} }, 0, [state.keys[0]], null);
+      return start({ ...state, failed: {}, manualSelection: false, healthOptimized: false }, 0, [state.keys[0]], null);
 
     case 'ready':
       if (action.attempt !== state.attempt || state.phase !== 'connecting') return state;
@@ -366,7 +389,7 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
       const tried = state.tried.includes(key) ? state.tried : [...state.tried, key];
       if (!state.autoSwitch) return { ...state, failed, tried, phase: 'failed', switched: null };
 
-      const next = pickNextServer(state.keys, state.active, tried, failed, state.kinds);
+      const next = pickNextServer(state.keys, state.active, tried, failed, state.kinds, state.health);
       if (next === -1) return { ...state, failed, tried, phase: 'exhausted', switched: null };
       return start({ ...state, failed }, next, [...tried, state.keys[next]], {
         from: state.active,
@@ -383,7 +406,7 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
       const key = state.keys[state.active];
       const failed: Record<string, FailureReason> = { ...state.failed, [key]: 'reported' };
       const tried = state.tried.includes(key) ? state.tried : [...state.tried, key];
-      const next = pickNextServer(state.keys, state.active, tried, failed, state.kinds);
+      const next = pickNextServer(state.keys, state.active, tried, failed, state.kinds, state.health);
       if (next === -1) return { ...state, failed, tried, phase: 'exhausted', switched: null };
       return start({ ...state, failed }, next, [...tried, state.keys[next]], {
         from: state.active,
@@ -419,6 +442,30 @@ export function failoverReducer(state: FailoverState, action: FailoverAction): F
       return start(base, 0, [keys[0]], null);
     }
 
+    case 'health': {
+      const health = Object.fromEntries(Object.entries(action.health).filter(([key]) => state.keys.includes(key)));
+      if (!Object.keys(health).length) return state;
+      const base = { ...state, health, healthOptimized: state.healthOptimized || Object.values(health).some((entry) => entry.status === 'live') };
+      if (!state.autoSwitch) return base;
+      const activeKey = state.keys[state.active];
+      if (health[activeKey]?.status === 'offline' && (state.phase === 'connecting' || state.phase === 'ready')) {
+        return failoverReducer(base, { type: 'fail', attempt: state.attempt, reason: 'health' });
+      }
+      // Select the fastest healthy source once during startup. Never interrupt
+      // healthy playback or override a manual server choice on each poll.
+      const preferred = action.preferredKey ? state.keys.indexOf(action.preferredKey) : -1;
+      if (!state.healthOptimized && !state.manualSelection && state.phase === 'connecting' && preferred >= 0 &&
+          preferred !== state.active && health[state.keys[preferred]]?.status === 'live' && !state.tried.includes(state.keys[preferred])) {
+        return start(base, preferred, [...state.tried, state.keys[preferred]], null);
+      }
+      // A formerly offline source came back after the chain exhausted.
+      if (state.phase === 'exhausted') {
+        const recovered = state.keys.findIndex((key) => health[key]?.status === 'live' && state.health[key]?.status === 'offline');
+        if (recovered >= 0) return start(base, recovered, [state.keys[recovered]], null);
+      }
+      return base;
+    }
+
     case 'setAutoSwitch':
       return state.autoSwitch === action.enabled ? state : { ...state, autoSwitch: action.enabled };
 
@@ -442,6 +489,7 @@ const FAILURE_COPY: Record<FailureReason, string> = {
   unsupported: 'Format not supported by this browser',
   embed: 'Provider player refused to load',
   reported: 'Reported as not playing',
+  health: 'Health check confirmed this stream is offline',
 };
 
 export function describeFailure(reason: FailureReason | null | undefined): string {

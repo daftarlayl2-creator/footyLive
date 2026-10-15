@@ -1,7 +1,7 @@
 import { Match, Channel } from '../types';
 import { StreamProvider } from './types';
 import { fetchWithTimeout } from './baseProvider';
-import { teamsMatch } from '../utils/matching';
+import { matchChannelScore } from '../broadcast/matching';
 import { getCacheManager } from '../cache/cacheManager';
 import logger from '../logger';
 
@@ -80,7 +80,7 @@ export class StreamedPkProvider implements StreamProvider {
       const streamTasks: Promise<{ urls: { url: string; quality: string }[]; source: any }>[] = [];
       
       for (const m of matches) {
-        if (teamsMatch(matchTitle, m.title)) {
+        if (matchChannelScore(matchTitle, { name: m.title || '' }, homeTeam, awayTeam) > 0) {
           const sources = m.sources || [];
           for (const src of sources) {
             streamTasks.push(

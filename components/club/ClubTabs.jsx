@@ -8,6 +8,7 @@ import TeamLogo from '@/components/clubs/TeamLogo';
 import CrestDrop from '@/components/clubs/CrestDrop';
 import FormStrip from '@/components/club/FormStrip';
 import LocalDateTime from '@/components/ui/LocalDateTime';
+import { playerHref } from '@/lib/players/normalize';
 
 const RESULT_STYLES = {
   W: 'border-lime-500/40 bg-lime-500/15 text-lime-800 dark:text-lime-300',
@@ -220,14 +221,15 @@ function FixturesTab({ fixtures }) {
 /*  Squad                                                                      */
 /* -------------------------------------------------------------------------- */
 
-function PlayerCard({ player, accent }) {
+function PlayerCard({ player, accent, club }) {
   const stats = [
     player.appearances !== undefined ? `${player.appearances} apps` : null,
     player.goals ? `${player.goals} G` : null,
     player.assists ? `${player.assists} A` : null,
   ].filter(Boolean);
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-navy-100 bg-white px-3 py-2.5 dark:border-navy-750/70 dark:bg-navy-950/50">
+    <li>
+      <Link href={playerHref(player.id, { clubId: club?.espnId, league: club?.league?.slug })} prefetch={false} aria-label={`Open ${player.name} player profile`} className="tactile flex h-full items-center gap-3 rounded-2xl border border-navy-100 bg-white px-3 py-2.5 outline-none transition-colors hover:border-lime-500/50 focus-visible:ring-2 focus-visible:ring-lime-500 dark:border-navy-750/70 dark:bg-navy-950/50 dark:hover:border-lime-500/50">
       <span
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black text-white shadow-sm"
         style={{ background: accent }}
@@ -252,11 +254,12 @@ function PlayerCard({ player, accent }) {
         {player.flag && <img src={player.flag} alt={player.nationality || ''} title={player.nationality} loading="lazy" className="h-3.5 w-5 rounded-[3px] object-cover shadow-sm" />}
         {stats.length > 0 && <span className="text-[10px] font-bold tabular-nums text-navy-500 dark:text-zinc-400">{stats.join(' · ')}</span>}
       </div>
+      </Link>
     </li>
   );
 }
 
-function SquadTab({ squad, accent }) {
+function SquadTab({ squad, accent, club }) {
   if (!squad.length) {
     return <EmptyTab icon={Users} title="Squad list unavailable">ESPN hasn&apos;t published a squad list for this club yet.</EmptyTab>;
   }
@@ -270,7 +273,7 @@ function SquadTab({ squad, accent }) {
           </h3>
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {players.map((player) => (
-              <PlayerCard key={player.id} player={player} accent={accent} />
+              <PlayerCard key={player.id} player={player} accent={accent} club={club} />
             ))}
           </ul>
         </section>
@@ -287,7 +290,7 @@ function SquadTab({ squad, accent }) {
  * Club page tabs: Recent Form & Results | Upcoming Fixtures | Current Squad.
  * `squad` arrives pre-grouped by position; `accent` is the hero colour.
  */
-export default function ClubTabs({ results = [], fixtures = [], squad = [], form = [], accent = '#572339' }) {
+export default function ClubTabs({ results = [], fixtures = [], squad = [], form = [], accent = '#572339', club }) {
   const [tab, setTab] = useState('results');
   const squadCount = squad.reduce((sum, g) => sum + g.players.length, 0);
   const tabs = [
@@ -338,7 +341,7 @@ export default function ClubTabs({ results = [], fixtures = [], squad = [], form
       <div key={tab} id={`club-panel-${tab}`} role="tabpanel" aria-labelledby={`club-tab-${tab}`} className="animate-slide-up">
         {tab === 'results' && <ResultsTab results={results} form={form} />}
         {tab === 'fixtures' && <FixturesTab fixtures={fixtures} />}
-        {tab === 'squad' && <SquadTab squad={squad} accent={accent} />}
+        {tab === 'squad' && <SquadTab squad={squad} accent={accent} club={club} />}
       </div>
     </div>
   );

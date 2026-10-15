@@ -1,23 +1,15 @@
 import Link from 'next/link';
 import { ArrowLeft, RadioTower } from 'lucide-react';
-import { getChannelSources, toPlaybackUrl } from '@/lib/broadcast/feeds';
-import { probeChannel, withTimeout } from '@/lib/broadcast/probe';
-import { detectStreamKind } from '@/lib/player/servers';
+import { resolveChannelStreams } from '@/lib/broadcast/channelStreams';
 import StreamPlayer from '@/components/StreamPlayer';
 
 export const revalidate = 60;
 
 export default async function ChannelPage({ params }) {
   const { id } = await params;
-  // The opened channel first, then other feed entries carrying the same channel.
-  const sources = /^[a-f0-9]{16}(-\d+)?$/.test(id) ? await getChannelSources(id).catch(() => []) : [];
-  const channel = sources[0] ?? null;
-
-  // Best-effort, time-boxed status check. A blocked probe never blocks
-  // playback: the player below always points at the signed /api/proxy route.
-  const status = channel
-    ? await withTimeout(probeChannel(channel).catch(() => 'unknown'), 1_500, 'unknown')
-    : 'unknown';
+  const resolved = await resolveChannelStreams(id).catch(() => null);
+  const channel = resolved?.channel;
+  const status = resolved?.streams[0]?.health?.status || 'unknown';
 
   if (!channel) {
     return (
@@ -41,12 +33,8 @@ export default async function ChannelPage({ params }) {
     );
   }
 
-  // Only signed proxy links reach the browser — never the raw upstream URLs.
-  const channels = sources.map((source) => {
-    const proxiedUrl = toPlaybackUrl(source);
-    return { name: source.name, url: proxiedUrl, proxiedUrl, quality: 'HD', kind: detectStreamKind(proxiedUrl) };
-  });
-  const playbackUrl = channels[0].proxiedUrl;
+  const channels = resolved.streams;
+  const playbackUrl = resolved.defaultUrl;
 
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto">
@@ -72,6 +60,7 @@ export default async function ChannelPage({ params }) {
             {status === 'offline' ? 'UNVERIFIED · TRY ANYWAY' : 'STANDBY'}
           </span>
         )}
+        <Link href={`/multistream?channel=${id}`} className="tactile rounded-xl border border-lime-500/30 px-3 py-1.5 text-xs font-bold text-lime-600 dark:text-lime-300">Open in Multi-View</Link>
         <h1 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">{channel.name}</h1>
         {channel.group && (
           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
