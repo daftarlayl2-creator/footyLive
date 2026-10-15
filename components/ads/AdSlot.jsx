@@ -5,10 +5,12 @@ import {
   BANNER_728x90,
   BANNER_300x250,
   BANNER_320x50,
+  BANNER_728x90_WATCH,
   NATIVE_BANNER,
   bannerFrameHtml,
   nativeBannerFrameHtml,
   socialBarScript,
+  AD_REFRESH_INTERVAL_MS,
 } from '@/lib/adsConfig';
 
 const BANNER_BY_ID = {
@@ -17,30 +19,25 @@ const BANNER_BY_ID = {
   [BANNER_320x50.id]: BANNER_320x50,
 };
 
-/**
- * Sandbox for third-party ad frames: scripts and popups are allowed, but the
- * frame stays in an opaque origin, so ad code can never read or mutate the
- * host page and every frame owns its own `atOptions` global (no collisions
- * when several banners render on one page).
- */
 const AD_FRAME_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
 
 let socialBarMounted = false;
 
-/**
- * One Adsterra placement. Renders a deterministic, empty container on the
+/** One Adsterra placement. Renders a deterministic, empty container on the
  * server (hydration-safe) and only injects the third-party code after mount.
  *
  *  - `variant="banner"`  → sized iframe frame running the exact `atOptions`
  *    banner code for `banner` (BANNER_728x90 | BANNER_300x250 | BANNER_320x50).
  *  - `variant="native"`  → iframe frame running the exact native-banner code.
  *  - `variant="social"`  → page-level social-bar script, injected once.
+ *  - `variant="banner-refresh"`  → banner with auto-refresh support.
  */
 export default function AdSlot({
   variant = 'banner',
   banner = BANNER_728x90,
   className = '',
   label = 'Advertisement',
+  refreshMs = AD_REFRESH_INTERVAL_MS,
 }) {
   const [mounted, setMounted] = useState(false);
   const socialRef = useRef(null);
@@ -64,7 +61,7 @@ export default function AdSlot({
     return <div ref={socialRef} data-ad-slot="social-bar" hidden aria-hidden="true" />;
   }
 
-  const isBanner = variant === 'banner';
+  const isBanner = variant === 'banner' || variant === 'banner-refresh';
   const ad = isBanner ? BANNER_BY_ID[banner?.id] ?? banner : NATIVE_BANNER;
   const width = isBanner ? ad.width : undefined;
   const height = isBanner ? ad.height : undefined;
@@ -73,6 +70,10 @@ export default function AdSlot({
   // a still-loading or empty ad blends into the #18030A page background
   // instead of flashing a stark white rectangle (see app/globals.css).
   const darkTransparent = { backgroundColor: 'transparent', colorScheme: 'dark' };
+
+  // Auto-refresh support for watch page banner
+  const refreshContainerRef = useRef(null);
+  useAdRefresh(refreshMs, setMounted);
 
   return (
     <div
@@ -101,4 +102,16 @@ export default function AdSlot({
       </div>
     </div>
   );
+}
+
+/** Helper used by AdSlot to toggle mounted state for auto-refresh. */
+function useAdRefresh(refreshMs, setMountedRef) {
+  useEffect(() => {
+    if (!refreshMs) return undefined;
+    const timer = setInterval(() => {
+      // Refresh by toggling the mounted state which forces re-mount of the iframe
+      setMountedRef((prev) => !prev);
+    }, refreshMs);
+    return () => clearInterval(timer);
+  }, [refreshMs]);
 }
