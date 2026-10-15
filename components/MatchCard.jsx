@@ -78,7 +78,7 @@ export default function MatchCard({ match, tab }) {
 
   // Live scores, minutes and cards are re-read straight from the API.
   useEffect(() => {
-    if (status !== 'live') { setLiveData(null); return; }
+    if (status !== 'live') return undefined;
     const poll = async () => {
       try {
         const res = await fetch(`/api/match/${id}`, { cache: 'no-store' });
@@ -92,16 +92,17 @@ export default function MatchCard({ match, tab }) {
     return () => { if (polling.current) clearInterval(polling.current); polling.current = null; };
   }, [id, status]);
 
-  const liveMinute = liveData?.currentMinute || match.currentMinute || live?.detail;
-  const displayHomeScore = liveData?.homeScore ?? homeScore;
-  const displayAwayScore = liveData?.awayScore ?? awayScore;
+  const activeLiveData = status === 'live' ? liveData : null;
+  const liveMinute = activeLiveData?.currentMinute || match.currentMinute || live?.detail;
+  const displayHomeScore = activeLiveData?.homeScore ?? homeScore;
+  const displayAwayScore = activeLiveData?.awayScore ?? awayScore;
   const cards = {
-    home: liveData?.cards?.home ?? live?.cards?.home,
-    away: liveData?.cards?.away ?? live?.cards?.away,
+    home: activeLiveData?.cards?.home ?? live?.cards?.home,
+    away: activeLiveData?.cards?.away ?? live?.cards?.away,
   };
   const scorers = {
-    home: liveData?.scorers?.home?.length ? liveData.scorers.home : live?.scorers?.home || [],
-    away: liveData?.scorers?.away?.length ? liveData.scorers.away : live?.scorers?.away || [],
+    home: activeLiveData?.scorers?.home?.length ? activeLiveData.scorers.home : live?.scorers?.home || [],
+    away: activeLiveData?.scorers?.away?.length ? activeLiveData.scorers.away : live?.scorers?.away || [],
   };
 
   const currentMinute = liveMinute || (currentMinuteNumber ? `${currentMinuteNumber}'` : '');

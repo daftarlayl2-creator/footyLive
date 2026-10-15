@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Volume2, VolumeX, Maximize, X, Plus, Search, RefreshCw, Layers, AlertCircle, Cpu } from 'lucide-react';
 import Link from 'next/link';
 
@@ -67,7 +67,7 @@ export default function MultiStreamPage() {
   };
 
   // Poll available matches
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
     try {
       const res = await fetch('/api/matches');
       const data = await res.json();
@@ -79,13 +79,16 @@ export default function MultiStreamPage() {
     } finally {
       setLoadingMatches(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchMatches();
+    const initial = setTimeout(fetchMatches, 0);
     const interval = setInterval(fetchMatches, 20000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, [fetchMatches]);
 
   const openSelector = (slotIndex) => {
     setActiveSlot(slotIndex);
@@ -357,7 +360,9 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
   const [error, setError] = useState(null);
   const [muted, setMuted] = useState(slotIndex > 0); // Mute slot 2, 3, 4 by default so they don't blast concurrently!
   const [isPlaying, setIsPlaying] = useState(true);
-  const [hlsLoaded, setHlsLoaded] = useState(false);
+  const [hlsLoaded, setHlsLoaded] = useState(
+    () => typeof window !== 'undefined' && Boolean(window.Hls)
+  );
   
   // Custom Hover State & Gestures
   const [isHovered, setIsHovered] = useState(false);
@@ -384,6 +389,30 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
       setGestureToast((prev) => prev === message ? null : prev);
     }, 2200);
   };
+
+  const toggleMute = useCallback(() => {
+    const nextMute = !muted;
+    setMuted(nextMute);
+    if (videoRef.current) {
+      videoRef.current.muted = nextMute;
+    }
+  }, [muted]);
+
+  const reloadFeed = useCallback(() => {
+    if (videoRef.current && isDirectHls) {
+      if (hlsRef.current) {
+        hlsRef.current.loadSource(streamUrl);
+        hlsRef.current.startLoad();
+      } else {
+        videoRef.current.src = streamUrl;
+        videoRef.current.load();
+      }
+    } else {
+      const curr = activeStreamIdx;
+      setActiveStreamIdx(-1);
+      setTimeout(() => setActiveStreamIdx(curr), 50);
+    }
+  }, [activeStreamIdx, isDirectHls, streamUrl]);
 
   // Keyboard gestures handler when hovering over this viewport
   useEffect(() => {
@@ -421,13 +450,13 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isHovered, streams, activeStreamIdx, muted, streamUrl, isDirectHls]);
+  }, [isHovered, streams, activeStreamIdx, muted, streamUrl, isDirectHls, reloadFeed, toggleMute]);
 
   // Load HLS Client script if HLS stream is resolved
   useEffect(() => {
-    if (!isDirectHls) return;
+    if (!isDirectHls || hlsLoaded) return;
     if (window.Hls) {
-      setHlsLoaded(true);
+      Promise.resolve().then(() => setHlsLoaded(true));
       return;
     }
     const script = document.createElement('script');
@@ -435,7 +464,7 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     script.async = true;
     script.onload = () => setHlsLoaded(true);
     document.body.appendChild(script);
-  }, [isDirectHls]);
+  }, [isDirectHls, hlsLoaded]);
 
   // Resolve streams from custom stream API endpoint
   useEffect(() => {
@@ -500,15 +529,6 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     };
   }, [streamUrl, isDirectHls, hlsLoaded, muted]);
 
-  // Volume toggle (hoisted: the keyboard-shortcut effect above calls it)
-  function toggleMute() {
-    const nextMute = !muted;
-    setMuted(nextMute);
-    if (videoRef.current) {
-      videoRef.current.muted = nextMute;
-    }
-  }
-
   const handlePlayPause = () => {
     if (!videoRef.current) return;
     if (isPlaying) {
@@ -524,23 +544,6 @@ function MultiStreamSlot({ slotData, slotIndex, size, onResize, onRemove }) {
     const el = videoRef.current;
     if (!el) return;
     if (el.requestFullscreen) el.requestFullscreen();
-  };
-
-  function reloadFeed() {
-    if (videoRef.current && isDirectHls) {
-      if (hlsRef.current) {
-        hlsRef.current.loadSource(streamUrl);
-        hlsRef.current.startLoad();
-      } else {
-        videoRef.current.src = streamUrl;
-        videoRef.current.load();
-      }
-    } else {
-      // Toggle key reload for iframe components
-      const curr = activeStreamIdx;
-      setActiveStreamIdx(-1);
-      setTimeout(() => setActiveStreamIdx(curr), 50);
-    }
   };
 
   // Header Gestures

@@ -147,10 +147,11 @@ export default function LiveChannelsGrid({ initialChannels = null, initialChecke
 
   useEffect(() => {
     const controller = new AbortController();
-    load(controller.signal);
+    const initial = setTimeout(() => load(controller.signal), 0);
     const timer = setInterval(() => load(controller.signal), POLL_MS);
     return () => {
       controller.abort();
+      clearTimeout(initial);
       clearInterval(timer);
     };
   }, [load]);

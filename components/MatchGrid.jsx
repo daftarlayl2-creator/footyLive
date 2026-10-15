@@ -35,6 +35,45 @@ function Trophy({ className }) {
   );
 }
 
+function promoteCatalogueMatches(matches) {
+  const now = Date.now();
+  return matches.map((m) => {
+    // ESPN statuses are authoritative (state pre/in/post), so only catalogue
+    // fixtures — which can lag behind reality — get the kickoff-time promotion.
+    if (m.status === 'upcoming' && m.source !== 'espn') {
+      const kickoffTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+      const diffMinutes = kickoffTime ? Math.floor((now - kickoffTime) / 60000) : -1;
+      // Promote to live if kickoff time has arrived/passed and less than 125 mins have passed
+      if (kickoffTime && diffMinutes >= 0 && diffMinutes < 125) {
+        let currentMinuteNumber = m.currentMinuteNumber || 0;
+        let currentMinute = m.currentMinute || '';
+
+        if (diffMinutes < 45) {
+          currentMinuteNumber = diffMinutes;
+          currentMinute = `${diffMinutes}'`;
+        } else if (diffMinutes >= 45 && diffMinutes < 60) {
+          currentMinuteNumber = 45;
+          currentMinute = 'HT';
+        } else if (diffMinutes >= 60 && diffMinutes < 105) {
+          currentMinuteNumber = diffMinutes - 15;
+          currentMinute = `${diffMinutes - 15}'`;
+        } else {
+          currentMinuteNumber = 90;
+          currentMinute = '90+';
+        }
+
+        return {
+          ...m,
+          status: 'live',
+          currentMinute,
+          currentMinuteNumber,
+        };
+      }
+    }
+    return m;
+  });
+}
+
 export default function MatchGrid({ matches, defaultTab, banner }) {
   const router = useRouter();
   const [tab, setTab] = useState(defaultTab);
@@ -42,9 +81,11 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
   const [highlightsLoading, setHighlightsLoading] = useState(false);
   const [activeHighlight, setActiveHighlight] = useState(null);
   useEffect(() => {
-    if (tab !== 'highlights') return;
+    if (tab !== 'highlights') return undefined;
     let cancelled = false;
-    setHighlightsLoading(true);
+    Promise.resolve().then(() => {
+      if (!cancelled) setHighlightsLoading(true);
+    });
     // Always resolves within 3s (empty list on timeout / error) — the tab
     // never stays stuck on "Loading highlights…".
     fetchHighlightsSafely().then((list) => {
@@ -85,44 +126,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
     };
   }, []);
 
-  const enrichedMatches = useMemo(() => {
-    return matches.map(m => {
-      // ESPN statuses are authoritative (state pre/in/post), so only catalogue
-      // fixtures — which can lag behind reality — get the kickoff-time promotion.
-      if (m.status === 'upcoming' && m.source !== 'espn') {
-        const now = Date.now();
-        const kickoffTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-        const diffMinutes = kickoffTime ? Math.floor((now - kickoffTime) / 60000) : -1;
-        // Promote to live if kickoff time has arrived/passed and less than 125 mins have passed
-        if (kickoffTime && diffMinutes >= 0 && diffMinutes < 125) {
-          let currentMinuteNumber = m.currentMinuteNumber || 0;
-          let currentMinute = m.currentMinute || '';
-          
-          if (diffMinutes < 45) {
-            currentMinuteNumber = diffMinutes;
-            currentMinute = `${diffMinutes}'`;
-          } else if (diffMinutes >= 45 && diffMinutes < 60) {
-            currentMinuteNumber = 45;
-            currentMinute = 'HT';
-          } else if (diffMinutes >= 60 && diffMinutes < 105) {
-            currentMinuteNumber = diffMinutes - 15;
-            currentMinute = `${diffMinutes - 15}'`;
-          } else {
-            currentMinuteNumber = 90;
-            currentMinute = '90+';
-          }
-
-          return {
-            ...m,
-            status: 'live',
-            currentMinute,
-            currentMinuteNumber,
-          };
-        }
-      }
-      return m;
-    });
-  }, [matches]);
+  const enrichedMatches = useMemo(() => promoteCatalogueMatches(matches), [matches]);
 
   const live = useMemo(() => enrichedMatches.filter(m => m.status === 'live'), [enrichedMatches]);
   const upcoming = useMemo(
@@ -146,15 +150,16 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
     return Array.from(leagueMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [baseMatches]);
 
-  // Synchronize selection: remove any selected league that is no longer active in the current tab
-  useEffect(() => {
-    setSelectedLeagues(prev => prev.filter(name => leaguesWithLogos.some(l => l.name === name)));
-  }, [leaguesWithLogos]);
+  // Synchronize selection: ignore any selected league that is not active in the current tab
+  const activeSelectedLeagues = useMemo(
+    () => selectedLeagues.filter((name) => leaguesWithLogos.some((l) => l.name === name)),
+    [selectedLeagues, leaguesWithLogos]
+  );
 
   const filtered = useMemo(() => {
     let result = baseMatches;
-    if (selectedLeagues.length > 0) {
-      result = result.filter(m => selectedLeagues.includes(m.tournament));
+    if (activeSelectedLeagues.length > 0) {
+      result = result.filter(m => activeSelectedLeagues.includes(m.tournament));
     }
     if (search.trim()) {
       const q = search.toLowerCase().trim();
@@ -166,7 +171,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
       );
     }
     return result;
-  }, [baseMatches, selectedLeagues, search]);
+  }, [baseMatches, activeSelectedLeagues, search]);
 
   // Decouple filtered matches into favorited and standard categories
   const { starredMatches, normalMatches } = useMemo(() => {
@@ -301,7 +306,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
       {(() => {
         if (leaguesWithLogos.length === 0) return null;
 
-        const isAllSelected = selectedLeagues.length === 0;
+        const isAllSelected = activeSelectedLeagues.length === 0;
 
         return (
           <div className="space-y-3.5 p-4 sm:p-5 bg-white/80 dark:bg-navy-850/50 border border-zinc-200/80 dark:border-navy-750/60 rounded-2xl shadow-sm transition-all duration-300">
@@ -367,7 +372,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
 
                 {/* Tournament pills */}
                 {leaguesWithLogos.map((l) => {
-                  const isActive = selectedLeagues.includes(l.name);
+                  const isActive = activeSelectedLeagues.includes(l.name);
                   const count = baseMatches.filter(m => m.tournament === l.name).length;
 
                   return (

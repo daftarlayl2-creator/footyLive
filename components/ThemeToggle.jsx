@@ -1,31 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
+const emptySubscribe = () => () => {};
+
+function readInitialTheme() {
+  if (typeof window === 'undefined') return 'dark';
+  try {
+    return localStorage.getItem('theme') === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState('dark');
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+  const [theme, setTheme] = useState(readInitialTheme);
 
   useEffect(() => {
-    // The server always paints dark. Only a saved light preference overrides it.
-    let savedTheme = 'dark';
-    try {
-      if (localStorage.getItem('theme') === 'light') savedTheme = 'light';
-    } catch (_) {
-      /* storage unavailable; keep the default */
-    }
-    setTheme(savedTheme);
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-    setMounted(true);
-  }, []);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
     try {
       localStorage.setItem('theme', nextTheme);
-    } catch (_) {
+    } catch {
       /* storage unavailable; this session can still switch */
     }
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');

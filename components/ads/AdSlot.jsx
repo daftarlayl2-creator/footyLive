@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   BANNER_728x90,
   BANNER_300x250,
@@ -12,6 +12,8 @@ import {
   socialBarScript,
   AD_REFRESH_INTERVAL_MS,
 } from '@/lib/adsConfig';
+
+const emptySubscribe = () => () => {};
 
 const BANNER_BY_ID = {
   [BANNER_728x90.id]: BANNER_728x90,
@@ -39,15 +41,15 @@ export default function AdSlot({
   label = 'Advertisement',
   refreshMs = AD_REFRESH_INTERVAL_MS,
 }) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
   const socialRef = useRef(null);
   // Auto-refresh is opt-in (`variant="banner-refresh"`). The nonce remounts the frame
   // so a fresh ad is pulled without ever leaving the slot blank.
   const refreshNonce = useAdRefresh(variant === 'banner-refresh' ? refreshMs : 0);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Social bar: one script per document, appended after hydration.
   useEffect(() => {

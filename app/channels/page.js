@@ -12,22 +12,23 @@ export const metadata = {
 // never empty) and probes are individually cached for 90s in the cache layer.
 export const dynamic = 'force-dynamic';
 
+async function loadInitialChannelFeed() {
+  try {
+    const channels = await getLiveChannels();
+    // Bounded, best-effort probing — unverified channels report `unknown`.
+    const statuses = await getChannelStatuses(channels, { limit: 24 });
+    return { channels, statuses, checkedAt: Date.now() };
+  } catch (err) {
+    logger.error('Channels page: live feed load failed', err);
+    return { channels: [], statuses: {}, checkedAt: null };
+  }
+}
+
 export default async function ChannelsPage() {
   // Server-render the channel list so the grid is never empty: even if the
   // client-side status probe is blocked, every channel is listed and clickable.
   // `getLiveChannels` never throws — it falls back to cached / standby channels.
-  let channels = [];
-  let checkedAt = null;
-  let statuses = {};
-
-  try {
-    channels = await getLiveChannels();
-    // Bounded, best-effort probing — unverified channels report `unknown`.
-    statuses = await getChannelStatuses(channels, { limit: 24 });
-    checkedAt = Date.now();
-  } catch (err) {
-    logger.error('Channels page: live feed load failed', err);
-  }
+  const { channels, statuses, checkedAt } = await loadInitialChannelFeed();
 
   const initialChannels = channels.map((ch) => ({
     id: ch.id,
