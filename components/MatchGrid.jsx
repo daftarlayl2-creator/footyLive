@@ -3,6 +3,8 @@
 import { Fragment, useState, useMemo, useEffect, useRef } from 'react';
 import { Search, Filter, Calendar, Star, ChevronLeft, ChevronRight, Flag, CheckCircle, Video } from 'lucide-react';
 import MatchCard from './MatchCard';
+import HighlightCard from '@/components/HighlightCard';
+import HighlightPlayerModal from '@/components/HighlightPlayerModal';
 import AdSlot from '@/components/ads/AdSlot';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import { fetchHighlightsSafely } from '@/lib/utils/highlightsClient';
@@ -38,6 +40,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
   const [tab, setTab] = useState(defaultTab);
   const [highlights, setHighlights] = useState([]);
   const [highlightsLoading, setHighlightsLoading] = useState(false);
+  const [activeHighlight, setActiveHighlight] = useState(null);
   useEffect(() => {
     if (tab !== 'highlights') return;
     let cancelled = false;
@@ -416,21 +419,10 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
 
       {/* Fixtures Listings */}
       {tab === 'highlights' ? (
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {highlights.map((h, i) => (
             <Fragment key={h.id}>
-              <a href="/highlights" className="group relative w-full overflow-hidden rounded-xl border border-navy-750 bg-navy-900 shadow-md">
-                <div className="relative aspect-video w-full overflow-hidden bg-black">
-                  {h.thumbnail && <img src={h.thumbnail} alt={h.title} className="h-full w-full object-cover opacity-80" />}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-500 text-navy-950"><Video className="h-4 w-4 fill-current" /></span>
-                  </div>
-                </div>
-                <div className="p-3">
-                  <p className="text-sm font-bold text-white truncate">{h.title}</p>
-                  <p className="text-[11px] text-zinc-400 truncate">{h.competition}</p>
-                </div>
-              </a>
+              <HighlightCard highlight={h} onPlay={setActiveHighlight} />
               {/* Native banner inside the highlights grid */}
               {(i + 1) % 6 === 0 && (
                 <div className="col-span-full flex w-full justify-center">
@@ -529,6 +521,9 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
           <AdSlot variant="native" banner={AD_PLACEMENTS.feedNative} />
         </div>
       )}
+
+      {/* Seamless in-page player for the highlights tab */}
+      <HighlightPlayerModal highlight={activeHighlight} onClose={() => setActiveHighlight(null)} />
     </div>
   );
 }
