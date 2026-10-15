@@ -69,15 +69,21 @@ export default function AdSlot({
   const width = isBanner ? ad.width : undefined;
   const height = isBanner ? ad.height : undefined;
 
+  // Every layer of the slot is pinned to a transparent, dark-scheme canvas:
+  // a still-loading or empty ad blends into the #18030A page background
+  // instead of flashing a stark white rectangle (see app/globals.css).
+  const darkTransparent = { backgroundColor: 'transparent', colorScheme: 'dark' };
+
   return (
     <div
-      className={`flex w-full max-w-full items-center justify-center overflow-hidden ${className}`}
+      className={`ad-slot flex w-full max-w-full items-center justify-center overflow-hidden ${className}`}
+      style={darkTransparent}
       data-ad-slot={ad.id}
       suppressHydrationWarning
     >
       <div
-        className="relative overflow-hidden"
-        style={isBanner ? { width, height } : { width: '100%', height: 120 }}
+        className="ad-slot relative overflow-hidden"
+        style={isBanner ? { width, height, ...darkTransparent } : { width: '100%', height: 120, ...darkTransparent }}
       >
         {mounted ? (
           <iframe
@@ -86,7 +92,8 @@ export default function AdSlot({
             sandbox={AD_FRAME_SANDBOX}
             scrolling="no"
             loading="lazy"
-            className="absolute inset-0 h-full w-full border-0"
+            className="ad-slot absolute inset-0 h-full w-full border-0"
+            style={darkTransparent}
           />
         ) : (
           <span className="sr-only">{label}</span>

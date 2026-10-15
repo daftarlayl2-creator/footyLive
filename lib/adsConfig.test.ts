@@ -83,6 +83,19 @@ describe('exact Adsterra code blocks', () => {
     expect(a).not.toContain(BANNER_320x50.key);
   });
 
+  it('guards every frame document against white ad backgrounds', () => {
+    for (const html of [bannerFrameHtml(BANNER_728x90), nativeBannerFrameHtml()]) {
+      // The frame canvas is transparent with a dark colour scheme, so empty
+      // or still-loading ads blend into the burgundy page behind them.
+      expect(html).toContain('<meta name="color-scheme" content="dark">');
+      expect(html).toContain('background:transparent!important');
+      expect(html).toContain('color-scheme:dark');
+      // Nested ad iframes Adsterra injects inside the frame are covered too.
+      expect(html).toContain('iframe,ins{border:0;background:transparent!important;color-scheme:dark;}');
+      expect(html).not.toMatch(/background:\s*(white|#fff)/i);
+    }
+  });
+
   it('rebuilds the native banner block verbatim (script + container div)', () => {
     const html = nativeBannerFrameHtml();
     expect(html).toContain(

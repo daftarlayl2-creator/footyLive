@@ -407,6 +407,28 @@ html:not(.dark) {
   border-radius: 9999px;
 }
 
+/* === Ad slots: never a white box on the burgundy theme ===
+   Adsterra frames render as stark white rectangles while an ad loads or when
+   a slot ends up empty. Every ad container, every ad iframe we mount and any
+   iframe Adsterra injects itself is forced onto a transparent canvas with a
+   dark colour scheme, so an empty slot blends seamlessly into the #18030A
+   page background instead of ruining the dark theme. */
+.ad-slot,
+[data-ad-slot],
+[data-ad-slot-wrapper] {
+  background-color: transparent !important;
+  color-scheme: dark;
+}
+
+.ad-slot iframe,
+[data-ad-slot] iframe,
+[data-ad-slot-wrapper] iframe,
+/* Adsterra's social bar also injects its own frames at document level. */
+iframe[src*="czernik.org"] {
+  background-color: transparent !important;
+  color-scheme: dark;
+}
+
 /* Reserve room for the mobile sticky footer ad so it never covers content. */
 @media (max-width: 767px) {
   body {

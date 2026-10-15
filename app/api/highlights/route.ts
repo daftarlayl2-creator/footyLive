@@ -4,9 +4,10 @@ import { getHighlights } from '@/lib/providers/highlights';
 export const dynamic = 'force-dynamic';
 
 /**
- * Recent highlights (ScoreBat v3). The provider enforces a 3-second deadline
- * and degrades to an empty list, so this route always answers quickly and the
- * client can show a clean "No recent highlights" fallback.
+ * Recent match highlights (YouTube RSS provider). The provider enforces a
+ * 3-second deadline and degrades to an empty list, so this route always
+ * answers quickly and the client can show a clean "No recent highlights"
+ * fallback.
  */
 export async function GET() {
   const highlights = await getHighlights();
@@ -14,7 +15,7 @@ export async function GET() {
     { highlights },
     {
       headers: {
-        'Cache-Control': highlights.length ? 'public, s-maxage=900' : 'public, s-maxage=60',
+        'Cache-Control': highlights.length ? 'public, s-maxage=900, stale-while-revalidate=3600' : 'public, s-maxage=60',
       },
     }
   );

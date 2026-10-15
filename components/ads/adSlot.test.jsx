@@ -21,6 +21,19 @@ describe('AdSlot', () => {
     expect(html).toContain('height:90px');
   });
 
+  it('pins every slot layer to a transparent, dark-scheme canvas — no white boxes', () => {
+    const html = renderToStaticMarkup(<AdSlot variant="banner" banner={BANNER_728x90} />);
+    // Each wrapper carries the ad-slot hook targeted by the global CSS
+    // (background transparent + dark colour scheme)…
+    expect((html.match(/ad-slot/g) || []).length).toBeGreaterThanOrEqual(2);
+    // …and the dark/transparent treatment is also inline, so it holds even
+    // before the stylesheet paints.
+    expect((html.match(/background-color:transparent/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect((html.match(/color-scheme:dark/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(html).not.toMatch(/background:\s*(white|#fff)/i);
+    expect(html).not.toMatch(/background-color:\s*(white|#fff)/i);
+  });
+
   it('renders two banners on one page without any shared global markup', () => {
     const html = renderToStaticMarkup(
       <div>
@@ -38,6 +51,10 @@ describe('AdSlot', () => {
     expect(html).toContain('data-ad-slot="native-banner"');
     expect(html).not.toContain('<script');
     expect(html).not.toContain('container-44ce743f3b5a54566aace2ec1430ba23');
+    // Native slots get the same transparent dark treatment as banners.
+    expect(html).toContain('ad-slot');
+    expect(html).toContain('background-color:transparent');
+    expect(html).toContain('color-scheme:dark');
   });
 
   it('server-renders the social slot as a hidden hydration hook', () => {
