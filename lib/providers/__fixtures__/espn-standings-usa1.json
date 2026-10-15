@@ -1,0 +1,76 @@
+{
+  "uid": "s:600~l:770",
+  "id": "8675309",
+  "name": "MLS",
+  "abbreviation": "MLS",
+  "children": [
+    {
+      "uid": "s:600~l:770~g:1",
+      "id": "1",
+      "name": "Eastern Conference",
+      "abbreviation": "East",
+      "standings": {
+        "id": "0",
+        "name": "overall",
+        "season": 2026,
+        "seasonType": 1,
+        "seasonDisplayName": "2026 MLS",
+        "entries": [
+          {
+            "team": {
+              "id": "183",
+              "uid": "s:600~t:183",
+              "location": "Columbus Crew",
+              "name": "Columbus Crew",
+              "abbreviation": "CLB",
+              "displayName": "Columbus Crew",
+              "shortDisplayName": "Columbus",
+              "isActive": true,
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/183.png", "width": 500, "height": 500 }],
+              "isNational": false
+            },
+            "stats": [
+              { "name": "gamesPlayed", "value": 29.0, "displayValue": "29" },
+              { "name": "losses", "value": 15.0, "displayValue": "15" },
+              { "name": "pointDifferential", "value": -3.0, "displayValue": "-3" },
+              { "name": "points", "value": 32.0, "displayValue": "32" },
+              { "name": "pointsAgainst", "value": 47.0, "displayValue": "47" },
+              { "name": "pointsFor", "value": 44.0, "displayValue": "44" },
+              { "name": "ties", "value": 5.0, "displayValue": "5" },
+              { "name": "wins", "value": 9.0, "displayValue": "9" },
+              { "name": "rank", "value": 13.0, "displayValue": "13" },
+              { "id": "0", "name": "overall", "type": "total", "summary": "9-5-15", "displayValue": "9-5-15" }
+            ]
+          },
+          {
+            "team": {
+              "id": "182",
+              "uid": "s:600~t:182",
+              "location": "Chicago Fire FC",
+              "name": "Chicago Fire FC",
+              "abbreviation": "CHI",
+              "displayName": "Chicago Fire FC",
+              "shortDisplayName": "Chicago",
+              "isActive": true,
+              "logos": [{ "href": "https://a.espncdn.com/i/teamlogos/soccer/500/182.png", "width": 500, "height": 500 }],
+              "isNational": false
+            },
+            "note": { "color": "#B5E7CE", "description": "Qualifies for MLS Cup Playoffs - Round One Best-of-3 series", "rank": 4 },
+            "stats": [
+              { "name": "gamesPlayed", "value": 29.0, "displayValue": "29" },
+              { "name": "losses", "value": 9.0, "displayValue": "9" },
+              { "name": "pointDifferential", "value": 9.0, "displayValue": "+9" },
+              { "name": "points", "value": 48.0, "displayValue": "48" },
+              { "name": "pointsAgainst", "value": 43.0, "displayValue": "43" },
+              { "name": "pointsFor", "value": 52.0, "displayValue": "52" },
+              { "name": "ties", "value": 6.0, "displayValue": "6" },
+              { "name": "wins", "value": 14.0, "displayValue": "14" },
+              { "name": "rank", "value": 4.0, "displayValue": "4" },
+              { "id": "0", "name": "overall", "type": "total", "summary": "14-6-9", "displayValue": "14-6-9" }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

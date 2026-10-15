@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { BarChart3, MessageSquare, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import PitchVisualization from '@/components/lineups/PitchVisualization';
+import ClubLink from '@/components/clubs/ClubLink';
 
 function normalizeRole(rawPos) {
   const pos = String(rawPos || '').toUpperCase();
@@ -111,11 +112,11 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
                   {homeTeam?.badge && (
                     <img src={homeTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-navy-900 ring-1 ring-zinc-800" />
                   )}
-                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">{homeTeam?.name || 'Home'}</span>
+                  <ClubLink team={homeTeam} className="text-xs font-bold uppercase tracking-wider text-zinc-300 transition-colors hover:text-lime-400">{homeTeam?.name || 'Home'}</ClubLink>
                 </div>
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-600">Comparison</span>
                 <div className="flex items-center gap-2.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">{awayTeam?.name || 'Away'}</span>
+                  <ClubLink team={awayTeam} className="text-xs font-bold uppercase tracking-wider text-zinc-300 transition-colors hover:text-lime-400">{awayTeam?.name || 'Away'}</ClubLink>
                   {awayTeam?.badge && (
                     <img src={awayTeam.badge} alt="" className="h-6 w-6 rounded-full object-contain bg-navy-900 ring-1 ring-zinc-800" />
                   )}

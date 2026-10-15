@@ -312,3 +312,306 @@ export function computeTopScorers(matchesInput: any): TopScorerRow[] {
       ...entry,
     }));
 }
+
+/* ========================================================================== */
+/*  Official league tables & player leaders (ESPN / TheSportsDB)              */
+/* ========================================================================== */
+
+export type StandingsProvider = 'espn' | 'thesportsdb';
+
+export interface StandingsLeague {
+  /** ESPN league slug (also our URL key). */
+  slug: string;
+  name: string;
+  shortName: string;
+  country: string;
+  provider: StandingsProvider;
+  /** TheSportsDB league id, for leagues ESPN does not carry. */
+  sportsDbId?: string;
+  /** Whether a top scorers / assists feed exists for this league. */
+  leaders: boolean;
+}
+
+/** League selector order (most-followed first; Botola Pro for our Moroccan audience). */
+export const STANDINGS_LEAGUES: StandingsLeague[] = [
+  { slug: 'eng.1', name: 'Premier League', shortName: 'Premier League', country: 'England', provider: 'espn', leaders: true },
+  { slug: 'esp.1', name: 'La Liga', shortName: 'La Liga', country: 'Spain', provider: 'espn', leaders: true },
+  { slug: 'ita.1', name: 'Serie A', shortName: 'Serie A', country: 'Italy', provider: 'espn', leaders: true },
+  { slug: 'ger.1', name: 'Bundesliga', shortName: 'Bundesliga', country: 'Germany', provider: 'espn', leaders: true },
+  { slug: 'fra.1', name: 'Ligue 1', shortName: 'Ligue 1', country: 'France', provider: 'espn', leaders: true },
+  { slug: 'uefa.champions', name: 'UEFA Champions League', shortName: 'Champions League', country: 'Europe', provider: 'espn', leaders: true },
+  { slug: 'mar.1', name: 'Botola Pro', shortName: 'Botola Pro', country: 'Morocco', provider: 'thesportsdb', sportsDbId: '4520', leaders: false },
+  { slug: 'uefa.europa', name: 'UEFA Europa League', shortName: 'Europa League', country: 'Europe', provider: 'espn', leaders: true },
+  { slug: 'ned.1', name: 'Eredivisie', shortName: 'Eredivisie', country: 'Netherlands', provider: 'espn', leaders: true },
+  { slug: 'por.1', name: 'Primeira Liga', shortName: 'Primeira Liga', country: 'Portugal', provider: 'espn', leaders: true },
+  { slug: 'ksa.1', name: 'Saudi Pro League', shortName: 'Saudi Pro League', country: 'Saudi Arabia', provider: 'espn', leaders: true },
+  { slug: 'usa.1', name: 'MLS', shortName: 'MLS', country: 'USA', provider: 'espn', leaders: true },
+];
+
+export const DEFAULT_STANDINGS_LEAGUE = 'eng.1';
+
+export function findStandingsLeague(slug?: string | null): StandingsLeague | null {
+  if (!slug) return null;
+  const key = String(slug).trim().toLowerCase();
+  return STANDINGS_LEAGUES.find((league) => league.slug === key) ?? null;
+}
+
+export interface StandingTeam {
+  /** ESPN team id (absent for TheSportsDB rows). */
+  id?: string;
+  name: string;
+  shortName?: string;
+  abbreviation?: string;
+  logo?: string;
+}
+
+export interface StandingZone {
+  color: string;
+  label: string;
+}
+
+export interface StandingRow {
+  position: number;
+  team: StandingTeam;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+  /** Recent form, oldest → newest, e.g. "WDLWW" (when the source provides it). */
+  form?: string;
+  zone?: StandingZone | null;
+}
+
+export interface StandingsGroup {
+  name: string | null;
+  rows: StandingRow[];
+}
+
+export interface LeaderRow {
+  rank: number;
+  player: { id?: string; name: string; shortName?: string; jersey?: string };
+  team: StandingTeam;
+  /** Goals for the scorers list, assists for the assists list. */
+  value: number;
+  appearances?: number;
+  goals?: number;
+  assists?: number;
+}
+
+function num(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function optionalNum(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function statByName(stats: any[] | undefined, ...names: string[]): number | undefined {
+  if (!Array.isArray(stats)) return undefined;
+  for (const name of names) {
+    const stat = stats.find((s) => s?.name === name);
+    if (stat) return optionalNum(stat.value ?? stat.displayValue);
+  }
+  return undefined;
+}
+
+function espnTeam(team: any): StandingTeam | null {
+  if (!team) return null;
+  const name = team.displayName || team.name || team.shortDisplayName;
+  if (!name) return null;
+  const logo = team.logos?.find?.((l: any) => Array.isArray(l?.rel) && l.rel.includes('default'))?.href || team.logos?.[0]?.href || team.logo;
+  return {
+    ...(team.id !== undefined && /^\d+$/.test(String(team.id)) ? { id: String(team.id) } : {}),
+    name,
+    ...(team.shortDisplayName ? { shortName: team.shortDisplayName } : {}),
+    ...(team.abbreviation ? { abbreviation: team.abbreviation } : {}),
+    ...(logo ? { logo } : {}),
+  };
+}
+
+/** Points ↓, goal difference ↓, goals for ↓, then name — used when no rank is published. */
+function compareRows(a: StandingRow, b: StandingRow): number {
+  return b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor || a.team.name.localeCompare(b.team.name);
+}
+
+/**
+ * ESPN `/apis/v2/sports/soccer/{league}/standings` → groups of rows.
+ * Entries are NOT guaranteed to be in table order (e.g. MLS conferences), so
+ * rows are sorted by ESPN's published `rank` stat, falling back to points.
+ */
+export function normalizeEspnStandings(json: any): { season: string | null; groups: StandingsGroup[] } {
+  const containers: any[] = Array.isArray(json?.children) && json.children.length ? json.children : json?.standings ? [json] : [];
+  let season: string | null = null;
+  const groups: StandingsGroup[] = [];
+
+  for (const container of containers) {
+    const standings = container?.standings;
+    const entries: any[] = Array.isArray(standings?.entries) ? standings.entries : [];
+    if (!season && typeof standings?.seasonDisplayName === 'string') {
+      season = standings.seasonDisplayName.match(/^\d{4}(?:[-/]\d{2,4})?/)?.[0] ?? null;
+    }
+
+    const rows: Array<StandingRow & { rank?: number }> = [];
+    for (const entry of entries) {
+      const team = espnTeam(entry?.team);
+      if (!team) continue;
+      const stats = entry?.stats;
+      const goalsFor = num(statByName(stats, 'pointsFor'));
+      const goalsAgainst = num(statByName(stats, 'pointsAgainst'));
+      const zone =
+        entry?.note?.description && entry?.note?.color
+          ? { color: String(entry.note.color), label: String(entry.note.description) }
+          : null;
+      rows.push({
+        position: 0,
+        rank: statByName(stats, 'rank'),
+        team,
+        played: num(statByName(stats, 'gamesPlayed')),
+        won: num(statByName(stats, 'wins')),
+        drawn: num(statByName(stats, 'ties')),
+        lost: num(statByName(stats, 'losses')),
+        goalsFor,
+        goalsAgainst,
+        goalDifference: statByName(stats, 'pointDifferential') ?? goalsFor - goalsAgainst,
+        points: num(statByName(stats, 'points')),
+        zone,
+      });
+    }
+
+    const allRanked = rows.length > 0 && rows.every((row) => typeof row.rank === 'number' && row.rank > 0);
+    rows.sort((a, b) => (allRanked ? (a.rank as number) - (b.rank as number) || compareRows(a, b) : compareRows(a, b)));
+    const finalRows: StandingRow[] = rows.map(({ rank, ...row }, index) => ({
+      ...row,
+      position: allRanked ? (rank as number) : index + 1,
+    }));
+
+    if (finalRows.length) {
+      const groupName = containers.length > 1 ? container?.name || container?.abbreviation || null : null;
+      groups.push({ name: groupName, rows: finalRows });
+    }
+  }
+
+  return { season, groups };
+}
+
+function parseShortLeaderLine(text: unknown): { appearances?: number; goals?: number; assists?: number } {
+  // ESPN: "M: 6, G: 3: A: 4"
+  const value = String(text ?? '');
+  const pick = (label: string) => optionalNum(new RegExp(`${label}:\\s*(\\d+)`).exec(value)?.[1]);
+  return { appearances: pick('M'), goals: pick('G'), assists: pick('A') };
+}
+
+/**
+ * ESPN `/apis/site/v2/sports/soccer/{league}/statistics` → ranked leaders.
+ * Ties share a rank (1, 2, 2, 4 …).
+ */
+export function normalizeEspnLeaders(json: any, category: 'goals' | 'assists', limit = 25): LeaderRow[] {
+  const stats: any[] = Array.isArray(json?.stats) ? json.stats : [];
+  const wanted = category === 'goals' ? 'goalsLeaders' : 'assistsLeaders';
+  const block =
+    stats.find((s) => s?.name === wanted) ??
+    stats.find((s) =>
+      category === 'assists'
+        ? /assist/i.test(String(s?.name ?? s?.displayName ?? ''))
+        : /goal/i.test(String(s?.name ?? s?.displayName ?? '')) && !/assist|against/i.test(String(s?.name ?? ''))
+    );
+  const leaders: any[] = Array.isArray(block?.leaders) ? block.leaders : [];
+
+  const rows: LeaderRow[] = [];
+  for (const leader of leaders) {
+    const athlete = leader?.athlete;
+    const name = athlete?.displayName || athlete?.fullName || athlete?.shortName;
+    if (!name) continue;
+    const value = optionalNum(leader?.value ?? leader?.displayValue);
+    if (value === undefined) continue;
+    const team = espnTeam(athlete?.team ?? leader?.team) ?? { name: '' };
+    const fromLine = parseShortLeaderLine(leader?.shortDisplayValue);
+    const appearances = statByName(athlete?.statistics, 'appearances') ?? fromLine.appearances;
+    const goals = statByName(athlete?.statistics, 'totalGoals') ?? fromLine.goals;
+    const assists = statByName(athlete?.statistics, 'goalAssists') ?? fromLine.assists;
+    rows.push({
+      rank: 0,
+      player: {
+        ...(athlete?.id !== undefined ? { id: String(athlete.id) } : {}),
+        name,
+        ...(athlete?.shortName ? { shortName: athlete.shortName } : {}),
+        ...(athlete?.jersey ? { jersey: String(athlete.jersey) } : {}),
+      },
+      team,
+      value,
+      ...(appearances !== undefined ? { appearances } : {}),
+      ...(goals !== undefined ? { goals } : {}),
+      ...(assists !== undefined ? { assists } : {}),
+    });
+  }
+
+  rows.sort((a, b) => b.value - a.value);
+  rows.forEach((row, index) => {
+    row.rank = index > 0 && rows[index - 1].value === row.value ? rows[index - 1].rank : index + 1;
+  });
+  return rows.slice(0, limit);
+}
+
+function sportsDbZoneColor(label: string): string {
+  const text = label.toLowerCase();
+  if (text.includes('relegation')) return '#ef4444';
+  if (text.includes('champions league')) return '#22c55e';
+  if (text.includes('confederation') || text.includes('europa') || text.includes('conference')) return '#38bdf8';
+  if (text.includes('play')) return '#f59e0b';
+  return '#a1a1aa';
+}
+
+/** TheSportsDB `lookuptable.php` → one group (badges upgraded from /tiny to /small). */
+export function normalizeSportsDbTable(json: any): StandingsGroup[] {
+  const table: any[] = Array.isArray(json?.table) ? json.table : [];
+  const rows: StandingRow[] = [];
+  for (const entry of table) {
+    const name = String(entry?.strTeam ?? '').trim();
+    if (!name) continue;
+    const goalsFor = num(entry.intGoalsFor);
+    const goalsAgainst = num(entry.intGoalsAgainst);
+    const label = String(entry.strDescription ?? '').trim();
+    const logo = typeof entry.strBadge === 'string' && entry.strBadge ? entry.strBadge.replace(/\/tiny$/, '/small') : undefined;
+    const form = typeof entry.strForm === 'string' && /^[WDL]+$/i.test(entry.strForm) ? entry.strForm.toUpperCase() : undefined;
+    rows.push({
+      position: num(entry.intRank) || rows.length + 1,
+      team: { name, ...(logo ? { logo } : {}) },
+      played: num(entry.intPlayed),
+      won: num(entry.intWin),
+      drawn: num(entry.intDraw),
+      lost: num(entry.intLoss),
+      goalsFor,
+      goalsAgainst,
+      goalDifference: optionalNum(entry.intGoalDifference) ?? goalsFor - goalsAgainst,
+      points: num(entry.intPoints),
+      ...(form ? { form } : {}),
+      zone: label ? { color: sportsDbZoneColor(label), label } : null,
+    });
+  }
+  rows.sort((a, b) => a.position - b.position);
+  return rows.length ? [{ name: null, rows }] : [];
+}
+
+/** Distinct qualification / relegation zones across groups, for the table legend. */
+export function standingsLegend(groups: StandingsGroup[]): StandingZone[] {
+  const seen = new Map<string, StandingZone>();
+  for (const group of groups) {
+    for (const row of group.rows) {
+      if (row.zone && !seen.has(row.zone.label)) seen.set(row.zone.label, row.zone);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+/** European-style football season label for a date, e.g. "2026-2027" from Aug 2026. */
+export function seasonLabelFor(date: Date = new Date()): string {
+  const year = date.getUTCFullYear();
+  return date.getUTCMonth() >= 6 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+}

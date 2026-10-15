@@ -1,4 +1,6 @@
 export interface Team {
+  /** Upstream (ESPN) team id when known — used for /club/{id} links. */
+  id?: string;
   name: string;
   badge: string;
 }

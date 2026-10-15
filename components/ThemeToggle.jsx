@@ -38,14 +38,15 @@ export default function ThemeToggle() {
   };
 
   if (!mounted) {
-    return <div className="h-8 w-8 rounded-lg border border-navy-750 bg-navy-900/60 animate-pulse" aria-hidden="true" />;
+    return <div className="h-9 w-9 rounded-xl border border-navy-750 bg-navy-900/60 animate-pulse" aria-hidden="true" />;
   }
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      className="group flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-navy-200 bg-white text-lime-700 shadow-sm transition-all hover:scale-110 hover:border-lime-500/50 hover:bg-lime-500/10 active:scale-95 dark:border-navy-750 dark:bg-navy-900 dark:text-lime-500"
+      data-sound="toggle"
+      className="tactile group flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-navy-750 bg-navy-900 text-lime-500 shadow-sm hover:border-lime-500/50 hover:bg-lime-500/10"
       title={theme === 'dark' ? 'Activate Light Mode' : 'Activate Dark Mode'}
       aria-label={theme === 'dark' ? 'Activate Light Mode' : 'Activate Dark Mode'}
     >

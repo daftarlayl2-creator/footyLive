@@ -4,24 +4,32 @@
  * Supabase entry point for client components.
  *
  * `import { useSupabase } from '@/lib/supabase'` gives a component the shared
- * client plus a flag telling it whether real credentials are configured. Without
- * credentials the mock client from `./client` is returned, so chat/prediction UI
- * still renders (and simply skips writes) during development.
+ * client plus the backend it talks to. Without credentials the client is backed
+ * by the browser-local store (localStorage + cross-tab realtime), so chat and
+ * predictions are fully interactive instead of silently dropping writes.
  */
 
 import { useMemo } from 'react';
-import { initSupabase, isMockMode as getIsMockMode, type SupabaseClient } from './client';
+import {
+  initSupabase,
+  getSupabaseMode,
+  isMockMode as getIsMockMode,
+  type SupabaseClient,
+  type SupabaseMode,
+} from './client';
 
 export type UseSupabaseResult = {
-  /** Always non-null: a mock client stands in when no credentials are set. */
+  /** Always non-null: the local store stands in when no credentials are set. */
   supabase: SupabaseClient;
-  /** True when the mock client is in use, i.e. writes should be skipped. */
+  /** `remote` = shared Supabase project, `local` = this browser only. */
+  mode: SupabaseMode;
+  /** True when no Supabase project is configured (data stays in this browser). */
   isMockMode: boolean;
 };
 
 export function useSupabase(): UseSupabaseResult {
   return useMemo(
-    () => ({ supabase: initSupabase(), isMockMode: getIsMockMode() }),
+    () => ({ supabase: initSupabase(), mode: getSupabaseMode(), isMockMode: getIsMockMode() }),
     []
   );
 }

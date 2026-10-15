@@ -40,7 +40,7 @@ const BROWSER_UA =
 /*  Small helpers                                                             */
 /* -------------------------------------------------------------------------- */
 
-async function espnFetch<T = any>(url: string, revalidate = SCOREBOARD_REVALIDATE_S): Promise<T> {
+export async function espnFetch<T = any>(url: string, revalidate = SCOREBOARD_REVALIDATE_S): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -163,6 +163,23 @@ export function tournamentFromSeasonSlug(seasonSlug?: string, fallback = 'Footba
   return titleCase(cleaned);
 }
 
+/**
+ * ESPN schedule events only carry `season.displayName`
+ * (`2026-27 English Premier League`); strip the season and apply the same
+ * aliases as `tournamentFromSeasonSlug`, preserving upstream casing (`MLS`).
+ */
+export function competitionFromSeasonName(displayName?: string, fallback = ''): string {
+  if (!displayName || typeof displayName !== 'string') return fallback;
+  const stripped = displayName.replace(/^\s*\d{4}(?:[-/]\d{2,4})?\s+/, '').trim();
+  if (!stripped) return fallback;
+  const lower = stripped.toLowerCase();
+  if (LEAGUE_NAME_OVERRIDES[lower]) return LEAGUE_NAME_OVERRIDES[lower];
+  for (const [key, name] of Object.entries(LEAGUE_NAME_OVERRIDES)) {
+    if (lower.endsWith(key)) return name;
+  }
+  return stripped;
+}
+
 /** Best-effort league slug for summary requests (null when unknowable). */
 export function leagueSlugFromSeasonSlug(seasonSlug?: string): string | null {
   if (!seasonSlug || typeof seasonSlug !== 'string') return null;
@@ -187,7 +204,11 @@ function findCompetitor(competition: any, side: 'home' | 'away'): any {
 function teamFromCompetitor(competitor: any, fallbackName: string): Team {
   const team = competitor?.team || {};
   const badge = team.logo || team.logos?.[0]?.href || '';
+  const rawId = team.id ?? competitor?.id;
+  const id = rawId !== undefined && /^\d+$/.test(String(rawId)) ? String(rawId) : undefined;
   return {
+    // ESPN team id powers the /club/{id} links; omitted when upstream has none.
+    ...(id ? { id } : {}),
     name: team.displayName || team.name || team.shortDisplayName || fallbackName,
     badge,
   };

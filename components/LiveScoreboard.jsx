@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import LiveMinute from './LiveMinute';
+import ClubLink from '@/components/clubs/ClubLink';
 
 // The scoreboard shares the same burgundy/lime identity as the rest of EVIV.
 const THEME = {
@@ -62,7 +63,7 @@ export default function LiveScoreboard({ matchId, initial }) {
   const awayScorers = data.scorers?.away || [];
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border bg-navy-900 px-6 py-6 shadow-2xl transition-all duration-500 ${t.border} ${t.shadow}`}>
+    <div className={`relative overflow-hidden rounded-3xl border bg-navy-900 px-6 py-6 shadow-2xl transition-all duration-500 ${t.border} ${t.shadow}`}>
       {/* Dynamic glow backgrounds */}
       <div className={`absolute top-0 left-1/4 w-[250px] h-[250px] pointer-events-none filter blur-3xl transition-all duration-500 ${t.glow1}`} />
       <div className={`absolute bottom-0 right-1/4 w-[250px] h-[250px] pointer-events-none filter blur-3xl transition-all duration-500 ${t.glow2}`} />
@@ -83,18 +84,23 @@ export default function LiveScoreboard({ matchId, initial }) {
         {/* Home Team */}
         <div className="flex flex-col items-center gap-3 min-w-0 flex-1 md:items-end">
           <div className="flex flex-col items-center md:items-end gap-2.5">
-            {data.homeBadge ? (
-              <img
-                src={data.homeBadge}
-                alt=""
-                className={`h-16 w-16 rounded-full object-contain bg-navy-900 p-1.5 ring-2 shadow-lg transition-all duration-500 ${t.ring}`}
-              />
-            ) : (
-              <div className={`h-16 w-16 rounded-full bg-navy-900 border flex items-center justify-center text-zinc-650 text-xl font-bold transition-all duration-500 ${t.border}`}>
-                {data.homeName?.substring(0, 2).toUpperCase()}
-              </div>
-            )}
-            <span className="text-base font-extrabold text-white text-center md:text-right truncate max-w-[200px]">{data.homeName}</span>
+            <ClubLink
+              team={{ id: data.homeId, name: data.homeName }}
+              className="tactile group/club flex flex-col items-center gap-2.5 rounded-2xl md:items-end"
+            >
+              {data.homeBadge ? (
+                <img
+                  src={data.homeBadge}
+                  alt=""
+                  className={`h-16 w-16 rounded-full object-contain bg-navy-900 p-1.5 ring-2 shadow-lg transition-all duration-500 group-hover/club:scale-105 ${t.ring}`}
+                />
+              ) : (
+                <div className={`h-16 w-16 rounded-full bg-navy-900 border flex items-center justify-center text-zinc-650 text-xl font-bold transition-all duration-500 ${t.border}`}>
+                  {data.homeName?.substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              <span className="text-base font-extrabold text-white text-center md:text-right truncate max-w-[200px] transition-colors group-hover/club:text-lime-400">{data.homeName}</span>
+            </ClubLink>
             <span className="flex items-center gap-1.5">
               <CardChips cards={data.cards?.home} />
             </span>
@@ -124,18 +130,23 @@ export default function LiveScoreboard({ matchId, initial }) {
         {/* Away Team */}
         <div className="flex flex-col items-center gap-3 min-w-0 flex-1 md:items-start">
           <div className="flex flex-col items-center md:items-start gap-2.5">
-            {data.awayBadge ? (
-              <img
-                src={data.awayBadge}
-                alt=""
-                className={`h-16 w-16 rounded-full object-contain bg-navy-900 p-1.5 ring-2 shadow-lg transition-all duration-500 ${t.ring}`}
-              />
-            ) : (
-              <div className={`h-16 w-16 rounded-full bg-navy-900 border flex items-center justify-center text-zinc-650 text-xl font-bold transition-all duration-500 ${t.border}`}>
-                {data.awayName?.substring(0, 2).toUpperCase()}
-              </div>
-            )}
-            <span className="text-base font-extrabold text-white text-center md:text-left truncate max-w-[200px]">{data.awayName}</span>
+            <ClubLink
+              team={{ id: data.awayId, name: data.awayName }}
+              className="tactile group/club flex flex-col items-center gap-2.5 rounded-2xl md:items-start"
+            >
+              {data.awayBadge ? (
+                <img
+                  src={data.awayBadge}
+                  alt=""
+                  className={`h-16 w-16 rounded-full object-contain bg-navy-900 p-1.5 ring-2 shadow-lg transition-all duration-500 group-hover/club:scale-105 ${t.ring}`}
+                />
+              ) : (
+                <div className={`h-16 w-16 rounded-full bg-navy-900 border flex items-center justify-center text-zinc-650 text-xl font-bold transition-all duration-500 ${t.border}`}>
+                  {data.awayName?.substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              <span className="text-base font-extrabold text-white text-center md:text-left truncate max-w-[200px] transition-colors group-hover/club:text-lime-400">{data.awayName}</span>
+            </ClubLink>
             <span className="flex items-center gap-1.5">
               <CardChips cards={data.cards?.away} />
             </span>
