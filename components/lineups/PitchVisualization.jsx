@@ -8,6 +8,10 @@ import { useState } from 'react';
  * Supported formations: 4-3-3, 4-4-2, 3-5-2, 5-3-2, etc.
  * Players are positioned according to their role (GK, DEF, MID, FWD).
  */
+
+const LINE_COLOUR = '#d69cae'; // navy-300
+const LINE_SHADOW = '#280713'; // navy-900
+
 export default function PitchVisualization({ formation = '4-3-3', players }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
@@ -41,48 +45,61 @@ export default function PitchVisualization({ formation = '4-3-3', players }) {
 
   const formationPos = positions[formation] || positions['4-3-3'];
 
+  // Slot each shirt into its row: GK takes the keeper spot, DEF/MID/FWD fill
+  // their row in order. Unknown roles are skipped rather than drawn off-pitch.
+  const rowFor = { DEF: 'defenders', MID: 'mids', FWD: 'forwards' };
+  const used = { DEF: 0, MID: 0, FWD: 0 };
+  const placed = (players || [])
+    .map((player) => {
+      const role = String(player?.role || '').toUpperCase();
+      if (role === 'GK') return { player, pos: formationPos.gk };
+      const row = formationPos[rowFor[role]];
+      if (!row || !row.length) return { player, pos: null };
+      const pos = row[used[role] % row.length];
+      used[role] += 1;
+      return { player, pos };
+    })
+    .filter((entry) => entry.pos);
+
   return (
     <div className="pitch-container rounded-2xl border border-navy-700 bg-navy-950/90 p-4 backdrop-blur-md">
-      <svg className="w-full h-64 viewBox="0 0 100 100" preserveAspectRatio="xMidYMid">
-        <!-- Pitch background gradient -->
+      <svg className="w-full h-64" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        {/* Pitch background gradient */}
         <defs>
           <linearGradient id="pitchGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#0d0d0d" />
+            <stop offset="0" stopColor="#280713" />
             <stop offset="1" stopColor="#18030a" />
           </linearGradient>
         </defs>
-        
-        <!-- Pitch background -->
+
+        {/* Pitch background */}
         <rect width="100" height="100" fill="url(#pitchGradient)" />
-        
-        <!-- Goal areas -->
-        <rect x="5" y="10" width="90" height="20" fill="none" stroke="navy-300" strokeWidth="1" />
-        <rect x="5" y="80" width="90" height="20" fill="none" stroke="navy-300" strokeWidth="1" />
-        
-        <!-- Center circle -->
-        <circle cx="50" cy="50" r="8" fill="none" stroke="navy-300" strokeWidth="1" />
-        
-        <!-- Center line -->
-        <line x1="50" y1="10" x2="50" y2="90" stroke="navy-300" strokeWidth="1" />
-        
-        <!-- Player positions -->
-        {players && players.map((player, idx) => {
-          const pos = formationPos[player.role];
-          if (!pos) return null;
-          
+
+        {/* Goal areas */}
+        <rect x="5" y="10" width="90" height="20" fill="none" stroke={LINE_COLOUR} strokeWidth="1" />
+        <rect x="5" y="80" width="90" height="20" fill="none" stroke={LINE_COLOUR} strokeWidth="1" />
+
+        {/* Center circle */}
+        <circle cx="50" cy="50" r="8" fill="none" stroke={LINE_COLOUR} strokeWidth="1" />
+
+        {/* Center line */}
+        <line x1="50" y1="10" x2="50" y2="90" stroke={LINE_COLOUR} strokeWidth="1" />
+
+        {/* Player positions */}
+        {placed.map(({ player, pos }, idx) => {
           const color = player.role === 'GK' ? '#C6FF00' : '#E4FF66';
-          
+
           return (
-            <g key={idx}>
+            <g key={player.name || idx}>
               <circle
                 cx={pos.x}
                 cy={pos.y}
                 r="3"
                 fill={color}
-                stroke="navy-900"
+                stroke={LINE_SHADOW}
                 strokeWidth="0.5"
                 onClick={() => setSelectedPlayer(player)}
-                className="transition-all duration-200 hover:scale-125"
+                className="transition-all duration-200 hover:scale-125 cursor-pointer"
               />
               <text
                 x={pos.x}

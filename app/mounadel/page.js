@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 /**
  * Custom Admin Dashboard - /mounadel
@@ -15,6 +18,7 @@ const ADMIN_PASSWORD = 'Riihabtii95@';
 
 // Check if user is authenticated from session
 function useAuth() {
+  const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
   const [error, setError] = useState('');
@@ -29,6 +33,8 @@ function useAuth() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoggingIn(true);
+    setError('');
     const formData = new FormData(e.target);
     const username = formData.get('username');
     const password = formData.get('password');
@@ -39,82 +45,73 @@ function useAuth() {
     } else {
       setError('Invalid username or password');
     }
+    setLoggingIn(false);
   };
 
   const handleLogout = () => {
     setAuthenticated(false);
     localStorage.removeItem('eviv_admin_auth');
+    // Client-side navigation: a hard window.location reload would drop SPA state.
+    router.push('/');
   };
 
   return { authenticated, loggingIn, error, handleLogin, handleLogout };
 }
 
-/** Page: Login screen */
-function LoginPage({ onAuthChecked }) {
-  const { authenticated, loggingIn, error, handleLogin } = useAuth();
-
-  useEffect(() => {
-    // Simulate auth check delay
-    const timer = setTimeout(() => {
-      onAuthChecked();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [onAuthChecked]);
-
-  if (!authenticated && !loggingIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="rounded-2xl border border-navy-700 bg-navy-950/90 p-8 backdrop-blur-md shadow-2xl max-w-md w-full">
-          <h2 className="text-2xl font-extrabold text-navy-800 mb-4">EVIV Live Admin</h2>
-          {error && <p className="text-lime-500 mb-4">{error}</p>}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">
-                Username
-              </label>
-              <input
-                type="text"
-                name="username"
-                defaultValue="mounadel"
-                className="w-full rounded-lg bg-navy-900 border border-navy-700 px-3 py-2 text-zinc-300 focus:outline-none focus:ring-lime-500/30"
-                readOnly
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                defaultValue="Riihabtii95@"
-                className="w-full rounded-lg bg-navy-900 border border-navy-700 px-3 py-2 text-zinc-300 focus:outline-none focus:ring-lime-500/30"
-                readOnly
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-lime-500 px-4 py-2 text-[10px] font-bold text-navy-900 hover:bg-lime-400 transition-colors"
-            >
-              Sign In
-            </button>
-          </form>
-        </div>
+/** Page: Login screen. Auth state lives in the page so a successful login swaps in the dashboard. */
+function LoginPage({ loggingIn, error, handleLogin }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="rounded-2xl border border-navy-700 bg-navy-950/90 p-8 backdrop-blur-md shadow-2xl max-w-md w-full">
+        <h2 className="text-2xl font-extrabold text-navy-800 mb-4">EVIV Live Admin</h2>
+        {error && <p className="text-lime-500 mb-4">{error}</p>}
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-1">
+              Username
+            </label>
+            <input
+              type="text"
+              name="username"
+              defaultValue="mounadel"
+              className="w-full rounded-lg bg-navy-900 border border-navy-700 px-3 py-2 text-zinc-300 focus:outline-none focus:ring-lime-500/30"
+              readOnly
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              defaultValue="Riihabtii95@"
+              className="w-full rounded-lg bg-navy-900 border border-navy-700 px-3 py-2 text-zinc-300 focus:outline-none focus:ring-lime-500/30"
+              readOnly
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loggingIn}
+            className="w-full rounded-lg bg-lime-500 px-4 py-2 text-[10px] font-bold text-navy-900 hover:bg-lime-400 transition-colors disabled:opacity-60"
+          >
+            {loggingIn ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
       </div>
-    );
-  }
-
-  return null; // Auth checked, render protected content
+    </div>
+  );
 }
 
 /** Page: Admin dashboard (protected) */
-function DashboardPage() {
+function DashboardPage({ onLogout }) {
   // Forms state
   const [newStream, setNewStream] = useState({ title: '', kickoff: '', m3u8: '' });
   const [channels, setChannels] = useState([]);
 
   // Add custom M3U stream
-  const addStream = async () => {
+  const addStream = async (e) => {
+    e.preventDefault();
     // In production, would save to Supabase
     setNewStream({ title: '', kickoff: '', m3u8: '' });
     // Refresh the list
@@ -128,6 +125,10 @@ function DashboardPage() {
       { id: '1', name: 'Test Channel', logo: '', m3u_url: '', is_active: true },
     ]);
   };
+
+  useEffect(() => {
+    loadChannels();
+  }, []);
 
   // Add/edit channel
   const toggleChannel = (channel) => {
@@ -150,12 +151,8 @@ function DashboardPage() {
           EVIV Live Admin Panel
         </h1>
         <button
-          onClick={() => {
-            // Logout
-            localStorage.removeItem('eviv_admin_auth');
-            window.location.href = '/';
-          }}
-          className="text-zinc-400 hover:text-lime-400 transition-colors"
+          onClick={onLogout}
+          className="cursor-pointer text-zinc-400 transition-colors hover:text-lime-400"
         >
           Logout
         </button>
@@ -249,7 +246,11 @@ function DashboardPage() {
                     <td className="p-2 truncated overflow-hidden whitespace-nowrap text-[10px] text-zinc-400">{channel.m3u_url}</td>
                     <td className="p-2">
                       <span
-                        className={`rounded bg-${channel.is_active ? 'lime-500/20' : 'navy-700/50'} text-${channel.is_active ? 'lime-400' : 'zinc-400'} text-xs font-bold ${channel.is_active ? 'border-lime-400' : 'border-navy-700/30'} px-2 py-1 ${!channel.is_active ? 'italic' : ''}`}
+                        className={`rounded text-xs font-bold px-2 py-1 ${
+                          channel.is_active
+                            ? 'bg-lime-500/20 text-lime-400 border-lime-400'
+                            : 'bg-navy-700/50 text-zinc-400 border-navy-700/30 italic'
+                        }`}
                       >
                         {channel.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -260,11 +261,11 @@ function DashboardPage() {
                         className={`p-1 rounded-md transition-colors ${channel.is_active ? 'text-lime-400 hover:bg-lime-500/20' : 'text-navy-400 hover:bg-navy-900/50'}`}
                         title={channel.is_active ? 'Deactivate' : 'Activate'}
                       >
-                        {channel.is_active ? 🔴 : 🟢}
+                        {channel.is_active ? '🔴' : '🟢'}
                       </button>
                       <button
                         onClick={() => deleteChannel(channel.id)}
-                        className="ml-2 text-red-400 text-xs hover:red-500 transition-colors"
+                        className="ml-2 text-red-400 text-xs hover:text-red-500 transition-colors"
                         title="Delete"
                       >
                         🗑
@@ -281,20 +282,15 @@ function DashboardPage() {
   );
 }
 
-export default function MounadelPage({ searchParams }) {
+export default function MounadelPage() {
   const { authenticated, loggingIn, error, handleLogin, handleLogout } = useAuth();
-  
-  // Check auth status on mount
-  useEffect(() => {
-    // Already checked in useAuth effect
-  }, []);
 
   return (
     <div>
       {authenticated ? (
-        <DashboardPage />
+        <DashboardPage onLogout={handleLogout} />
       ) : (
-        <LoginPage onAuthChecked={() => {}} />
+        <LoginPage loggingIn={loggingIn} error={error} handleLogin={handleLogin} />
       )}
     </div>
   );

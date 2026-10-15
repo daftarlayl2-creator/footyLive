@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useSupabase } from '@/lib/supabase';
-import { Plus, Minus, Heart, Flame, RedCard, Clapping, Check } from 'lucide-react';
 
 /** 
  * Match Chat Panel - persistent real-time chat via Supabase.
@@ -17,6 +16,27 @@ export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAva
   const [reactionAnimations, setReactionAnimations] = useState([]);
 
   const { supabase, isMockMode } = useSupabase();
+
+  // Trigger reaction animation (declared before the effect that subscribes to realtime inserts)
+  function triggerReactionAnimation(type) {
+    setReactionAnimations((prev) => {
+      const newAnim = getReactionAnimation(type);
+      return [...prev.filter((a) => a.id !== newAnim.id), newAnim];
+    });
+  }
+
+  // Generate reaction animation based on emoji type
+  function getReactionAnimation(type) {
+    const animations = {
+      '⚽': { id: 'ball', color: '#C6FF00', icon: '⚽' },
+      '🔥': { id: 'fire', color: '#ff6b6b', icon: '🔥' },
+      '😱': { id: 'shock', color: '#ff6b6b', icon: '😱' },
+      '🟥': { id: 'red', color: '#ff4757', icon: '🟥' },
+      '👏': { id: 'clap', color: '#4ecdc4', icon: '👏' },
+    };
+
+    return animations[type] || { id: 'generic', color: '#C6FF00', icon: '⚽' };
+  }
 
   // Load existing messages from Supabase on mount
   useEffect(() => {
@@ -53,11 +73,12 @@ export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAva
           filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
-          const newMessage = payload.new as any;
+          const newMessage = payload.new;
           setMessages((prev) => {
             // Avoid duplicates
             if (prev.some((m) => m.id === newMessage.id)) return prev;
-            return [newMessage, ...prev].slice(0, 100); // Keep last 100
+            // Initial load is ordered oldest-first, so append to keep one order.
+            return [...prev, newMessage].slice(-100); // Keep last 100
           });
           // Trigger reaction animation
           triggerReactionAnimation('message');
@@ -89,27 +110,6 @@ export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAva
     } catch (err) {
       console.error('Failed to send message:', err);
     }
-  };
-
-  // Trigger reaction animation
-  const triggerReactionAnimation = (type) => {
-    setReactionAnimations((prev) => {
-      const newAnim = getReactionAnimation(type);
-      return [...prev.filter((a) => a.id !== newAnim.id), newAnim];
-    });
-  };
-
-  // Generate reaction animation based on emoji type
-  const getReactionAnimation = (type) => {
-    const animations = {
-      ⚽: { id: 'ball', color: '#C6FF00', icon: '⚽' },
-      🔥: { id: 'fire', color: '#ff6b6b', icon: '🔥' },
-      😱: { id: 'shock', color: '#ff6b6b', icon: '😱' },
-      🟥: { id: 'red', color: '#ff4757', icon: '🟥' },
-      👏: { id: 'clap', color: '#4ecdc4', icon: '👏' },
-    };
-
-    return animations[type] || { id: 'generic', color: '#C6FF00', icon: '⚽' };
   };
 
   // Handle emoji reaction
@@ -193,7 +193,7 @@ export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAva
         <button
           onClick={() => handleReaction('⚽')}
           className={`p-1.5 rounded-md hover:bg-lime-500/20 transition-colors cursor-pointer${
-            reactionAnimations.some((a) => a.type === 'ball') ? 'border-lime-500' : ''
+            reactionAnimations.some((a) => a.id === 'ball') ? 'border-lime-500' : ''
           }`}
           title="Celebrate goal"
         >
@@ -202,7 +202,7 @@ export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAva
         <button
           onClick={() => handleReaction('🔥')}
           className={`p-1.5 rounded-md hover:bg-lime-500/20 transition-colors cursor-pointer${
-            reactionAnimations.some((a) => a.type === 'fire') ? 'border-lime-500' : ''
+            reactionAnimations.some((a) => a.id === 'fire') ? 'border-lime-500' : ''
           }`}
           title="Highlight moment"
         >
@@ -211,7 +211,7 @@ export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAva
         <button
           onClick={() => handleReaction('🟥')}
           className={`p-1.5 rounded-md hover:bg-lime-500/20 transition-colors cursor-pointer${
-            reactionAnimations.some((a) => a.type === 'red') ? 'border-lime-500' : ''
+            reactionAnimations.some((a) => a.id === 'red') ? 'border-lime-500' : ''
           }`}
           title="Red card"
         >
@@ -220,7 +220,7 @@ export default function MatchChatPanel({ matchId, userName = 'EVIVUser', userAva
         <button
           onClick={() => handleReaction('👏')}
           className={`p-1.5 rounded-md hover:bg-lime-500/20 transition-colors cursor-pointer${
-            reactionAnimations.some((a) => a.type === 'clap') ? 'border-lime-500' : ''
+            reactionAnimations.some((a) => a.id === 'clap') ? 'border-lime-500' : ''
           }`}
           title="Great play"
         >

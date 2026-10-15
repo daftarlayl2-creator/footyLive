@@ -35,7 +35,8 @@
 | **hls.js** | 1.7 | Client-side HLS playback (code-split) |
 | **Lucide React** | 1.16.0 | Icon library |
 | **Upstash Redis** | 1.38.0 | Optional distributed caching |
-| **Vitest** | 4.1.7 | Unit + server-render component tests |
+| **Vitest** | 5.0.4 | Unit + server-render component tests |
+| **SWR** | 2.5.1 | Client-side data fetching on `/standings` |
 
 ---
 
@@ -162,11 +163,17 @@ npm run start
 ```
 Cloudflare Workers build: `npm run build:cloudflare`.
 
+Linting runs the ESLint CLI against `eslint.config.mjs` (`next lint` was removed in Next.js 16):
+```bash
+npm run lint
+```
+
 ### 5. Running Tests
 ```bash
 npm run test
 ```
-The suite covers the ESPN normalisers (live/upcoming/finished, minutes, cards, scorers, stats),
+The suite runs on Vitest 5 (Vitest 4.1 crashes npm's dependency resolver — see `package.json`).
+It covers the ESPN normalisers (live/upcoming/finished, minutes, cards, scorers, stats),
 GitHub raw-to-Contents fallback, the signed and transparently labelled live-channel backups,
 the channel probe policy (blocked → Standby, 404 → offline, HEAD-blocked → GET retry), the proxy
 signing, the failover machine and server-rendered brand/live UI assertions.

@@ -41,6 +41,9 @@ export default function AdSlot({
 }) {
   const [mounted, setMounted] = useState(false);
   const socialRef = useRef(null);
+  // Auto-refresh is opt-in (`variant="banner-refresh"`). The nonce remounts the frame
+  // so a fresh ad is pulled without ever leaving the slot blank.
+  const refreshNonce = useAdRefresh(variant === 'banner-refresh' ? refreshMs : 0);
 
   useEffect(() => {
     setMounted(true);
@@ -71,10 +74,6 @@ export default function AdSlot({
   // instead of flashing a stark white rectangle (see app/globals.css).
   const darkTransparent = { backgroundColor: 'transparent', colorScheme: 'dark' };
 
-  // Auto-refresh support for watch page banner
-  const refreshContainerRef = useRef(null);
-  useAdRefresh(refreshMs, setMounted);
-
   return (
     <div
       className={`ad-slot flex w-full max-w-full items-center justify-center overflow-hidden ${className}`}
@@ -88,6 +87,7 @@ export default function AdSlot({
       >
         {mounted ? (
           <iframe
+            key={refreshNonce}
             title={label}
             srcDoc={isBanner ? bannerFrameHtml(ad) : nativeBannerFrameHtml(ad)}
             sandbox={AD_FRAME_SANDBOX}
@@ -104,14 +104,17 @@ export default function AdSlot({
   );
 }
 
-/** Helper used by AdSlot to toggle mounted state for auto-refresh. */
-function useAdRefresh(refreshMs, setMountedRef) {
+/** Helper used by AdSlot to auto-refresh: returns a nonce bumped every
+ * `refreshMs`, which remounts the ad frame and pulls a new creative. Stays 0
+ * (a stable value) when refreshing is disabled. */
+function useAdRefresh(refreshMs) {
+  const [nonce, setNonce] = useState(0);
+
   useEffect(() => {
     if (!refreshMs) return undefined;
-    const timer = setInterval(() => {
-      // Refresh by toggling the mounted state which forces re-mount of the iframe
-      setMountedRef((prev) => !prev);
-    }, refreshMs);
+    const timer = setInterval(() => setNonce((prev) => prev + 1), refreshMs);
     return () => clearInterval(timer);
   }, [refreshMs]);
+
+  return nonce;
 }
