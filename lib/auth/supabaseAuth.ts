@@ -7,7 +7,7 @@
 
 import { sanitizeAvatarUrl, sanitizeFavoriteClub } from './localAuth';
 import type { AuthUser, Credentials, FavoriteClub, SignUpInput } from './types';
-import { normalizeEmail, sanitizeDisplayName } from './validation';
+import { normalizeEmail, sanitizeBirthdate, sanitizeCountryCode, sanitizeDisplayName } from './validation';
 import { validAuthTokens, type AuthTokens } from './return';
 
 export const AVATAR_BUCKET = 'avatars';
@@ -65,6 +65,8 @@ export function mapGoTrueUser(raw: any): AuthUser {
     displayName,
     avatarUrl: avatar ?? null,
     favoriteClub: sanitizeFavoriteClub(meta.favorite_club as FavoriteClub | null),
+    birthdate: sanitizeBirthdate(meta.birthdate) ?? null,
+    countryCode: sanitizeCountryCode(meta.country_code) ?? null,
     verified: Boolean(raw?.email_confirmed_at || raw?.confirmed_at),
     provider: 'supabase',
     createdAt: String(raw?.created_at || new Date(0).toISOString()),

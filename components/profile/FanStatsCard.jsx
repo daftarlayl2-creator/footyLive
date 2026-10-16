@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { CheckCircle2, Clock3, Flame, Loader2, MessageCircle, Sparkles, Star, Target, XCircle } from 'lucide-react';
 import ClubLink from '@/components/clubs/ClubLink';
 import CrestDrop from '@/components/clubs/CrestDrop';
+import useCountUp from '@/lib/hooks/useCountUp';
 
 const RING_RADIUS = 34;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 function AccuracyRing({ value }) {
-  const pct = value ?? 0;
+  // The ring eases its arc and its percentage counts up together.
+  const pct = useCountUp(value ?? 0, 700);
   return (
     <div className="relative h-28 w-28 shrink-0">
       <svg
@@ -33,7 +35,7 @@ function AccuracyRing({ value }) {
         />
       </svg>
       <span className="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true">
-        <span className="text-2xl font-black tabular-nums text-white">{value === null ? '—' : `${value}%`}</span>
+        <span className="text-2xl font-black tabular-nums text-white">{value === null ? '—' : `${pct}%`}</span>
         <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-zinc-300">Accuracy</span>
       </span>
     </div>
@@ -41,13 +43,14 @@ function AccuracyRing({ value }) {
 }
 
 function StatTile({ icon: Icon, label, value, detail, accent = 'text-lime-300' }) {
+  const counted = useCountUp(value);
   return (
-    <div className="glass-dark-tile min-w-0 rounded-2xl p-3">
+    <div className="glass-dark-tile glass-dark-tile-hover min-w-0 rounded-2xl p-3 transition-transform duration-200 hover:-translate-y-0.5 motion-reduce:transition-none">
       <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-zinc-300">
         <Icon className={`h-3.5 w-3.5 ${accent}`} aria-hidden="true" />
         {label}
       </span>
-      <p className="mt-1 text-2xl font-black tabular-nums text-white">{value}</p>
+      <p className="mt-1 text-2xl font-black tabular-nums text-white">{counted}</p>
       {detail && <p className="truncate text-[11px] font-semibold text-zinc-300">{detail}</p>}
     </div>
   );

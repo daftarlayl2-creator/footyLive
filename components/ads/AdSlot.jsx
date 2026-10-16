@@ -14,6 +14,7 @@ import {
 } from '@/lib/adsConfig';
 
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
+import { trackImpression, trackClick } from '@/lib/analytics/tracker';
 
 const emptySubscribe = () => () => {};
 
@@ -51,6 +52,19 @@ export default function AdSlot({
   // so a fresh ad is pulled without ever leaving the slot blank.
   const refreshNonce = useAdRefresh(!access.adFree && variant === 'banner-refresh' ? refreshMs : 0);
 
+  // Hooks stay above every early return; ad identity is computed unconditionally
+  // so analytics can mount before the VIP/social branches render.
+  const isBanner = variant === 'banner' || variant === 'banner-refresh';
+  const ad = isBanner ? BANNER_BY_ID[banner?.id] ?? banner : NATIVE_BANNER;
+  const slotId = variant === 'social' ? 'social-bar' : ad.id;
+
+  // Analytics: an impression when the creative mounts; a pointerdown on the
+  // slot counts as the click (the frame itself is cross-origin, so the tap is
+  // the honest measure — feeds the /mounadel CTR table).
+  useEffect(() => {
+    if (mounted && !access.adFree) trackImpression(slotId);
+  }, [mounted, access.adFree, slotId]);
+
   if (access.adFree) return null;
 
   if (variant === 'social') {
@@ -59,8 +73,6 @@ export default function AdSlot({
     </div>;
   }
 
-  const isBanner = variant === 'banner' || variant === 'banner-refresh';
-  const ad = isBanner ? BANNER_BY_ID[banner?.id] ?? banner : NATIVE_BANNER;
   const width = isBanner ? ad.width : undefined;
   const height = isBanner ? ad.height : undefined;
 
@@ -75,6 +87,9 @@ export default function AdSlot({
       style={darkTransparent}
       data-ad-slot={ad.id}
       suppressHydrationWarning
+      onPointerDown={() => {
+        if (mounted) trackClick(slotId);
+      }}
     >
       <div
         className="ad-slot relative overflow-hidden"

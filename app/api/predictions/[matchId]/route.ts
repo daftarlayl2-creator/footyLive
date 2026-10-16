@@ -25,6 +25,7 @@ import { isLocked, normalizePhase, safeUsername, settleVote, validateVote } from
 import { loadMatchVotes, readVote, writeVote } from '@/lib/predictions/server';
 import { loadWallet, creditPredictionReward } from '@/lib/coins/server';
 import { REWARD_CORRECT_PREDICTION } from '@/lib/coins';
+import { isViewerBanned, registerViewer } from '@/lib/admin/users';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,6 +104,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ mat
     return NextResponse.json({ error: 'Invalid match id.' }, { status: 400, headers });
   }
   const viewer = viewerFor(request);
+  // Admin moderation: banned fans cannot cast or change predictions.
+  if (await isViewerBanned(viewer.id)) {
+    return withFreshCookie(
+      NextResponse.json({ error: 'This fan account is suspended from predictions.', reason: 'banned' }, { status: 403, headers }),
+      viewer.fresh
+    );
+  }
+  // Every real vote registers the viewer in the /mounadel user table.
+  await registerViewer(viewer.id, { path: `/watch/${matchId}` });
 
   let body: any = null;
   try {

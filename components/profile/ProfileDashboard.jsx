@@ -1,15 +1,19 @@
 'use client';
 
-import { LogOut, MailWarning, ShieldCheck, UserRound } from 'lucide-react';
+import { Cake, LogOut, MailWarning, ShieldCheck, UserRound } from 'lucide-react';
 import { signOut, useAuth } from '@/lib/auth';
 import { NICKNAME_STORAGE_KEY } from '@/lib/chat';
 import useFanStats from '@/lib/hooks/useFanStats';
 import { useLocalValue } from '@/lib/hooks/useLocalValue';
 import { playSound } from '@/lib/sound/uiSound';
+import { ageFromBirthdate, findCountry } from '@/lib/geo/countries';
+import { vipTierFromGrants } from '@/lib/vip/tiers';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 import ClubLink from '@/components/clubs/ClubLink';
 import CrestDrop from '@/components/clubs/CrestDrop';
 import UserAvatar from '@/components/auth/UserAvatar';
 import VerifiedBadge from '@/components/auth/VerifiedBadge';
+import VipBadge from '@/components/auth/VipBadge';
 import WalletCard from '@/components/coins/WalletCard';
 import RewardsStore from '@/components/coins/RewardsStore';
 import useWallet from '@/lib/hooks/useWallet';
@@ -17,12 +21,15 @@ import AuthPanel from './AuthPanel';
 import AuthReturnNotice from './AuthReturnNotice';
 import FanStatsCard from './FanStatsCard';
 import ProfileEditor from './ProfileEditor';
+import WavingFlag from './WavingFlag';
 
 function Chip({ tone = 'neutral', children }) {
   const tones = {
     verified: 'border-eviv-lime/40 bg-eviv-burgundy/80 text-eviv-lime',
     pending: 'border-amber-400/40 bg-amber-400/10 text-amber-100',
     level: 'border-lime-500/35 bg-lime-500/10 text-lime-200',
+    vip: 'border-amber-300/40 bg-gradient-to-r from-amber-400/15 to-eviv-lime/10 text-amber-100',
+    country: 'border-white/15 bg-white/10 text-zinc-100',
     neutral: 'border-white/10 bg-white/5 text-zinc-200',
   };
   return <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${tones[tone]}`}>{children}</span>;
@@ -40,10 +47,12 @@ function ProfileSkeleton() {
   );
 }
 
-function ProfileHero({ auth, guestName, level }) {
+function ProfileHero({ auth, guestName, level, vipTier }) {
   const user = auth.user;
   const name = user?.displayName || guestName || 'Guest fan';
   const club = user?.favoriteClub;
+  const country = findCountry(user?.countryCode);
+  const age = ageFromBirthdate(user?.birthdate);
 
   const handleSignOut = async () => {
     playSound('tap');
@@ -51,7 +60,7 @@ function ProfileHero({ auth, guestName, level }) {
   };
 
   return (
-    <section className="glass-dark relative overflow-hidden rounded-3xl p-5 sm:p-7" aria-labelledby="profile-heading" data-profile-hero="">
+    <section className="glass-dark profile-hero-enter relative overflow-hidden rounded-3xl p-5 sm:p-7" aria-labelledby="profile-heading" data-profile-hero="">
       <span className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-lime-500/10 blur-3xl" aria-hidden="true" />
       <span className="pointer-events-none absolute -bottom-24 right-0 h-64 w-64 rounded-full bg-navy-600/25 blur-3xl" aria-hidden="true" />
 
@@ -59,12 +68,15 @@ function ProfileHero({ auth, guestName, level }) {
         <UserAvatar name={name} avatarUrl={user?.avatarUrl} size={96} verified={Boolean(user?.verified)} />
 
         <div className="min-w-0 flex-1">
-          {/* One row: a long name truncates, the seal keeps its size right beside it. */}
+          {/* One row: a long name truncates, the seal keeps its size right beside it.
+              The fan's country flag waves right after the name + badges. */}
           <div className="flex min-w-0 items-center justify-center gap-2 sm:justify-start">
             <h1 id="profile-heading" className="min-w-0 truncate text-2xl font-black text-white sm:text-3xl">
               {name}
             </h1>
             {user?.verified && <VerifiedBadge size={26} />}
+            {vipTier && <VipBadge tier={vipTier} size={26} />}
+            {country && <WavingFlag code={country.code} size={30} className="shrink-0" />}
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             {user ? (
@@ -80,6 +92,21 @@ function ProfileHero({ auth, guestName, level }) {
             ) : (
               <Chip>
                 <UserRound className="h-3.5 w-3.5" aria-hidden="true" /> Guest
+              </Chip>
+            )}
+            {vipTier && (
+              <Chip tone="vip">
+                <VipBadge tier={vipTier} size={14} /> {vipTier.label}
+              </Chip>
+            )}
+            {country && (
+              <Chip tone="country">
+                <WavingFlag code={country.code} size={16} /> {country.name}
+              </Chip>
+            )}
+            {age !== null && user && (
+              <Chip>
+                <Cake className="h-3.5 w-3.5 text-lime-300" aria-hidden="true" /> {age} years old
               </Chip>
             )}
             <Chip tone="level">
@@ -127,6 +154,9 @@ export default function ProfileDashboard({ authReturn = null, authReason = null 
   const auth = useAuth();
   const stats = useFanStats();
   const guestName = useLocalValue(NICKNAME_STORAGE_KEY);
+  // The viewer's highest active pass picks their VIP tier badge (server-verified grants).
+  const { grants } = useSubscription();
+  const vipTier = vipTierFromGrants(grants);
   // Every match this fan has voted on is handed to the server, which verifies
   // the final score and credits coins for the correct calls (never the client).
   const wallet = useWallet({ settleMatchIds: (stats.votes || []).map((vote) => vote.matchId) });
@@ -141,7 +171,7 @@ export default function ProfileDashboard({ authReturn = null, authReason = null 
         <RewardsStore wallet={wallet} />
       </div>
       {auth.status === 'loading' ? <ProfileSkeleton /> : <>
-      <ProfileHero auth={auth} guestName={guestName} level={stats.level} />
+      <ProfileHero auth={auth} guestName={guestName} level={stats.level} vipTier={vipTier} />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         {auth.user ? (
           <ProfileEditor key={auth.user.id} user={auth.user} favorites={stats.favorites} />

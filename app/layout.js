@@ -12,6 +12,7 @@ import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import Link from 'next/link';
 import SubscriptionProvider from '@/components/subscription/SubscriptionProvider';
 import AdFreeBoundary from '@/components/subscription/AdFreeBoundary';
+import AnalyticsBeacon from '@/components/analytics/AnalyticsBeacon';
 import { getServerSubscription } from '@/lib/subscription/server';
 import { siteUrl } from '@/lib/seo/site';
 import { subscriptionAccess } from '@/lib/subscription/plans';
@@ -137,6 +138,9 @@ export default async function RootLayout({ children }) {
 
           {/* App-wide tap / tab sounds + haptics */}
           <SoundEffects />
+
+          {/* First-party analytics beacon (live visitors, ad stats for /mounadel) */}
+          <AnalyticsBeacon />
 
           {/* Isolated social advertisement — fully unmounted for VIP */}
           <AdSlot variant="social" />

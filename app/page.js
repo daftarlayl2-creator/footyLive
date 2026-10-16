@@ -3,6 +3,7 @@ import { getMatches } from '@/lib/streamEngine';
 import MatchGrid from '@/components/MatchGrid';
 import { getHeroBanner } from '@/lib/bannerProvider';
 import AdSlot from '@/components/ads/AdSlot';
+import TopSportsBanner from '@/components/ads/TopSportsBanner';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 
 // Live dashboard: always rendered on demand, with the upstream scoreboard
@@ -47,6 +48,9 @@ export default async function Home({ searchParams }) {
 
   return (
     <div className="w-full space-y-5">
+      {/* Top sticky rotating sports banner: partner creatives + the network
+          leaderboard cycle smoothly above the feed (hidden for VIP fans). */}
+      <TopSportsBanner />
       {/* Homepage top banner: leaderboard on desktop, 320x50 on mobile.
           The mobile slot breaks out of main's px-4 so the 320px unit fits a
           320px viewport exactly without ever pushing the page sideways. */}
