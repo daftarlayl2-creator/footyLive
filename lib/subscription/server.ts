@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { parseSafeUpstreamUrl } from '@/lib/hlsProxy';
+import { loadCoinGrants } from '@/lib/coins/server';
+import { WALLET_COOKIE, verifyWalletViewer, walletCookieFromHeader } from '@/lib/coins/session';
 import { getPlan, validateGrants, type PlanId, type SubscriptionGrant } from './plans';
 
 export const VIEWER_COOKIE = 'eviv_billing_viewer';
@@ -70,20 +72,35 @@ export async function loadViewerGrants(viewer: string | null): Promise<Subscript
   return validateGrants(await billingRequest(`/entitlements/${encodeURIComponent(viewer)}`));
 }
 
-async function subscriptionForCookie(value?: string) {
-  const viewer = verifyViewer(value);
-  try { return { grants: await loadViewerGrants(viewer), checkoutAvailable: billingConfigured(), unavailable: false }; }
-  catch { return { grants: [], checkoutAvailable: billingConfigured(), unavailable: true }; }
+/**
+ * Effective grants for one visitor: paid billing grants plus the VIP passes this
+ * fan bought with EVIV Coins in the Rewards Store. The coin passes come from the
+ * same signed viewer id the prediction/wallet API uses, so they are server-side
+ * entitlements — not a client flag anyone could set through Inspect Element.
+ */
+async function subscriptionForCookie(value?: string | null, coinValue?: string | null) {
+  const viewer = verifyViewer(value ?? undefined);
+  const coinViewer = verifyWalletViewer(coinValue ?? undefined);
+  try {
+    const [billing, coin] = await Promise.all([loadViewerGrants(viewer), loadCoinGrants(coinViewer)]);
+    return { grants: [...billing, ...coin], checkoutAvailable: billingConfigured(), unavailable: false, coinGrants: coin.length };
+  } catch {
+    return { grants: [], checkoutAvailable: billingConfigured(), unavailable: true, coinGrants: 0 };
+  }
+}
+function cookieValue(header: string | null | undefined, name: string): string | undefined {
+  if (!header) return undefined;
+  return header.split(';').map((entry) => entry.trim()).find((entry) => entry.startsWith(`${name}=`))?.slice(name.length + 1) || undefined;
 }
 /** Explicit request variant for route handlers (also works with standard Request objects). */
 export function getRequestSubscription(request: Request) {
-  const value = (request.headers.get('cookie') || '').split(';').map((entry) => entry.trim()).find((entry) => entry.startsWith(`${VIEWER_COOKIE}=`))?.slice(VIEWER_COOKIE.length + 1);
-  return subscriptionForCookie(value);
+  const header = request.headers.get('cookie');
+  return subscriptionForCookie(cookieValue(header, VIEWER_COOKIE) ?? undefined, walletCookieFromHeader(header) ?? undefined);
 }
 /** React request cache deduplicates layout + player checks, never across visitors. Fail closed. */
 export const getServerSubscription = cache(async () => {
   const jar = await cookies();
-  return subscriptionForCookie(jar.get(VIEWER_COOKIE)?.value);
+  return subscriptionForCookie(jar.get(VIEWER_COOKIE)?.value, jar.get(WALLET_COOKIE)?.value);
 });
 
 export async function createCheckout(viewer: string, planId: PlanId, origin: string, matchId?: string): Promise<string> {

@@ -42,7 +42,7 @@ export async function generateMetadata({ params }) {
   const name = core?.club.name || titleFromSlug(slug) || 'Club';
   const league = core?.club.league?.name;
   return {
-    title: `${name} — Fixtures, results & squad | EVIV Live`,
+    title: `${name} — Fixtures, results & squad | Limon Live`,
     description: `${name}${league ? ` (${league})` : ''}: club history, recent form, upcoming fixtures, current squad, stadium and manager.`,
     openGraph: core?.club.logo ? { images: [{ url: core.club.logo, width: 500, height: 500 }] } : undefined,
   };

@@ -13,7 +13,7 @@ export function preparePlayback(channels: Channel[], access: PlaybackAccess, now
     const kind = channel.kind || detectStreamKind(link);
     const quality = inferStreamQuality(channel.quality, channel.name);
     if (access.tier === 'free' && (['FHD', '4K'].includes(normalizeQuality(channel.quality)) || ['FHD', '4K'].includes(quality))) { lockedCount++; return []; }
-    // EVIV cannot remove ads from someone else's iframe player. VIP uses native media only.
+    // Limon cannot remove ads from someone else's iframe player. VIP uses native media only.
     if (access.adFree && kind === 'embed') return [];
     if (!link.startsWith('/api/proxy?')) return [{ ...channel, url: link, proxiedUrl: link }];
     const params = new URLSearchParams(link.slice('/api/proxy?'.length));

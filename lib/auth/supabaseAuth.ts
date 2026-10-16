@@ -57,7 +57,7 @@ export function goTrueErrorMessage(json: any, status: number): { message: string
 export function mapGoTrueUser(raw: any): AuthUser {
   const meta = raw?.user_metadata || {};
   const email = normalizeEmail(raw?.email);
-  const displayName = sanitizeDisplayName(meta.display_name || meta.full_name || meta.name || email.split('@')[0] || 'EVIV fan') || 'EVIV fan';
+  const displayName = sanitizeDisplayName(meta.display_name || meta.full_name || meta.name || email.split('@')[0] || 'Limon fan') || 'Limon fan';
   const avatar = sanitizeAvatarUrl(typeof meta.avatar_url === 'string' ? meta.avatar_url : null, 0);
   return {
     id: String(raw?.id ?? ''),

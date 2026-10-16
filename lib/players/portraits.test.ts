@@ -57,34 +57,46 @@ describe('portrait candidates', () => {
   it('leads every player with transparent action renders and cutouts, never an opaque photo', () => {
     const espn = 'https://a.espncdn.com/i/headshots/soccer/players/full/362150.png';
     const featured = buildPortraitSources(profile({ featured: true, portrait: 'https://cdn.example.com/espn-api.png' }), images);
-    expect(featured.map(({ kind, credit }) => `${kind}:${credit}`)).toEqual(['cutout:TheSportsDB', 'cutout:TheSportsDB', 'headshot:ESPN', 'headshot:ESPN']);
+    // Cutouts lead; ESPN's transparent full PNG, the id-pattern PNG and the
+    // 1024-px combiner variant follow as headshot fallbacks.
+    expect(featured.map(({ kind, credit }) => `${kind}:${credit}`)).toEqual([
+      'cutout:TheSportsDB', 'cutout:TheSportsDB', 'headshot:ESPN', 'headshot:ESPN', 'headshot:ESPN',
+    ]);
     expect(featured[0].src).toBe(images.render);
 
     const regular = buildPortraitSources(profile({ portrait: espn }), images);
-    expect(regular.map(({ src }) => src)).toEqual([images.render, images.cutout, espn]);
+    // The ESPN portrait and the id-pattern URL are the same file: de-duplicated.
+    expect(regular.map(({ src }) => src)).toEqual([
+      images.render, images.cutout, espn,
+      'https://a.espncdn.com/combiner/i?img=/i/headshots/soccer/players/full/362150.png&w=1024&h=1024',
+    ]);
+    expect(regular[regular.length - 1].src).toBe('https://a.espncdn.com/combiner/i?img=/i/headshots/soccer/players/full/362150.png&w=1024&h=1024');
   });
 
   it('falls back to the ESPN id headshot and never duplicates a URL', () => {
     expect(espnHeadshotUrl('362150')).toBe('https://a.espncdn.com/i/headshots/soccer/players/full/362150.png');
     expect(espnHeadshotUrl('../x')).toBeUndefined();
-    expect(buildPortraitSources(profile())).toEqual([{ src: espnHeadshotUrl('362150'), kind: 'headshot', credit: 'ESPN' }]);
+    const fallback = buildPortraitSources(profile());
+    expect(fallback).toHaveLength(2);
+    expect(fallback[0]).toEqual({ src: espnHeadshotUrl('362150'), kind: 'headshot', credit: 'ESPN' });
+    expect(new Set(fallback.map(({ src }) => src)).size).toBe(fallback.length);
   });
 
   it('looks TheSportsDB up for every player, and survives provider outages', async () => {
     const lookup = vi.fn(async () => images);
-    expect((await withPortraits(profile({ portrait: 'https://cdn.example.com/espn.png' }), lookup)).portraits).toHaveLength(4);
+    expect((await withPortraits(profile({ portrait: 'https://cdn.example.com/espn.png' }), lookup)).portraits).toHaveLength(5);
     expect(lookup).toHaveBeenCalledOnce();
     expect((await withPortraits(profile({ featured: true, portrait: 'https://cdn.example.com/espn.png' }), lookup)).portraits?.[0].kind).toBe('cutout');
     expect((await withPortraits(profile(), lookup)).portraits?.[0].src).toBe(images.render);
     expect(lookup).toHaveBeenCalledTimes(3);
     const down = await withPortraits(profile({ featured: true }), async () => { throw new Error('HTTP 429'); });
-    expect(down.portraits?.map(({ src }) => src)).toEqual([espnHeadshotUrl('362150')]);
+    expect(down.portraits?.[0].src).toBe(espnHeadshotUrl('362150'));
   });
 
   it('uses the full-size PNG path and ignores opaque ESPN thumbnails', () => {
     const thumb = 'https://a.espncdn.com/i/headshots/soccer/players/thumb/362150.png';
     expect(buildPortraitSources(profile({ portrait: thumb }))[0].src).toBe(espnHeadshotUrl('362150'));
-    expect(buildPortraitSources(profile({ portrait: 'https://cdn.example/a.jpg' }))).toEqual([{ src: espnHeadshotUrl('362150'), kind: 'headshot', credit: 'ESPN' }]);
+    expect(buildPortraitSources(profile({ portrait: 'https://cdn.example/a.jpg' }))[0]).toEqual({ src: espnHeadshotUrl('362150'), kind: 'headshot', credit: 'ESPN' });
   });
 
   it('searches by display name, then the full name', async () => {

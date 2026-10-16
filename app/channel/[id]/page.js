@@ -81,7 +81,7 @@ export default async function ChannelPage({ params }) {
 
       <div className="space-y-1.5">
         <p className="text-[11px] text-navy-500 dark:text-zinc-400">
-          Source: {channel.source}. Playback is routed through EVIV Live&apos;s signed proxy;{' '}
+          Source: {channel.source}. Playback is routed through Limon Live&apos;s signed proxy;{' '}
           {channels.length > 1
             ? `${channels.length} sources found for this channel — if one stops, the player moves to the next automatically.`
             : 'if the stream stops, try again shortly as feed links rotate.'}

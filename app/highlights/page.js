@@ -29,7 +29,7 @@ export default function HighlightsPage() {
         </div>
         <p className="max-w-2xl text-sm text-zinc-400">
           The latest football highlights from the world&rsquo;s biggest leagues and broadcasters.
-          Tap any card to watch right here on EVIV Live — no detour to YouTube.
+          Tap any card to watch right here on Limon Live — no detour to YouTube.
         </p>
       </div>
 

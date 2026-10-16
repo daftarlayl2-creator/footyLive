@@ -101,19 +101,26 @@ const FINISHED_MATCH = {
   sources: [],
 };
 
-describe('EVIV lockup', () => {
-  it('renders the supplied eagle, wordmark and on-air animation with isolated SVG definitions at both sizes', () => {
+describe('Limon lockup', () => {
+  it('renders the Limon Live lemon-and-coin mark, wordmark and on-air animation with isolated SVG definitions at both sizes', () => {
     const html = renderToStaticMarkup(
       <div><BrandLogo className="w-[106px] h-auto" /><BrandLogo className="w-28 h-auto" /></div>
     );
     expect((html.match(/viewBox="0 0 320 150"/g) || [])).toHaveLength(2);
-    expect(html).toContain('M54 52 L34 36 L6 18');
-    expect(html).toContain('stop-color="#C6FF00"');
+    // Lime lemon + burgundy leaf + the engraved EVIV Coin at its heart.
+    expect(html).toContain('M60 26c12-14 26-16 34-15');
+    expect(html).toContain('aria-label="Limon Live"');
+    expect(html).toContain('stop-color="#CCFF00"');
+    expect(html).toContain('stop-color="#2A0813"');
     expect(html).toContain('attributeName="r"');
-    expect(html).toContain('aria-label="EVIV Live"');
-    const gradients = [...html.matchAll(/<linearGradient id="([^"]+)"/g)].map((match) => match[1]);
-    expect(new Set(gradients).size).toBe(2);
-    for (const id of gradients) expect(html).toContain(`fill="url(#${id})"`);
+    expect(html).toContain('aria-label="Limon Live"');
+    // Two copies of the logo, each with its own gradient + leaf defs: no id collision.
+    const gradients = [...html.matchAll(/<(?:linear|radial)Gradient id="([^"]+)"/g)].map((match) => match[1]);
+    expect(new Set(gradients).size).toBe(6);
+    for (const id of gradients) expect(html).toContain(`url(#${id})`);
+    // Each copy defines its own three gradients (gradient + leaf + coin).
+    const copies = html.split('</svg>').slice(0, 2);
+    expect(copies.map((copy) => [...copy.matchAll(/<(?:linear|radial)Gradient/g)].length)).toEqual([3, 3]);
   });
 });
 

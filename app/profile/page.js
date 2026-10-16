@@ -1,8 +1,8 @@
 import ProfileDashboard from '@/components/profile/ProfileDashboard';
 
 export const metadata = {
-  title: 'Your fan profile — EVIV Live',
-  description: 'Sign in to EVIV Live, edit your display name, avatar and favourite club, and track your prediction accuracy and chat activity.',
+  title: 'Your fan profile — Limon Live',
+  description: 'Sign in to Limon Live, edit your display name, avatar and favourite club, and track your prediction accuracy and chat activity.',
 };
 
 export default async function ProfilePage({ searchParams }) {

@@ -24,7 +24,8 @@ describe('verified ESPN soccer contracts', () => {
       name: 'Lamine Yamal', dateOfBirth: '2007-07-13', age: 19,
       club: { id: '83', league: 'esp.1' },
       season: { label: '2026-27 LALIGA', current: true, appearances: 8, goals: 7, assists: 5 },
-      marketValue: { asOf: '2024-10-21', amount: 150_000_000 },
+      // Current Transfermarkt market value (October 2026 update).
+      marketValue: { asOf: '2026-10-09', amount: 220_000_000 },
     });
     expect(profile?.season.minutes).toBeUndefined();
     expect(profile?.season.passAccuracy).toBeUndefined();

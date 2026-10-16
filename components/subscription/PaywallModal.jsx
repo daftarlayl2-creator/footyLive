@@ -33,7 +33,7 @@ export default function PaywallModal({ onClose, matchId, feature = 'quality' }) 
       <section ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} className="vip-glass relative my-auto max-h-[90dvh] w-full max-w-5xl overflow-y-auto rounded-3xl p-5 text-zinc-100 sm:p-8">
         <button type="button" onClick={onClose} aria-label="Close VIP plans" className="tactile absolute right-4 top-4 rounded-xl border border-white/15 p-2 text-zinc-300 hover:text-white"><X className="h-4 w-4" aria-hidden="true" /></button>
         <Crown className="mb-3 h-8 w-8 text-eviv-lime" aria-hidden="true" />
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-eviv-lime">EVIV LIVE VIP</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-eviv-lime">LIMON LIVE VIP</p>
         <h2 id={heading} className="mb-2 mt-2 pr-8 text-2xl font-black text-white">{feature === 'multiview' ? 'Four screens. One matchday.' : 'The game. Without interruptions.'}</h2>
         <p className="mb-6 max-w-2xl text-sm text-zinc-300">{feature === 'multiview' ? 'Unlock 4-screen Multi-View with a Weekly, Monthly or Annual VIP pass.' : 'Go ad-free and unlock low-latency FHD / 4K where available. Keep watching in standard HD for free.'}</p>
         <PricingPlans matchId={matchId} feature={feature} />

@@ -31,7 +31,7 @@ function NativeAdRow() {
  * The floating-card grid of YouTube match highlights.
  *
  * Cards hover-lift with a neon lime glow and open the seamless in-page
- * player (HighlightPlayerModal) — the user never leaves EVIV Live. A native
+ * player (HighlightPlayerModal) — the user never leaves Limon Live. A native
  * ad row is woven into the grid after every six cards, and one trailing row
  * keeps monetization stable whatever the count.
  */

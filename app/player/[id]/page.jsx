@@ -20,8 +20,8 @@ export async function generateMetadata({ params, searchParams }) {
   return {
     alternates: { canonical },
     robots: player ? { index: true, follow: true } : { index: false, follow: false },
-    openGraph: { type: 'profile', title: `${player?.name || 'Player'} | EVIV LIVE`, url: canonical },
-    title: `${player?.name || 'Player'} — Stats & trophies | EVIV Live`,
+    openGraph: { type: 'profile', title: `${player?.name || 'Player'} | LIMON LIVE`, url: canonical },
+    title: `${player?.name || 'Player'} — Stats & trophies | Limon Live`,
     description: player ? `${player.name}: season appearances, goals, assists, minutes, pass accuracy, club and selected honors.` : 'Football player profiles, season performance and trophy cabinets.',
   };
 }

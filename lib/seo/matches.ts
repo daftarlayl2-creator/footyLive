@@ -36,16 +36,16 @@ const safeImage = (raw?: string): string | undefined => {
 };
 const label = (match: SeoFixture) => [match.homeTeam?.name, match.awayTeam?.name].filter(Boolean).join(' vs ') || match.title || 'Football match';
 export function matchMetadata(match: SeoFixture | null) {
-  if (!match) return { title: 'Match not found | EVIV LIVE', robots: { index: false, follow: false } };
+  if (!match) return { title: 'Match not found | LIMON LIVE', robots: { index: false, follow: false } };
   const name = label(match);
   const date = kickoffIso(match.timestamp).slice(0, 10);
-  const title = `${name} — ${match.status === 'live' ? 'Live Score' : match.status === 'finished' ? 'Result & Stats' : 'Kick-off & Preview'} | EVIV LIVE`;
-  const description = `${name}${match.tournament ? ` in ${match.tournament}` : ''}${date ? ` on ${date}` : ''}. Follow live scores, match statistics, line-ups and commentary on EVIV LIVE.`;
+  const title = `${name} — ${match.status === 'live' ? 'Live Score' : match.status === 'finished' ? 'Result & Stats' : 'Kick-off & Preview'} | LIMON LIVE`;
+  const description = `${name}${match.tournament ? ` in ${match.tournament}` : ''}${date ? ` on ${date}` : ''}. Follow live scores, match statistics, line-ups and commentary on LIMON LIVE.`;
   const url = absoluteUrl(matchHref(match));
   const image = safeImage(match.poster);
   return {
     title, description, alternates: { canonical: url },
-    openGraph: { type: 'website', title, description, url, siteName: 'EVIV LIVE', ...(image ? { images: [image] } : {}) },
+    openGraph: { type: 'website', title, description, url, siteName: 'LIMON LIVE', ...(image ? { images: [image] } : {}) },
     twitter: { card: image ? 'summary_large_image' : 'summary', title, description, ...(image ? { images: [image] } : {}) },
   };
 }

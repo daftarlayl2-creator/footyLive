@@ -14,6 +14,7 @@
 import { fetchJson } from '@/lib/providers/http';
 import { getCacheManager } from '@/lib/cache/cacheManager';
 import { safePlayerImage } from './normalize';
+import { cutoutSearchTerms, highResEspnHeadshot, isTransparentCutoutUrl, orderPortraits } from './cutouts';
 import type { PlayerPortrait, PlayerProfile } from './types';
 
 /** TheSportsDB v1 (free tier key unless one is configured). */
@@ -82,20 +83,32 @@ export function espnHeadshotUrl(id: string): string | undefined {
   return /^\d{1,10}$/.test(id) ? `https://a.espncdn.com/i/headshots/soccer/players/full/${id}.png` : undefined;
 }
 
-/** Ordered, de-duplicated portrait candidates for the banner. */
+/**
+ * Ordered, de-duplicated portrait candidates for the banner.
+ *
+ * Transparent PNG cutouts come first (action render, then bust), followed by
+ * ESPN's transparent headshots — the direct file and a 1024-px combiner variant
+ * for large screens. An opaque thumbnail is never a candidate, so the card can
+ * always show a real cutout rather than a generic circle.
+ */
 export function buildPortraitSources(player: Pick<PlayerProfile, 'id' | 'portrait' | 'featured'>, sportsDb: SportsDbImages | null = null): PlayerPortrait[] {
   const source = safePlayerImage(player.portrait);
   const fullSize = source?.replace(/\/headshots\/soccer\/players\/(?:thumb|small)\//, '/headshots/soccer/players/full/');
   const espn: PlayerPortrait[] = fullSize && /\.png$/i.test(new URL(fullSize).pathname) ? [{ src: fullSize, kind: 'headshot', credit: 'ESPN' }] : [];
+  // Action render (largest) → cutout bust; both must be transparent PNGs.
   const cutouts: PlayerPortrait[] = [
-    ...(sportsDb?.render ? [{ src: sportsDb.render, kind: 'cutout' as const, credit: 'TheSportsDB' as const }] : []),
-    ...(sportsDb?.cutout ? [{ src: sportsDb.cutout, kind: 'cutout' as const, credit: 'TheSportsDB' as const }] : []),
+    ...(sportsDb?.render && isTransparentCutoutUrl(sportsDb.render)
+      ? [{ src: sportsDb.render, kind: 'cutout' as const, credit: 'TheSportsDB' as const }] : []),
+    ...(sportsDb?.cutout && isTransparentCutoutUrl(sportsDb.cutout)
+      ? [{ src: sportsDb.cutout, kind: 'cutout' as const, credit: 'TheSportsDB' as const }] : []),
   ];
   const pattern = espnHeadshotUrl(player.id);
-  const ordered: PlayerPortrait[] = [
+  const large = highResEspnHeadshot(player.id);
+  const ordered: PlayerPortrait[] = orderPortraits([
     ...cutouts, ...espn,
     ...(pattern ? [{ src: pattern, kind: 'headshot' as const, credit: 'ESPN' as const }] : []),
-  ];
+    ...(large ? [{ src: large, kind: 'headshot' as const, credit: 'ESPN' as const }] : []),
+  ]);
   const seen = new Set<string>();
   return ordered.filter(({ src }) => (seen.has(src) ? false : (seen.add(src), true)));
 }
@@ -109,12 +122,14 @@ async function searchSportsDb(name: string): Promise<unknown> {
 
 /** Cached (24 h) TheSportsDB images for one player; outages are not cached. */
 export async function lookupSportsDbImages(player: Pick<PlayerProfile, 'id' | 'name' | 'fullName' | 'dateOfBirth'>): Promise<SportsDbImages> {
-  return getCacheManager().swr(`player:portrait:v2:${player.id}`, async () => {
-    let hit = pickSportsDbPlayer(await searchSportsDb(player.name), player);
-    if (!hit && player.fullName && fold(player.fullName) !== fold(player.name)) {
-      hit = pickSportsDbPlayer(await searchSportsDb(player.fullName), player);
+  return getCacheManager().swr(`player:portrait:v3:${player.id}`, async () => {
+    // Try curated aliases and the provider names in order; the first identity
+    // that passes the name+date-of-birth check wins.
+    for (const term of cutoutSearchTerms(player)) {
+      const hit = pickSportsDbPlayer(await searchSportsDb(term), player);
+      if (hit) return sportsDbImages(hit);
     }
-    return sportsDbImages(hit);
+    return {};
   }, PORTRAIT_TTL_S);
 }
 

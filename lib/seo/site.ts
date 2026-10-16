@@ -1,10 +1,10 @@
 /** Configure the production origin explicitly; never canonicalise to an untrusted Host header. */
 export function siteUrl(raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL): string {
   try {
-    const url = new URL(raw || 'https://eviv.live');
+    const url = new URL(raw || 'https://limonlive.app');
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Invalid origin');
     return url.origin;
-  } catch { return 'https://eviv.live'; }
+  } catch { return 'https://limonlive.app'; }
 }
 export function absoluteUrl(path: string): string { return new URL(path, `${siteUrl()}/`).href; }
 /** Safe inside a script element even when a provider supplied </script> or Unicode separators. */

@@ -23,7 +23,7 @@ function formatViews(views) {
 }
 
 /**
- * The EVIV Live highlight player.
+ * The Limon Live highlight player.
  *
  * Clicking a highlight card never leaves the site: the video plays inside
  * this sleek modal on a clean YouTube embed (`?rel=0&modestbranding=1` strips
@@ -112,7 +112,7 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
           </button>
         </div>
 
-        {/* Neon lime framed player — the native EVIV Live video surface */}
+        {/* Neon lime framed player — the native Limon Live video surface */}
         <div className="overflow-hidden rounded-2xl border-2 border-lime-500 bg-black shadow-[0_0_40px_rgba(198,255,0,0.35)]">
           <div className="aspect-video w-full">
             {embedSrc ? (
@@ -140,7 +140,7 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
         {/* Footer */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
           <p className="min-w-0">
-            Playing inside EVIV Live — the stream comes straight from YouTube&rsquo;s official player.
+            Playing inside Limon Live — the stream comes straight from YouTube&rsquo;s official player.
           </p>
           {highlight.url && (
             <a

@@ -1,4 +1,4 @@
-# EVIV LIVE final sprint: passes, playback and SEO
+# Limon Live — passes, playback and SEO
 
 ## Passes and scope
 
@@ -10,6 +10,7 @@ Durations begin at the paid entitlement's `startsAt` (epoch milliseconds).
 | `match` | Single Match Pass | 3 MAD | 300 | 24 hours | One selected live/upcoming fixture |
 | `weekly` | Weekly Pass | 15 MAD | 1500 | 7 days | All matches and four-screen Multi-View |
 | `monthly` | Monthly VIP Pass | 40 MAD | 4000 | 30 days | All matches and four-screen Multi-View |
+| — | **EVIV Coin pass** (Rewards Store) | free · **20,000 coins** | 0 | 30 days | Same site-wide access as the Monthly VIP pass |
 | `annual` | Annual VIP Pass | 150 MAD | 15000 | 365 days | All matches and four-screen Multi-View |
 
 Free viewing remains standard HD (up to 720p), with standard EVIV ads and one

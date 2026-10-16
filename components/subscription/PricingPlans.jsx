@@ -44,7 +44,7 @@ export default function PricingPlans({ matchId, feature }) {
               <p className="mt-4 flex items-baseline gap-1.5"><span className="text-4xl font-black tracking-tight text-white">{plan.price}</span><span className="text-xs font-bold text-zinc-300">MAD</span></p>
               <p className="mt-1 text-[11px] text-zinc-400">{plan.period} · one-time payment</p>
               <ul className="my-5 space-y-2 text-xs text-zinc-200">
-                {['Ad-free EVIV experience', 'Low-latency FHD / 4K*', 'No viewing session timeouts', plan.scope === 'match' ? 'VIP for your selected fixture' : 'All matches + 4-screen Multi-View'].map((text) => <li key={text} className="flex items-start gap-2"><Check className="mt-0.5 h-3 w-3 shrink-0 text-eviv-lime" aria-hidden="true" />{text}</li>)}
+                {['Ad-free Limon experience', 'Low-latency FHD / 4K*', 'No viewing session timeouts', plan.scope === 'match' ? 'VIP for your selected fixture' : 'All matches + 4-screen Multi-View'].map((text) => <li key={text} className="flex items-start gap-2"><Check className="mt-0.5 h-3 w-3 shrink-0 text-eviv-lime" aria-hidden="true" />{text}</li>)}
               </ul>
               <button type="button" disabled={disabled} onClick={() => checkout(plan)} className="lime-cta tactile mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45" aria-label={`Choose ${plan.name} for ${plan.price} MAD`}>
                 {pending === plan.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Crown className="h-4 w-4" aria-hidden="true" />}
@@ -57,7 +57,7 @@ export default function PricingPlans({ matchId, feature }) {
       </div>
       {!checkoutAvailable && <p role="status" className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-amber-200">Checkout is not available on this deployment yet. Free HD remains available; no payment will be taken.</p>}
       {error && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-xs text-red-200">{error}</p>}
-      <p className="mt-4 text-[10px] leading-relaxed text-zinc-400">*Resolution and low latency depend on the source and your connection. No upscaling or invented 4K sources. VIP removes EVIV advertisements; broadcaster-inserted content is outside our control. A Single Match Pass lasts up to 24 hours for one fixture and does not unlock other matches or Multi-View. Passes do not auto-renew.</p>
+      <p className="mt-4 text-[10px] leading-relaxed text-zinc-400">*Resolution and low latency depend on the source and your connection. No upscaling or invented 4K sources. VIP removes Limon advertisements; broadcaster-inserted content is outside our control. A Single Match Pass lasts up to 24 hours for one fixture and does not unlock other matches or Multi-View. Passes do not auto-renew.</p>
     </div>
   );
 }
