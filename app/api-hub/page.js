@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import SafeExternalLink from '@/components/ui/ExternalLink';
 import { 
   Database, 
   Terminal, 
@@ -503,11 +504,10 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {upstreamApis.map((api, idx) => (
-              <a 
+              <SafeExternalLink
                 key={api.name}
                 href={api.url}
-                target="_blank"
-                rel="noopener noreferrer"
+                fallbackLabel="Upstream docs temporarily unreachable"
                 className="glass-panel glass-panel-hover rounded-xl p-5 block space-y-3 cursor-pointer group"
               >
                 <div className="flex items-center justify-between">
@@ -529,7 +529,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                   <span>Visit Documentation</span>
                   <ArrowUpRight className="h-3 w-3" />
                 </div>
-              </a>
+              </SafeExternalLink>
             ))}
           </div>
         </div>

@@ -8,6 +8,9 @@ import ClubTabs from '@/components/club/ClubTabs';
 import { getClubCore, getClubFacts, resolveClub } from '@/lib/clubs/clubProfile';
 import { groupSquad } from '@/lib/clubs/espnClub';
 import { heroPalette } from '@/lib/clubs/colors';
+import { clubHref } from '@/lib/clubs/links';
+import { breadcrumbSchema, sportsTeamSchema } from '@/lib/seo/schema';
+import { absoluteUrl, serializeJsonLd } from '@/lib/seo/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,22 +39,61 @@ async function loadCore(id) {
   return { core, slug };
 }
 
+/** Stable self-referential canonical: `/club/{espnId}-{slug}` when the club resolved, else its own request path. */
+function clubCanonical(core, id) {
+  return (core ? clubHref({ id: core.club.espnId, name: core.club.name }) : null) || `/club/${id}`;
+}
+
 export async function generateMetadata({ params }) {
   const { id } = await params;
   const { core, slug } = await loadCore(id).catch(() => ({ core: null, slug: parseSlugSafely(id) }));
   const name = core?.club.name || titleFromSlug(slug) || 'Club';
   const league = core?.club.league?.name;
+  const canonical = absoluteUrl(clubCanonical(core, id));
+  const title = `${name} Fixtures, Roster & Live Standings | Limon Live`;
+  const description = `${name}${league ? ` (${league})` : ''}: club history, recent form, upcoming fixtures, current squad, stadium and manager. Follow ${name} live scores and standings on Limon Live.`;
   return {
-    title: `${name} — Fixtures, results & squad | Limon Live`,
-    description: `${name}${league ? ` (${league})` : ''}: club history, recent form, upcoming fixtures, current squad, stadium and manager.`,
-    openGraph: core?.club.logo ? { images: [{ url: core.club.logo, width: 500, height: 500 }] } : undefined,
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      url: canonical,
+      siteName: 'Limon Live',
+      ...(core?.club.logo ? { images: [{ url: core.club.logo, width: 500, height: 500 }] } : {}),
+    },
   };
 }
 
+/** SportsTeam + BreadcrumbList graphs — only sourced club facts, typed per schema.org. */
+function ClubJsonLd({ name, canonicalPath, logo, venue, league }) {
+  const team = sportsTeamSchema({
+    name,
+    url: canonicalPath,
+    logo,
+    venue,
+    description: league ? `${name} — ${league} club profile on Limon Live.` : `${name} club profile on Limon Live.`,
+  });
+  const crumbs = breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Standings', path: '/standings' },
+    { name, path: canonicalPath },
+  ]);
+  return (
+    <>
+      {team && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(team) }} />}
+      {crumbs && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(crumbs) }} />}
+    </>
+  );
+}
+
 /** Clubs our live provider does not cover still get a Wikipedia-powered profile. */
-function LiteClubProfile({ name, facts }) {
+function LiteClubProfile({ name, facts, canonicalPath }) {
   return (
     <div className="space-y-5">
+      <ClubJsonLd name={name} canonicalPath={canonicalPath} logo={facts.summary?.thumbnail} />
       <BackButton fallback="/standings" />
       <ClubHero club={{ name, logo: facts.summary?.thumbnail }}>
         {facts.founded && <FactTile icon={CalendarClock} label="Founded" value={String(facts.founded)} />}
@@ -76,7 +118,7 @@ export default async function ClubPage({ params }) {
     if (!name) notFound();
     const facts = await getClubFacts(name);
     if (!facts.summary) notFound();
-    return <LiteClubProfile name={facts.summary.title || name} facts={facts} />;
+    return <LiteClubProfile name={facts.summary.title || name} facts={facts} canonicalPath={clubCanonical(null, id)} />;
   }
 
   const { club } = core;
@@ -84,6 +126,13 @@ export default async function ClubPage({ params }) {
 
   return (
     <div className="space-y-5">
+      <ClubJsonLd
+        name={club.name}
+        canonicalPath={clubCanonical(core, id)}
+        logo={club.logo}
+        venue={core.homeVenue}
+        league={club.league?.name}
+      />
       <BackButton fallback="/standings" />
 
       <ClubHero club={club} form={core.form}>

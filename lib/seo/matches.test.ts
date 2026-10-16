@@ -24,7 +24,9 @@ describe('programmatic match SEO', () => {
     expect(metadata.title).toContain('Maghreb Fès vs Atlético Madrid — Live Score');
     expect(metadata.description).toContain('2026-10-15');
     expect(metadata.openGraph?.url).toBe(metadata.alternates?.canonical);
-    expect(matchMetadata({ ...match, status: 'finished' }).title).toContain('Result & Stats');
+    // One shared match-page pattern: `[Home] vs [Away] — Live Score, Stats & Streams | Limon Live`.
+    expect(matchMetadata({ ...match, status: 'finished' }).title).toBe('Maghreb Fès vs Atlético Madrid — Live Score, Stats & Streams | Limon Live');
+    expect(matchMetadata({ ...match, status: 'finished' }).description).toContain('Full-time result');
     expect(matchMetadata(null).robots).toEqual({ index: false, follow: false });
   });
   it('emits a SportsEvent with sourced teams, kickoff, competition, venue and canonical URL', () => {
@@ -52,7 +54,7 @@ describe('programmatic match SEO', () => {
   });
   it('uses an explicit deployment origin and rejects credential-bearing URLs', () => {
     expect(siteUrl('https://scores.example/a?b=c')).toBe('https://scores.example');
-    expect(siteUrl('javascript:alert(1)')).toBe('https://limonlive.app');
-    expect(siteUrl('https://name:pass@evil.example')).toBe('https://limonlive.app');
+    expect(siteUrl('javascript:alert(1)')).toBe('https://www.eviv.si');
+    expect(siteUrl('https://name:pass@evil.example')).toBe('https://www.eviv.si');
   });
 });

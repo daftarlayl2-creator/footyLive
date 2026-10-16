@@ -1,4 +1,4 @@
-import { absoluteUrl } from './site';
+import { absoluteUrl, safeRemoteUrl } from './site';
 
 export interface SeoFixture {
   id: string;
@@ -31,21 +31,31 @@ export function matchIdFromSlug(slug: string): string | null {
   const id = index >= 0 ? slug.slice(index + 2) : slug;
   return validId(id) ? id : null;
 }
-const safeImage = (raw?: string): string | undefined => {
-  try { const url = new URL(raw || ''); return url.protocol === 'https:' && !url.username && !url.password ? url.href : undefined; } catch { return undefined; }
-};
 const label = (match: SeoFixture) => [match.homeTeam?.name, match.awayTeam?.name].filter(Boolean).join(' vs ') || match.title || 'Football match';
+
+/** Shared match-page title pattern: `[Home] vs [Away] — Live Score, Stats & Streams | Limon Live`. */
+export function matchTitle(match: SeoFixture): string {
+  return `${label(match)} — Live Score, Stats & Streams | Limon Live`;
+}
+
 export function matchMetadata(match: SeoFixture | null) {
-  if (!match) return { title: 'Match not found | LIMON LIVE', robots: { index: false, follow: false } };
+  if (!match) return { title: 'Match not found | Limon Live', robots: { index: false, follow: false } };
   const name = label(match);
   const date = kickoffIso(match.timestamp).slice(0, 10);
-  const title = `${name} — ${match.status === 'live' ? 'Live Score' : match.status === 'finished' ? 'Result & Stats' : 'Kick-off & Preview'} | LIMON LIVE`;
-  const description = `${name}${match.tournament ? ` in ${match.tournament}` : ''}${date ? ` on ${date}` : ''}. Follow live scores, match statistics, line-ups and commentary on LIMON LIVE.`;
+  const title = matchTitle(match);
+  // Context-aware description: competition + date + status wording.
+  const when = [match.tournament, date].filter(Boolean).join(', ');
+  const story = match.status === 'finished'
+    ? 'Full-time result, match statistics, line-ups and highlights.'
+    : match.status === 'live'
+      ? 'Follow the live score, minute-by-minute updates, match statistics, line-ups and commentary.'
+      : 'Kick-off time, preview, line-ups and live score once the match starts.';
+  const description = `${name}${when ? ` — ${when}` : ''}. ${story} Live on Limon Live.`;
   const url = absoluteUrl(matchHref(match));
-  const image = safeImage(match.poster);
+  const image = safeRemoteUrl(match.poster);
   return {
     title, description, alternates: { canonical: url },
-    openGraph: { type: 'website', title, description, url, siteName: 'LIMON LIVE', ...(image ? { images: [image] } : {}) },
+    openGraph: { type: 'website', title, description, url, siteName: 'Limon Live', ...(image ? { images: [image] } : {}) },
     twitter: { card: image ? 'summary_large_image' : 'summary', title, description, ...(image ? { images: [image] } : {}) },
   };
 }
@@ -54,8 +64,8 @@ export function matchMetadata(match: SeoFixture | null) {
 export function sportsEventSchema(match: SeoFixture): Record<string, unknown> | null {
   if (!match.id || !match.homeTeam?.name || !match.awayTeam?.name || !kickoffIso(match.timestamp)) return null;
   const url = absoluteUrl(matchHref(match));
-  const image = safeImage(match.poster);
-  const team = (entry: NonNullable<SeoFixture['homeTeam']>) => ({ '@type': 'SportsTeam', name: entry.name, ...(safeImage(entry.badge) ? { logo: safeImage(entry.badge) } : {}) });
+  const image = safeRemoteUrl(match.poster);
+  const team = (entry: NonNullable<SeoFixture['homeTeam']>) => ({ '@type': 'SportsTeam', name: entry.name, ...(safeRemoteUrl(entry.badge) ? { logo: safeRemoteUrl(entry.badge) } : {}) });
   // Live/finished are not EventStatusType values. Keep EventScheduled for a fixture that took place.
   const status = /cancel/i.test(match.status || '') ? 'EventCancelled' : /postpon/i.test(match.status || '') ? 'EventPostponed' : 'EventScheduled';
   return {

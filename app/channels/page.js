@@ -5,8 +5,9 @@ import logger from '@/lib/logger';
 import { browsableChannels } from '@/lib/broadcast/pool';
 
 export const metadata = {
-  title: 'Live Channels — Limon Live',
+  title: 'Live Channels & Events — Limon Live',
   description: 'Live channels and events from dynamic M3U/JSON feeds, with real-time status.',
+  alternates: { canonical: '/channels' },
 };
 
 // Rendered per request: the channel list is server-rendered (so the grid is

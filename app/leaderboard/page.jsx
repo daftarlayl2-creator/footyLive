@@ -8,6 +8,7 @@ export const metadata = {
   title: 'Global Predictor Leaderboard — top tipsters | Limon Live',
   description:
     'The live ranking of Limon Live’s top predictors: accuracy rate, active win streaks and the badges each tipster currently holds. Updated as full-time whistles settle the calls.',
+  alternates: { canonical: '/leaderboard' },
 };
 
 /**

@@ -15,6 +15,7 @@ export const metadata = {
   title: 'Limon Live — Today’s Football Fixtures, Live Scores & Streams',
   description:
     'Every football match of the day with real-time scores, live minutes, cards and statistics — plus reliable live streams.',
+  alternates: { canonical: '/' },
 };
 
 function selectVisibleMatches(matches) {

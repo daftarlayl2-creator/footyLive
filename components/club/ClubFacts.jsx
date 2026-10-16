@@ -1,6 +1,7 @@
 import { BookOpen, CalendarClock, ExternalLink, Landmark, UserRound } from 'lucide-react';
 import { FactTile } from '@/components/club/ClubHero';
 import { fallbackClubBio, getClubFacts } from '@/lib/clubs/clubProfile';
+import SafeExternalLink from '@/components/ui/ExternalLink';
 
 function managerSinceLabel(iso) {
   const date = new Date(iso);
@@ -70,19 +71,18 @@ export async function ClubAbout({ club }) {
       </div>
       {summary?.url ? (
         <p className="relative mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-navy-500 dark:text-zinc-400">
-          <a
+          <SafeExternalLink
             href={summary.url}
-            target="_blank"
-            rel="noopener noreferrer"
+            fallbackLabel="Wikipedia page temporarily unreachable"
             className="tactile inline-flex items-center gap-1 rounded-full border border-navy-200 px-2.5 py-1 font-bold text-navy-700 hover:border-lime-500/50 hover:text-lime-700 dark:border-navy-750 dark:text-zinc-300 dark:hover:text-lime-400"
           >
             Read more on Wikipedia <ExternalLink className="h-3 w-3" aria-hidden="true" />
-          </a>
+          </SafeExternalLink>
           <span>
             Text from Wikipedia, licensed under{' '}
-            <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer" className="underline">
+            <SafeExternalLink href="https://creativecommons.org/licenses/by-sa/4.0/" className="underline">
               CC BY-SA 4.0
-            </a>
+            </SafeExternalLink>
           </span>
         </p>
       ) : (

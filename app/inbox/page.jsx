@@ -6,6 +6,7 @@ export const metadata = {
   description:
     'Your Limon Live message centre: Rewards Store receipts, coin movements, VIP access grants, moderation notices and platform broadcasts — each styled by the team that sent it.',
   robots: { index: false, follow: true },
+  alternates: { canonical: '/inbox' },
 };
 
 /**

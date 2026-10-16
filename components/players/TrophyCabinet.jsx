@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { Award, ChevronDown, ExternalLink, Trophy } from 'lucide-react';
+import SafeExternalLink from '@/components/ui/ExternalLink';
 
 /** Glass shelves with keyboard-operable filters and expandable trophy details. */
 export default function TrophyCabinet({ honors = [], note }) {
@@ -42,7 +43,7 @@ export default function TrophyCabinet({ honors = [], note }) {
                 </button>
                 <div id={`${id}-${honor.id}`} hidden={!open} className="border-t border-white/15 bg-black/20 px-4 py-3 text-center text-xs text-zinc-200">
                   <p className="font-bold">{honor.years.join(' · ')}</p>
-                  {honor.source && <a href={honor.source} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-amber-200 underline underline-offset-4">Honor source<ExternalLink className="h-3 w-3" aria-hidden="true" /></a>}
+                  {honor.source && <SafeExternalLink href={honor.source} fallbackLabel="Honor source unavailable" className="mt-2 inline-flex items-center gap-1 text-amber-200 underline underline-offset-4">Honor source<ExternalLink className="h-3 w-3" aria-hidden="true" /></SafeExternalLink>}
                 </div>
                 <div className="h-1 border-t border-white/20 bg-white/10 shadow-[0_5px_15px_rgba(255,255,255,0.1)]" aria-hidden="true" />
               </li>
