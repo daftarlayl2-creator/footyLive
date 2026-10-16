@@ -28,6 +28,23 @@ export const dynamic = 'force-dynamic';
 
 const headers = { 'Cache-Control': 'no-store, private', Vary: 'Cookie' };
 
+/**
+ * Set once the welcome note has been filed for this viewer. Because it lives in
+ * the *browser* (400-day cookie, same lifetime as the viewer identity), a cold
+ * cache or a restarted server can never re-deliver the welcome note as "unread"
+ * — the exact loop that made the unread badge reappear on every refresh.
+ */
+export const WELCOME_COOKIE = 'limon_inbox_welcome';
+
+function welcomeCookieFromHeader(header: string | null | undefined): string | null {
+  if (!header) return null;
+  for (const entry of header.split(';')) {
+    const trimmed = entry.trim();
+    if (trimmed.startsWith(`${WELCOME_COOKIE}=`)) return trimmed.slice(WELCOME_COOKIE.length + 1) || null;
+  }
+  return null;
+}
+
 function viewerFor(request: Request) {
   const existing = verifyWalletViewer(walletCookieFromHeader(request.headers.get('cookie')));
   if (existing) return { id: existing, fresh: undefined as string | undefined };
@@ -43,9 +60,14 @@ function withFreshCookie(response: NextResponse, cookie?: string) {
 export async function GET(request: Request) {
   const viewer = viewerFor(request);
   // First visit? The Support Team opens the thread, so the tray is never empty.
-  await ensureWelcomeMessage(viewer.id).catch(() => undefined);
+  // Skipped when this browser already filed it (value pins the viewer id, so a
+  // *new* viewer on a shared browser still gets their own welcome note).
+  const welcomed = welcomeCookieFromHeader(request.headers.get('cookie')) === viewer.id;
+  if (!welcomed) await ensureWelcomeMessage(viewer.id).catch(() => undefined);
   const view = await readInbox(viewer.id);
-  return withFreshCookie(NextResponse.json({ ...view, userId: viewer.id, senders: INBOX_SENDER_IDS, at: Date.now() }, { headers }), viewer.fresh);
+  const response = withFreshCookie(NextResponse.json({ ...view, userId: viewer.id, senders: INBOX_SENDER_IDS, at: Date.now() }, { headers }), viewer.fresh);
+  if (!welcomed) response.cookies.set(WELCOME_COOKIE, viewer.id, walletCookieOptions());
+  return response;
 }
 
 const clean = (value: unknown, max: number): string =>

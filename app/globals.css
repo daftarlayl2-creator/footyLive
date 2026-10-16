@@ -1772,3 +1772,52 @@ html:not(.dark) .lemon-coin {
   .top-banner-cta--sparkle::before,
   .top-banner-cta--sparkle::after { opacity: 0.55; }
 }
+
+/* ==========================================================================
+   Notification tray — adaptive device layouts.
+   Phones (<640px): full-width slide-up sheet (portaled to <body>).
+   Tablet/desktop (≥640px): compact popover anchored beneath the bell.
+   The breakpoint switch is pure CSS; the animations switch with it.
+   ========================================================================== */
+@keyframes inboxTraySheetUp {
+  from { transform: translateY(96%); opacity: 0.35; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes inboxTrayPopIn {
+  from { transform: translateY(-6px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.inbox-tray-sheet {
+  animation: inboxTraySheetUp 0.34s var(--ease-out-expo) both;
+  /* A sheet this tall must never rubber-band the page behind it on iOS. */
+  overscroll-behavior: contain;
+}
+
+.inbox-tray-panel {
+  animation: inboxTrayPopIn 0.18s var(--ease-out-expo) both;
+}
+
+.inbox-tray-sheet-body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox-tray-sheet,
+  .inbox-tray-panel {
+    animation: none;
+  }
+}
+
+/* Smart TVs / very large panels: keep the popover calm but legible at 10-foot
+   distance — a touch more glass blur and a softer halo, no layout jump. */
+@media (min-width: 1536px) {
+  .inbox-tray-panel {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 30px 70px -30px rgb(0 0 0 / 0.98),
+      0 0 0 1px rgb(204 255 0 / 0.06);
+  }
+}
