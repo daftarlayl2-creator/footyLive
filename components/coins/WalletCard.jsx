@@ -6,7 +6,7 @@ import useCountUp from '@/lib/hooks/useCountUp';
 import EvivCoin, { CoinAmount } from './EvivCoin';
 
 /**
- * Wallet card for /profile: the animated EVIV Coin, the server-confirmed
+ * Wallet card for /profile: the animated 3D Limon Coin, the server-confirmed
  * balance (counted up smoothly) and the prediction reward ledger (one credit
  * per correctly called full-time result).
  */
@@ -28,7 +28,7 @@ export default function WalletCard({ wallet, className = '' }) {
       <div className="relative flex items-center gap-4">
         <EvivCoin size={76} burst={Boolean(lastCredit)} className="eviv-coin--glow" />
         <div className="min-w-0">
-          <h2 id="wallet-heading" className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-300">EVIV Coin wallet</h2>
+          <h2 id="wallet-heading" className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-300">Limon Coin wallet</h2>
           <CoinAmount amount={animatedBalance} className="mt-1 block text-2xl text-eviv-lime sm:text-3xl" data-wallet-balance={balance} />
           <p className="mt-1 text-[11px] font-semibold text-zinc-300">
             {awards.length

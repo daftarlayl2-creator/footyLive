@@ -316,7 +316,7 @@ export default function VotingBar({ matchId, homeTeam, awayTeam, status, homeSco
         <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
           <span
             className="glass-dark-tile inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-eviv-lime"
-            title={`Server-verified reward: ${serverReward.toLocaleString('en-US')} EVIV Coins per correct full-time prediction`}
+            title={`Server-verified reward: ${serverReward.toLocaleString('en-US')} Limon Coins per correct full-time prediction`}
             data-prediction-reward={serverReward}
           >
             <EvivCoin size={16} spin={false} />

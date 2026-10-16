@@ -15,7 +15,7 @@ const KIND_LABEL = {
 };
 
 /**
- * /mounadel → Finance tab: the subscription + EVIV Coin ledger with running
+ * /mounadel → Finance tab: the subscription + Limon Coin ledger with running
  * totals (append-only server records, latest first).
  */
 export default function FinanceTab() {

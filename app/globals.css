@@ -950,9 +950,21 @@ select,
 }
 
 /* ==========================================================================
-   EVIV Coin — lime ring, deep-burgundy core, engraved E, glowing aura.
-   Pure CSS 3D (perspective + rotateY) so it stays GPU-cheap on phones.
+   Limon Coin — the 3D golden lemon bubble coin.
+   An inDrive-style lime ring (#CCFF00) around a radiant golden lemon core,
+   with a glass bezel, a shine sweep, a breathing gold/lime aura and twinkling
+   sparkles. Pure CSS 3D (perspective + rotateY) so it stays GPU-cheap on
+   phones. The `eviv-coin*` class names are the legacy handles kept so the
+   theme, the tests and the PWA chrome all keep pointing at the same mark.
    ========================================================================== */
+.lemon-coin {
+  filter: drop-shadow(0 6px 14px rgb(24 3 10 / 0.5));
+}
+
+html:not(.dark) .lemon-coin {
+  filter: drop-shadow(0 6px 12px rgb(42 8 19 / 0.28));
+}
+
 .eviv-coin {
   transform-style: preserve-3d;
 }
@@ -970,10 +982,61 @@ select,
   position: absolute;
   inset: -18%;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgb(204 255 0 / 0.5) 0%, rgb(204 255 0 / 0.12) 46%, transparent 72%);
+  background:
+    radial-gradient(circle, rgb(255 211 78 / 0.55) 0%, rgb(255 211 78 / 0.14) 34%, transparent 58%),
+    radial-gradient(circle, rgb(204 255 0 / 0.5) 0%, rgb(204 255 0 / 0.12) 46%, transparent 72%);
   filter: blur(6px);
   animation: evivCoinAura 2.8s ease-in-out infinite;
   pointer-events: none;
+}
+
+/* Shine sweeping across the glass face (one pass per idle cycle). */
+.lemon-coin__sweep {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: lemonCoinSweep 3.8s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+}
+
+/* The pinpoint specular dot on the bubble. */
+.lemon-coin__gloss {
+  animation: lemonCoinGloss 2.6s ease-in-out infinite;
+}
+
+/* Sparkles only where the coin is big enough to carry them. */
+.lemon-coin--sparkle .lemon-coin__sparkles > * {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lemonCoinSparkle 2.2s ease-in-out infinite;
+}
+.lemon-coin--sparkle .lemon-coin__sparkles > *:nth-child(2) { animation-delay: 0.7s; }
+.lemon-coin--sparkle .lemon-coin__sparkles > *:nth-child(3) { animation-delay: 1.35s; }
+
+/* Optional: coins used as hero art float a few pixels up and down. */
+.lemon-coin--float {
+  animation: lemonCoinFloat 5.2s ease-in-out infinite;
+}
+
+@keyframes lemonCoinSweep {
+  0% { opacity: 0; transform: translateX(-30px) skewX(-8deg); }
+  16% { opacity: 0.34; }
+  42% { opacity: 0; transform: translateX(52px) skewX(-8deg); }
+  100% { opacity: 0; transform: translateX(52px) skewX(-8deg); }
+}
+
+@keyframes lemonCoinGloss {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.95; }
+}
+
+@keyframes lemonCoinSparkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.6) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.18) rotate(22deg); }
+}
+
+@keyframes lemonCoinFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 .eviv-coin--burst .eviv-coin__rotor {
@@ -1020,11 +1083,17 @@ select,
   .eviv-coin--spin .eviv-coin__rotor,
   .eviv-coin__aura,
   .eviv-coin--burst .eviv-coin__rotor,
-  .eviv-coin__burst {
+  .eviv-coin__burst,
+  .lemon-coin__gloss,
+  .lemon-coin--sparkle .lemon-coin__sparkles > *,
+  .lemon-coin--float {
     animation: none;
   }
   .eviv-coin--burst .eviv-coin__rotor { transform: none; }
   .eviv-coin__burst { opacity: 0.35; }
+  /* The shine sweep freezes as a soft static highlight instead of vanishing. */
+  .lemon-coin__sweep { animation: none; opacity: 0.12; transform: none; }
+  .lemon-coin--sparkle .lemon-coin__sparkles > * { opacity: 0.8; }
 }
 
 /* ==========================================================================
@@ -1249,4 +1318,268 @@ select,
 @media (prefers-reduced-motion: reduce) {
   .admin-stat-pop,
   .admin-live-dot { animation: none; opacity: 1; }
+}
+
+/* ==========================================================================
+   Inbox & messages — one card per sender identity.
+   إدارة الموقع  → regal gold on burgundy + official crest seal + crown rail.
+   الأدمين       → elite neon-lime broadcast chrome (scanlines, live ping).
+   الدعم الفني   → clean sky professional card with a fast-response ring.
+   Every surface is defined twice: the dark default and an explicit light-mode
+   pass, so the thread reads correctly whichever theme the fan picked.
+   ========================================================================== */
+@layer components {
+  .inbox-card {
+    color: #f4f4f5;
+    border-color: rgb(255 255 255 / 0.09);
+    background:
+      radial-gradient(120% 140% at 0% 0%, var(--inbox-tint, rgb(198 255 0 / 0.08)) 0%, transparent 46%),
+      linear-gradient(160deg, rgb(52 10 26 / 0.9) 0%, rgb(24 3 10 / 0.96) 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      0 18px 40px -26px rgb(0 0 0 / 0.9);
+    transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s var(--ease-out-expo);
+  }
+  .inbox-card:hover {
+    border-color: var(--inbox-edge, rgb(198 255 0 / 0.35));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 22px 46px -24px rgb(0 0 0 / 0.95);
+  }
+  .inbox-card[data-read='true'] { opacity: 0.94; }
+
+  .inbox-card--platform {
+    --inbox-tint: rgb(245 197 68 / 0.14);
+    --inbox-edge: rgb(245 197 68 / 0.45);
+    border-color: rgb(245 197 68 / 0.28);
+    background:
+      radial-gradient(120% 140% at 0% 0%, rgb(245 197 68 / 0.16) 0%, transparent 44%),
+      linear-gradient(155deg, rgb(61 11 29 / 0.94) 0%, rgb(24 3 10 / 0.97) 100%);
+  }
+  .inbox-card--admin {
+    --inbox-tint: rgb(204 255 0 / 0.16);
+    --inbox-edge: rgb(204 255 0 / 0.5);
+    border-color: rgb(204 255 0 / 0.32);
+    background:
+      repeating-linear-gradient(180deg, rgb(204 255 0 / 0.05) 0 1px, transparent 1px 4px),
+      radial-gradient(120% 140% at 100% 0%, rgb(204 255 0 / 0.14) 0%, transparent 42%),
+      linear-gradient(160deg, rgb(42 8 19 / 0.94) 0%, rgb(11 18 0 / 0.96) 100%);
+  }
+  .inbox-card--support {
+    --inbox-tint: rgb(56 189 248 / 0.14);
+    --inbox-edge: rgb(56 189 248 / 0.45);
+    border-color: rgb(56 189 248 / 0.26);
+    background:
+      radial-gradient(120% 140% at 0% 0%, rgb(56 189 248 / 0.13) 0%, transparent 46%),
+      linear-gradient(160deg, rgb(8 47 73 / 0.9) 0%, rgb(11 18 32 / 0.96) 100%);
+  }
+
+  /* Left rail: the hierarchy stripe every thread carries. */
+  .inbox-rail {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
+    border-start-end-radius: 6px;
+    border-end-end-radius: 6px;
+  }
+  .inbox-rail--platform { background: linear-gradient(180deg, #FFE9A8 0%, #F5C544 42%, #A9761A 100%); }
+  .inbox-rail--admin { background: linear-gradient(180deg, #E7FF8F 0%, #CCFF00 45%, #6FA300 100%); box-shadow: 0 0 18px rgb(204 255 0 / 0.55); }
+  .inbox-rail--support { background: linear-gradient(180deg, #BAE6FD 0%, #38BDF8 50%, #0C6E9E 100%); }
+
+  .inbox-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem 0.6rem;
+    border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  }
+  .inbox-header--platform { background: linear-gradient(180deg, rgb(245 197 68 / 0.12) 0%, transparent 100%); }
+  .inbox-header--admin { background: linear-gradient(180deg, rgb(204 255 0 / 0.12) 0%, transparent 100%); }
+  .inbox-header--support { background: linear-gradient(180deg, rgb(56 189 248 / 0.12) 0%, transparent 100%); }
+
+  .inbox-sender-name--platform { color: #FFE9A8; text-shadow: 0 0 22px rgb(245 197 68 / 0.35); }
+  .inbox-sender-name--admin { color: #CCFF00; text-shadow: 0 0 22px rgb(204 255 0 / 0.4); }
+  .inbox-sender-name--support { color: #BAE6FD; text-shadow: 0 0 22px rgb(56 189 248 / 0.3); }
+
+  .inbox-chip { border: 1px solid currentColor; }
+  .inbox-chip--platform { color: #F5C544; background: rgb(245 197 68 / 0.12); }
+  .inbox-chip--admin { color: #CCFF00; background: rgb(204 255 0 / 0.12); }
+  .inbox-chip--support { color: #7DD3FC; background: rgb(56 189 248 / 0.12); }
+
+  .inbox-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 10px;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background: rgb(255 255 255 / 0.05);
+    color: #d4d4d8;
+    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  }
+  .inbox-icon-button:hover { border-color: rgb(204 255 0 / 0.45); color: #CCFF00; background: rgb(204 255 0 / 0.08); }
+
+  /* Collapse/expand without layout jank. */
+  .inbox-message-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 0.32s var(--ease-out-expo), opacity 0.24s ease;
+  }
+  .inbox-message-body > * { overflow: hidden; }
+  .inbox-message-body.is-expanded { grid-template-rows: 1fr; opacity: 1; }
+
+  /* Legend + tray rows */
+  .inbox-legend { color: #e4e4e7; }
+  .inbox-legend--platform { border-color: rgb(245 197 68 / 0.28); background: linear-gradient(150deg, rgb(61 11 29 / 0.85), rgb(24 3 10 / 0.9)); }
+  .inbox-legend--admin { border-color: rgb(204 255 0 / 0.3); background: linear-gradient(150deg, rgb(42 8 19 / 0.85), rgb(11 18 0 / 0.9)); }
+  .inbox-legend--support { border-color: rgb(56 189 248 / 0.28); background: linear-gradient(150deg, rgb(8 47 73 / 0.8), rgb(11 18 32 / 0.9)); }
+
+  .inbox-tray-row--platform { box-shadow: inset 2px 0 0 rgb(245 197 68 / 0.75); }
+  .inbox-tray-row--admin { box-shadow: inset 2px 0 0 rgb(204 255 0 / 0.8); }
+  .inbox-tray-row--support { box-shadow: inset 2px 0 0 rgb(56 189 248 / 0.8); }
+  .inbox-tray-row[data-read='false'] { background: rgb(255 255 255 / 0.04); }
+
+  .inbox-bell-ring { transform-origin: 60% 10%; animation: inboxBellRing 2.6s ease-in-out infinite; }
+
+  /* ---- Sender seals ---- */
+  .sender-seal { display: inline-flex; flex-shrink: 0; }
+  .sender-seal--platform { filter: drop-shadow(0 4px 12px rgb(245 197 68 / 0.35)); }
+  .sender-seal--admin { filter: drop-shadow(0 0 14px rgb(204 255 0 / 0.5)); }
+  .sender-seal--support { filter: drop-shadow(0 4px 12px rgb(56 189 248 / 0.35)); }
+  .sender-seal--animated .sender-seal__ring { animation: senderSealRing 14s linear infinite; transform-box: fill-box; transform-origin: center; }
+  .sender-seal--animated .sender-seal__ping { animation: senderSealPing 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  .sender-seal--animated .sender-seal__pulse { animation: senderSealPulse 2.4s linear infinite; transform-box: fill-box; transform-origin: center; }
+  .sender-seal--animated .sender-seal__waves > * { animation: senderSealWave 2.2s ease-out infinite; }
+  .sender-seal--animated .sender-seal__waves > *:nth-child(2) { animation-delay: 0.35s; }
+  .sender-seal--animated .sender-seal__waves > *:nth-child(3) { animation-delay: 0.7s; }
+
+  /* Light mode: same identities, inverted paper so contrast never drops. */
+  html:not(.dark) .inbox-card {
+    color: #1c1116;
+    background:
+      radial-gradient(120% 140% at 0% 0%, var(--inbox-tint-light, rgb(245 197 68 / 0.16)) 0%, transparent 48%),
+      linear-gradient(160deg, #fffdf6 0%, #fdf4f7 100%);
+    border-color: rgb(42 8 19 / 0.12);
+    box-shadow: 0 14px 30px -22px rgb(42 8 19 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.7);
+  }
+  html:not(.dark) .inbox-card--admin { --inbox-tint-light: rgb(154 205 0 / 0.2); background: radial-gradient(120% 140% at 100% 0%, rgb(154 205 0 / 0.18) 0%, transparent 44%), linear-gradient(160deg, #f7ffe2 0%, #fffdf6 100%); border-color: rgb(110 160 0 / 0.3); }
+  html:not(.dark) .inbox-card--support { --inbox-tint-light: rgb(14 116 168 / 0.14); background: radial-gradient(120% 140% at 0% 0%, rgb(14 116 168 / 0.14) 0%, transparent 46%), linear-gradient(160deg, #f2fbff 0%, #fdf7fa 100%); border-color: rgb(12 110 158 / 0.25); }
+  html:not(.dark) .inbox-sender-name--platform { color: #8a5c07; text-shadow: none; }
+  html:not(.dark) .inbox-sender-name--admin { color: #4e6900; text-shadow: none; }
+  html:not(.dark) .inbox-sender-name--support { color: #0c6e9e; text-shadow: none; }
+  html:not(.dark) .inbox-card p,
+  html:not(.dark) .inbox-card h4,
+  html:not(.dark) .inbox-card dt,
+  html:not(.dark) .inbox-card dd { color: #2a1a20; }
+  html:not(.dark) .inbox-card h4 { color: #18030a; }
+  html:not(.dark) .inbox-card dd { color: #18030a; }
+  html:not(.dark) .inbox-card header time { color: #4a2835; }
+  html:not(.dark) .inbox-card header p { color: #5a3341; }
+  html:not(.dark) .inbox-header { border-bottom-color: rgb(42 8 19 / 0.08); }
+  html:not(.dark) .inbox-legend { color: #2a1a20; }
+  html:not(.dark) .inbox-legend--platform { background: linear-gradient(150deg, #fff9ea, #fff1f5); border-color: rgb(245 197 68 / 0.45); }
+  html:not(.dark) .inbox-legend--admin { background: linear-gradient(150deg, #f7ffe2, #fff1f5); border-color: rgb(154 205 0 / 0.45); }
+  html:not(.dark) .inbox-legend--support { background: linear-gradient(150deg, #f0f9ff, #fff1f5); border-color: rgb(56 189 248 / 0.45); }
+  html:not(.dark) .inbox-icon-button { border-color: rgb(42 8 19 / 0.14); background: rgb(42 8 19 / 0.04); color: #5a3341; }
+  html:not(.dark) .inbox-icon-button:hover { border-color: rgb(110 160 0 / 0.5); color: #4e6900; background: rgb(204 255 0 / 0.16); }
+}
+
+@keyframes inboxBellRing {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  74% { transform: rotate(14deg); }
+  78% { transform: rotate(-12deg); }
+  82% { transform: rotate(8deg); }
+  86% { transform: rotate(-6deg); }
+  90% { transform: rotate(3deg); }
+}
+
+@keyframes senderSealRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes senderSealPing {
+  0%, 100% { opacity: 0.55; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+@keyframes senderSealPulse {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -106; }
+}
+
+@keyframes senderSealWave {
+  0% { opacity: 0.15; }
+  45% { opacity: 0.95; }
+  100% { opacity: 0.15; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox-bell-ring,
+  .sender-seal--animated .sender-seal__ring,
+  .sender-seal--animated .sender-seal__ping,
+  .sender-seal--animated .sender-seal__pulse,
+  .sender-seal--animated .sender-seal__waves > * {
+    animation: none;
+  }
+  .inbox-message-body { transition: none; }
+}
+
+/* ==========================================================================
+   Rewards Store cards + admin command centre: shared motion + light passes.
+   ========================================================================== */
+@layer components {
+  .lemon-reward-card {
+    transition: transform 0.24s var(--ease-spring), border-color 0.24s ease, box-shadow 0.24s ease;
+  }
+  .lemon-reward-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 44px -26px rgb(0 0 0 / 0.9), 0 0 0 1px rgb(204 255 0 / 0.12);
+  }
+  html:not(.dark) .admin-shell,
+  html:not(.dark) .admin-panel {
+    background: linear-gradient(160deg, #fffdf6 0%, #fdf3f6 100%);
+    border-color: rgb(42 8 19 / 0.12);
+    color: #241019;
+  }
+  .admin-panel {
+    color: #f4f4f5;
+    background: linear-gradient(160deg, rgb(52 10 26 / 0.9) 0%, rgb(24 3 10 / 0.96) 100%);
+    border: 1px solid rgb(255 255 255 / 0.09);
+  }
+  .admin-row-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 10px;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    padding: 0.3rem 0.5rem;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s var(--ease-spring);
+  }
+  .admin-row-action:hover:not(:disabled) { border-color: rgb(204 255 0 / 0.5); background: rgb(204 255 0 / 0.1); color: #CCFF00; }
+  .admin-row-action:disabled { opacity: 0.45; }
+  .admin-toast {
+    position: fixed;
+    inset-inline-start: 50%;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 80;
+    animation: adminToastEnter 0.28s var(--ease-out-expo);
+  }
+}
+
+@keyframes adminToastEnter {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lemon-reward-card:hover { transform: none; }
+  .admin-toast { animation: none; }
 }
