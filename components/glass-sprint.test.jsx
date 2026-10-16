@@ -408,7 +408,7 @@ describe('liquid-glass crests', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('verified badge', () => {
-  it('is an accessible brand seal in EVIV lime and deep burgundy', () => {
+  it('is an accessible brand seal in Limon lime and deep burgundy', () => {
     const html = renderToStaticMarkup(<VerifiedBadge size={20} />);
     expect(html).toContain('role="img"');
     expect(html).toContain('aria-label="Verified fan"');
@@ -491,7 +491,7 @@ describe('profile dashboard', () => {
     expect(window.localStorage.getItem('eviv:auth:accounts')).not.toContain('goal2026');
 
     typeInto(inputByLabel('Display name'), 'Ultras 1899');
-    await click(container.querySelector('button[aria-label="Use the EVIV Eagle avatar"]'));
+    await click(container.querySelector('button[aria-label="Use the Limon Lime avatar"]'));
     await submit(container.querySelector('[data-profile-editor]'));
     await waitFor(() => expect(container.querySelector('#profile-heading').textContent).toBe('Ultras 1899'));
     expect(JSON.parse(window.localStorage.getItem('eviv:auth:accounts'))[0]).toMatchObject({ displayName: 'Ultras 1899', avatarUrl: 'preset:eagle' });
@@ -531,17 +531,23 @@ describe('profile dashboard', () => {
     );
     storage.setItem('fav_teams', JSON.stringify(['AC Milan', 'Raja CA']));
     storage.setItem('eviv:fan:chat', JSON.stringify({ messages: 7, reactions: 3, matches: ['m1', 'm2'], lastAt: now }));
-    const fetchMock = vi.fn(async (url) =>
-      String(url).includes('/api/match/m4')
-        ? json({ match: { status: 'finished', homeScore: 3, awayScore: 0, homeName: 'Real Madrid', awayName: 'Getafe' } })
-        : json({ match: null }, 404)
-    );
+    const fetchMock = vi.fn(async (url) => {
+      const target = String(url);
+      if (target.includes('/api/match/m4')) {
+        return json({ match: { status: 'finished', homeScore: 3, awayScore: 0, homeName: 'Real Madrid', awayName: 'Getafe' } });
+      }
+      // The wallet card / rewards store read the server wallet.
+      if (target.includes('/api/wallet')) return json({ balance: 0, awards: [], redemptions: [], reward: 500, vipActive: false });
+      return json({ match: null }, 404);
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     await render(<ProfileDashboard />);
     const stats = () => container.querySelector('[data-fan-stats]');
     await waitFor(() => expect(stats().querySelector('svg[role="img"]').getAttribute('aria-label')).toBe('Prediction accuracy 75%'));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Exactly one fixture result is fetched (m1–m3 are already cached as finished).
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/match/'))).toHaveLength(1);
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/match/m4');
     expect(stats().textContent).toContain('Real Madrid to win');
     expect(stats().textContent).toContain('Starred teams');
     expect(stats().textContent).toContain('7 messages');

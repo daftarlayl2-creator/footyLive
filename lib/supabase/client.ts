@@ -1,5 +1,5 @@
 /**
- * Supabase-compatible data client for EVIV Live (chat, predictions, admin).
+ * Supabase-compatible data client for Limon Live (chat, predictions, admin).
  *
  * Exposes the subset of the supabase-js API the app uses — chainable,
  * awaitable query builders (`from().select().eq().order().limit()`),

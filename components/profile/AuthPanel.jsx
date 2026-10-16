@@ -77,7 +77,7 @@ export default function AuthPanel({ provider, guestName, initialMode = 'signup' 
       <span className="pointer-events-none absolute -left-16 -top-16 h-44 w-44 rounded-full bg-sky-500/10 blur-3xl" aria-hidden="true" />
 
       <h2 id="auth-heading" className="relative flex items-center gap-2 text-base font-extrabold text-white">
-        Join EVIV Live
+        Join Limon Live
         <VerifiedBadge size={18} />
       </h2>
       <p className="relative mt-0.5 text-[11px] font-semibold text-zinc-300">

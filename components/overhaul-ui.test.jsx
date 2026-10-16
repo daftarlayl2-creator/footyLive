@@ -105,11 +105,13 @@ describe('club links across the app', () => {
 });
 
 describe('navigation', () => {
-  it('renders the four mobile tabs and marks the active destination', () => {
+  it('renders the four mobile tabs plus the coin wallet, and marks the active destination', () => {
     pathname = '/club/359-arsenal';
     const html = renderToStaticMarkup(<MobileBottomNav />);
-    for (const label of ['Matches', 'Live Channels', 'Standings', 'Multi-View']) expect(html).toContain(label);
-    for (const href of ['href="/"', 'href="/channels"', 'href="/standings"', 'href="/multistream"']) expect(html).toContain(href);
+    for (const label of ['Matches', 'Live Channels', 'Standings', 'Multi-View', 'Wallet']) expect(html).toContain(label);
+    for (const href of ['href="/"', 'href="/channels"', 'href="/standings"', 'href="/multistream"', 'href="/profile#rewards"']) expect(html).toContain(href);
+    // The wallet tab carries the animated EVIV Coin.
+    expect(html).toContain('data-eviv-coin');
     expect(html).toMatch(/href="\/standings"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/standings"/);
     expect((html.match(/aria-current="page"/g) || []).length).toBe(1);
     expect(html).toContain('md:hidden');

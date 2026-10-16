@@ -5,12 +5,12 @@ import { useId } from 'react';
 const ROSETTE =
   'M12 1.6 L14.26 3.55 L17.2 2.99 L18.19 5.81 L21.01 6.8 L20.45 9.74 L22.4 12 L20.45 14.26 L21.01 17.2 L18.19 18.19 L17.2 21.01 L14.26 20.45 L12 22.4 L9.74 20.45 L6.8 21.01 L5.81 18.19 L2.99 17.2 L3.55 14.26 L1.6 12 L3.55 9.74 L2.99 6.8 L5.81 5.81 L6.8 2.99 L9.74 3.55 Z';
 
-/** EVIV brand colours. */
+/** Limon brand colours. */
 export const BADGE_LIME = '#CCFF00';
 export const BADGE_BURGUNDY = '#2A0813';
 
 /**
- * EVIV "verified fan" seal: a Deep Burgundy rosette with a Lime keyline, inner
+ * Limon "verified fan" seal: a Deep Burgundy rosette with a Lime keyline, inner
  * ring and check. The scalloped rosette turns slowly (`subtle-spin 12s linear
  * infinite`) behind the upright check while a soft lime halo breathes; both
  * stop under prefers-reduced-motion.

@@ -88,7 +88,7 @@ function LoginPage({ loggingIn, error, handleLogin }) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="rounded-2xl border border-navy-700 bg-navy-950/90 p-8 backdrop-blur-md shadow-2xl max-w-md w-full">
-        <h2 className="text-2xl font-extrabold text-zinc-100 mb-1">EVIV Live Admin</h2>
+        <h2 className="text-2xl font-extrabold text-zinc-100 mb-1">Limon Live Admin</h2>
         <p className="text-xs text-zinc-400 mb-5">Sign in with your administrator credentials to manage streams and channels.</p>
         {error && (
           <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 mb-4">
@@ -208,7 +208,7 @@ function DashboardPage({ onLogout }) {
       {/* Header */}
       <header className="border-b border-navy-700 px-6 py-4 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-zinc-100">
-          EVIV Live Admin Panel
+          Limon Live Admin Panel
         </h1>
         <button
           type="button"

@@ -10,6 +10,9 @@ import ClubLink from '@/components/clubs/ClubLink';
 import CrestDrop from '@/components/clubs/CrestDrop';
 import UserAvatar from '@/components/auth/UserAvatar';
 import VerifiedBadge from '@/components/auth/VerifiedBadge';
+import WalletCard from '@/components/coins/WalletCard';
+import RewardsStore from '@/components/coins/RewardsStore';
+import useWallet from '@/lib/hooks/useWallet';
 import AuthPanel from './AuthPanel';
 import AuthReturnNotice from './AuthReturnNotice';
 import FanStatsCard from './FanStatsCard';
@@ -124,10 +127,19 @@ export default function ProfileDashboard({ authReturn = null, authReason = null 
   const auth = useAuth();
   const stats = useFanStats();
   const guestName = useLocalValue(NICKNAME_STORAGE_KEY);
+  // Every match this fan has voted on is handed to the server, which verifies
+  // the final score and credits coins for the correct calls (never the client).
+  const wallet = useWallet({ settleMatchIds: (stats.votes || []).map((vote) => vote.matchId) });
 
   return (
     <div className="flex flex-col gap-6" data-profile-dashboard={auth.status}>
       <AuthReturnNotice authReturn={authReturn} reason={authReason} />
+      {/* The wallet and the Rewards Store are server-backed and independent of
+          the sign-in state, so they paint on the first frame. */}
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <WalletCard wallet={wallet} />
+        <RewardsStore wallet={wallet} />
+      </div>
       {auth.status === 'loading' ? <ProfileSkeleton /> : <>
       <ProfileHero auth={auth} guestName={guestName} level={stats.level} />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">

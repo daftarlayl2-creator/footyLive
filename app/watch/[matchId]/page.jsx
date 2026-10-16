@@ -1,6 +1,6 @@
 import { getMatchStats, resolveAllStreams } from '@/lib/streamEngine';
-import StreamPlayer from '@/components/StreamPlayer';
 import StreamAutoResolver from '@/components/StreamAutoResolver';
+import WatchStreamHub from '@/components/watch/WatchStreamHub';
 import MatchCountdown from '@/components/MatchCountdown';
 import MatchStatsSection from '@/components/MatchStatsSection';
 import LiveScoreboard from '@/components/LiveScoreboard';
@@ -186,7 +186,14 @@ export default async function WatchPage({ params, searchParams, initialMatch }) 
           {/* Player window block: every resolved server goes to the player's selector / failover chain.
               A live fixture without a server keeps re-resolving instead of dead-ending. */}
           {hasServers || match.status === 'upcoming' ? (
-            <StreamPlayer matchId={matchId} streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
+            <WatchStreamHub
+              matchId={matchId}
+              streamUrl={streamUrl}
+              channels={channels}
+              matchTitle={match.title}
+              matchStatus={match.status}
+              initialLockedCount={lockedCount}
+            />
           ) : (
             <StreamAutoResolver
               key={matchId}

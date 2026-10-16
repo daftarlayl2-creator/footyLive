@@ -5,7 +5,7 @@ import { getStandingsBundle } from '@/lib/providers/standingsProvider';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'League Standings, Top Scorers & Assists — EVIV Live',
+  title: 'League Standings, Top Scorers & Assists — Limon Live',
   description:
     'Official league tables for the Premier League, La Liga, Serie A, Bundesliga, Ligue 1, the Champions League, Botola Pro and more — with top scorers and assists.',
 };

@@ -278,7 +278,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
               API Developer Hub
             </h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-3xl leading-relaxed">
-              Welcome to the EVIV Live developer dashboard. Here you can explore our system endpoints, copy code signatures, view data structures, and access upstream streaming metadata providers.
+              Welcome to the Limon Live developer dashboard. Here you can explore our system endpoints, copy code signatures, view data structures, and access upstream streaming metadata providers.
             </p>
           </div>
         </div>

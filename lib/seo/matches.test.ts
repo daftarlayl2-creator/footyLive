@@ -52,7 +52,7 @@ describe('programmatic match SEO', () => {
   });
   it('uses an explicit deployment origin and rejects credential-bearing URLs', () => {
     expect(siteUrl('https://scores.example/a?b=c')).toBe('https://scores.example');
-    expect(siteUrl('javascript:alert(1)')).toBe('https://eviv.live');
-    expect(siteUrl('https://name:pass@evil.example')).toBe('https://eviv.live');
+    expect(siteUrl('javascript:alert(1)')).toBe('https://limonlive.app');
+    expect(siteUrl('https://name:pass@evil.example')).toBe('https://limonlive.app');
   });
 });

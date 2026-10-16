@@ -1,5 +1,5 @@
 /**
- * Supabase table schemas for EVIV Live.
+ * Supabase table schemas for Limon Live.
  * 
  * Define the shape of data stored in each Supabase table.
  * These types are used for type-safe inserts/queries.

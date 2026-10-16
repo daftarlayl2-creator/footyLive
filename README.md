@@ -1,16 +1,19 @@
-# ⚽ EVIV Live — Real-Time Football Scores & Live Streams
+# ⚽ Limon Live — Real-Time Football Scores & Live Streams
 
-**EVIV Live** is a high-performance live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Deep Burgundy / Electric Lime** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
+**Limon Live** is a high-performance live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Deep Burgundy / Electric Lime** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
 
 **No mock production data.** Fixtures, scores, match minutes, cards, scorers and statistics are read straight from ESPN's public scoreboard JSON. Streaming sources are aggregated from public feeds/providers and always played through a signed first-party proxy.
 
-> **Brand:** page `#18030A` · cards `#280713` · borders `#3D0B1D` · neon lime `#C6FF00`. Dark is the default; light is an explicit opt-in.
-> **Mark:** the EVIV Live eagle, wordmark and animated on-air signal are one responsive SVG lockup.
+> **Brand:** page `#18030A` · cards `#280713` · borders `#3D0B1D` · neon lime `#CCFF00`. Dark is the default; light is an explicit opt-in.
+> **Mark:** the Limon Live lime-lemon mark (with the EVIV Coin at its heart), the LIMON wordmark and the animated on-air signal form one responsive SVG lockup.
 
 ---
 
 ## 🌟 Key Features
 
+* 🪙 **EVIV Coin gamification**: call match results in the **"Who will win?"** predictor and earn **500 EVIV Coins** for every correct full-time call. A lime-ring / deep-burgundy **animated 3D EVIV Coin** (engraved `E`, glowing aura, pure-CSS rotation that respects reduced-motion) shows the balance in the header, on the profile wallet card and in every payout animation. Coins are earned, stored and settled **on the server** — a hand-edited `localStorage` balance or a DOM tweak through Inspect Element never changes what the backend believes.
+* 🎁 **Rewards Store (`/profile#rewards`)**: spend earned coins on real perks — **20,000 EVIV Coins = 1 month of VIP, free** (plus 7-day passes, chat flair and prediction boosts). Redemptions are validated server-side against the stored balance, and a redeemed pass is merged into the same entitlement pipeline as a paid one, so it really unlocks ad-free FHD/4K + Multi-View.
+* 🛡️ **Server-enforced prediction anti-cheat**: one vote per **`user_id + match_id`** (the storage key is that exact pair), predictions **lock automatically at kick-off** and stay locked once the fixture is live/finished, only the three legal outcomes are accepted, timestamps come from the server clock, and coin rewards are settled on the backend from the true final score — credited at most once per match. The fan identity behind a vote/wallet is a **signed (HMAC) server-issued cookie**, so a client cannot forge an id, vote twice under local keys or "predict" a score it can already see. See [predictions & coins](docs/predictions-and-coins.md).
 * 👑 **Verified VIP passes (`/pricing`)**: Single Match **3 MAD**, Weekly **15 MAD**, Monthly **40 MAD**, Annual **150 MAD**. Free fans keep standard HD (up to 720p) with EVIV ads. Paid access removes EVIV ads, enables source-provided low-latency FHD/4K and removes artificial viewing timers; site-wide passes also unlock four-screen Multi-View. A glass paywall explains scope and prices. Checkout is **disabled until an authenticated billing adapter and strong, distinct signing keys are configured**; no local flag or success URL grants access. See [billing setup and deployment limitations](docs/subscriptions.md).
 * 🔎 **Programmatic SEO**: descriptive `/match/teams-competition-date--id` URLs, canonical redirects from old match IDs, canonical metadata on `/watch/[id]`, server-rendered `SportsEvent` JSON-LD from real fixture facts, `Person` schema on player profiles, sitemap and robots routes. Set `SITE_URL` for your production origin.
 
@@ -24,11 +27,12 @@
 * 📊 **Enterprise Match Statistics**: real boxscore comparison rows (possession, shots, corners, fouls, cards …) with proportional bars — lime for home, sky for away — next to the real key-events log on the match page.
 * 📡 **Channels That Never Disappear**: `/channels` server-renders the currently published `playlist.m3u`, falling back to GitHub’s base64 Contents API if raw access is blocked/HTML. It shows all statuses by default; CDN-blocked probes are **Standby**. Clicking a channel attempts playback through the signed `/api/proxy` player even if a probe failed.
 * 🎨 **Burgundy & Lime Design System**: Tailwind v4 `@theme` tokens (legacy `navy-*` utility names now map to burgundy shades; `lime-*` maps to the new electric lime) drive every surface, button, active state and player control. Cards and live badges animate, respecting `prefers-reduced-motion`.
-* 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback. Provider embeds run in an **unsandboxed** iframe with a permissive `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"` list — provider players refuse to play inside `sandbox` ("Remove sandbox attributes on the iframe tag").
+* 📡 **Manual live-channel list on the watch page**: below the player, every aggregated M3U/IP-TV channel is listed (Live · Standby · Offline) with search, group chips, a sports-first ordering and one-tap playback — tapping a channel resolves its signed links and swaps the player's sources **in place**, with "Back to match servers" one tap away. A blocked probe is shown as **Standby**, never as a dead end: playback is still attempted through the proxy.
+* 📺 **Interactive Stream Player: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback. Provider embeds run in an **unsandboxed** iframe with a permissive `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"` list — provider players refuse to play inside `sandbox` ("Remove sandbox attributes on the iframe tag").
 * 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls. Embeds are watched too: a refused/expired signed link inside the frame and provider pages the server-side probe (`/api/stream-redirect?…&check=1`) reports gone fail over immediately, and after an embed fails the **direct HLS/MP4 backups are tried first** — while a restricted/offline direct stream hands over to the next **embedded web player** first (delivery paths alternate). Viewers can tap **Next server** when a provider shows its own error. Once every server failed, the player re-signs links and **retries the whole list on its own** (10 s → 30 s → 60 s, with a countdown and Cancel), plus a manual **Retry all**.
 * 🧠 **Health-Aware IPTV**: Live-events, the hidden official IPTV-Org sports pool and the Guovin result/IPv4 pools are mapped together — two-team/broadcaster evidence, multilingual football relevance (football, fútbol, calcio, 足球, CCTV-5, كرة القدم…), media-verified automatic backups and FHD/HD speed/stability ranking shared by the match player and Multi-View. A live match never dead-ends on “Stream is Offline”: it keeps re-resolving fresh backup windows and starts playback as soon as a server answers. Latency is measured from the server, not the viewer.
 * 🖥️ **VIP Multistream Arena**: up to four independent live matches or IPTV channels in a responsive, resizable grid. Search, replace/remove sources, control per-tile audio and mute all without restarting streams.
-* 🏅 **Player Showcases (`/player/[id]`)**: full-card squad links, a card header with a transparent player cutout in front of a subtle national-flag overlay (all players first try identity-checked high-resolution TheSportsDB render/cutout PNGs, then full-size ESPN PNG headshots, then a branded silhouette; opaque thumbnails are excluded — never a generic placeholder), age/position/nationality banner, linked club crest, dated valuation, five season metrics and a glass Trophy Cabinet (الفيترينة) with individual/team filters and expandable honors. Missing provider statistics stay explicit; selected editorial honors/valuations are historical and sourced.
+* 🏅 **Player Showcases (`/player/[id]`) — 4K action cutouts**: the card header shows a genuine **transparent PNG action cutout** (Transfermarkt-style), never a circular avatar or an opaque thumbnail. Candidates are ordered highest-value-first — the provider's action **render** (identity-checked against the date of birth, with curated aliases for the top stars), then the cutout bust, then ESPN's full-size transparent PNG and its 1024-px variant — and the frame renders them large with `object-contain`, no circle crop and `fetchPriority="high"`. Below it: age/position/nationality banner, linked club crest, a **dated market value** and five season metrics plus a glass Trophy Cabinet (الفيترينة) with individual/team filters and expandable honors. Market values track the **current Transfermarkt ranking** (October 2026 update — Yamal & Haaland €220M, Mbappé €200M, Olise €180M, Bellingham €160M, Pedri €150M …), always shown with the valuation date and its source; provider values that are already newer win, and missing statistics stay explicit.
 * 🏆 **Standings, Top Scorers & Top Assists**: `/standings` has a scrollable league pill selector (Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Botola Pro, Europa League, Eredivisie, Primeira Liga, Saudi Pro League, MLS) and Table / Top Scorers / Top Assists tabs. Tables show Pos, Team, P, W, D, L, GF, GA, GD, Pts with qualification/relegation zones; phones get a combined `GF:GA` column so points never scroll off-screen. The league and tab live in the URL (`?league=esp.1&view=scorers`), so views can be shared.
 * 🛡️ **Club Pages (`/club/[id]`)**: every crest and club name (match cards, scoreboard, standings, leaderboards, fixtures) links to a club page. It has a hero in the official club colours with a high-res crest, plus founding year, stadium and current manager. Below that come the Wikipedia history/bio and tabs for **Form & Results**, **Fixtures** and **Squad**. ESPN data renders first; the Wikidata facts and bio stream in afterwards.
 * 💬 **Live Chat & One-Tap Predictions**: the chat input is never disabled. Messages appear instantly with delivery ticks and a one-tap retry, Enter sends, and focus stays in the field. Votes register on tap with a check-mark pop, ring pulse and chime; the tally updates immediately and a vote can be changed. Both sync through Supabase when it is configured. Without it they still work, stored in the browser and live-synced across tabs.
@@ -129,7 +133,13 @@ footylive/
 │   ├── globals.css            # Tailwind v4 @theme: burgundy & lime palettes, glass, animations
 │   └── page.js                # Home dashboard (dynamic, live data)
 ├── components/
-│   ├── BrandLogo.jsx          # Responsive eagle + wordmark + on-air SVG lockup
+│   ├── BrandLogo.jsx          # Responsive lime-lemon + EVIV Coin mark, wordmark, on-air signal
+│   ├── coins/EvivCoin.jsx     # Animated 3D EVIV Coin (lime ring · burgundy core · engraved E)
+│   ├── coins/WalletCard.jsx   # Profile wallet: balance, reward ledger, server-verified payout
+│   ├── coins/RewardsStore.jsx # Rewards Store (20,000 coins = 1-month VIP pass)
+│   ├── coins/WalletBadge.jsx  # Header wallet chip → /profile#rewards
+│   ├── watch/WatchStreamHub.jsx     # Player + manual live-channel list, in-place source swap
+│   ├── watch/LiveChannelPicker.jsx  # Searchable, status-labelled channel list on /watch
 │   ├── MatchCard.jsx          # Real live cards: minute, cards, scorers, FT state, lime pulse
 │   ├── MatchGrid.jsx          # Live / Upcoming / Finished tabs, tournament shelf, search
 │   ├── MatchStatsSection.jsx  # Real stat bars (lime home · sky away) + key-events log
@@ -163,7 +173,7 @@ footylive/
 │   ├── supabase/client.ts     # Supabase-compatible client: PostgREST (remote) or localStorage + BroadcastChannel (local)
 │   ├── sound/uiSound.ts       # Web Audio synth + haptics with a persisted mute switch
 │   └── streamEngine.ts        # Merges real fixtures with stream sources; HMAC URL signing
-└── public/                    # manifest.json, icon.svg (eagle), offline.html, sw.js
+└── public/                    # manifest.json, icon.svg (lime lemon + coin), offline.html, sw.js
 ```
 
 ---
@@ -379,8 +389,8 @@ For **every live fixture**, up to six backups are mapped across all three feeds 
 
 ## ⚖️ License & Disclaimer
 
-EVIV Live is an open-source aggregator. It reads public sports data and public third-party link networks
-for research and educational purposes. EVIV Live does not host, upload or own any media streams, video
+Limon Live is an open-source aggregator. It reads public sports data and public third-party link networks
+for research and educational purposes. Limon Live does not host, upload or own any media streams, video
 channels or sports network content.
 
 ## Match-day feature expansion

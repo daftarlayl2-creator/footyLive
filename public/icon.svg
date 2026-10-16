@@ -1,25 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="EVIV Live">
-  <title>EVIV Live</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Limon Live">
+  <title>Limon Live</title>
   <rect width="96" height="96" rx="20" fill="#18030A"/>
   <rect x="3" y="3" width="90" height="90" rx="17" fill="none" stroke="#3D0B1D" stroke-width="2"/>
   <defs>
-    <linearGradient id="eviv-g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E4FF66"/>
-      <stop offset="0.5" stop-color="#C6FF00"/>
-      <stop offset="1" stop-color="#9BCC00"/>
+    <linearGradient id="limon-g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E9FF80"/>
+      <stop offset="0.5" stop-color="#CCFF00"/>
+      <stop offset="1" stop-color="#8FBF00"/>
     </linearGradient>
-    <g id="eviv-wing">
-      <path d="M54 52 L34 36 L6 18 L18 40 L2 48 L22 56 L10 74 L34 68 L26 86 L50 74 Z" fill="url(#eviv-g)"/>
-      <path d="M54 56 L38 44 L26 53 L40 60 L50 66 Z" fill="#18030A" opacity=".28"/>
-    </g>
+    <linearGradient id="limon-leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3D0B1D"/>
+      <stop offset="1" stop-color="#2A0813"/>
+    </linearGradient>
   </defs>
-  <g transform="translate(3 -6) scale(.65)">
-    <g transform="translate(10 15)">
-      <use href="#eviv-wing"/>
-      <use href="#eviv-wing" transform="translate(120 0) scale(-1 1)"/>
-      <path d="M60 24 L74 40 L70 58 L60 74 L50 58 L46 40 Z M52 42 L52 49 L59 46 Z M68 42 L61 46 L68 49 Z" fill="url(#eviv-g)"/>
-      <path d="M54 70 L60 92 L66 70 L60 76 Z" fill="#C6FF00"/>
-      <path d="M50 96 L60 118 L70 96 L60 102 Z" fill="#C6FF00" opacity=".75"/>
-    </g>
+  <!-- Lime lemon mark -->
+  <ellipse cx="46" cy="52" rx="30" ry="25.5" fill="url(#limon-g)"/>
+  <path d="M46 26 L53 17 L46 26 Z" fill="#CCFF00"/>
+  <path d="M74 49 L84 52 L74 56 Z" fill="#CCFF00"/>
+  <path d="M18 49 L8 52 L18 56 Z" fill="#CCFF00"/>
+  <path d="M46 77 L46 88 L51 79 Z" fill="#CCFF00" opacity=".8"/>
+  <!-- Burgundy leaf -->
+  <path d="M52 24c9-10 19-12 25-11-1 7-6 16-16 18-4 1-8 0-11-2 0-2 1-4 2-5Z" fill="url(#limon-leaf)"/>
+  <path d="M55 27c6-4 13-6 19-6" stroke="#CCFF00" stroke-width="1.2" fill="none" opacity=".7"/>
+  <!-- Specular highlight -->
+  <ellipse cx="33" cy="40" rx="11" ry="7" fill="#FFFFFF" opacity=".28" transform="rotate(-22 33 40)"/>
+  <!-- EVIV Coin: lime ring, deep-burgundy core, engraved E -->
+  <circle cx="46" cy="53" r="17" fill="#2A0813"/>
+  <circle cx="46" cy="53" r="17" fill="none" stroke="#CCFF00" stroke-width="2.8"/>
+  <g fill="none" stroke="#CCFF00" stroke-width="3.2" stroke-linecap="square">
+    <path d="M52 45 H40 V61 H52"/>
+    <path d="M40 53 H49" stroke-width="2.8"/>
   </g>
 </svg>

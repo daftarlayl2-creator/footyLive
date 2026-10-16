@@ -42,7 +42,7 @@ describe('player showcase', () => {
     expect(container.querySelector('h1').textContent).toBe('Rodri');
     expect(container.textContent).toContain('30 years');
     expect(container.textContent).toContain('€130M');
-    expect(container.textContent).toContain('Historical estimate');
+    expect(container.textContent).toContain('Historical ·');
     expect(container.textContent).toContain('2024-10-11');
     expect(container.querySelector('a[aria-label="Open Manchester City club profile"]').getAttribute('href')).toBe('/club/382-manchester-city');
     expect(container.querySelector('img[src="https://cdn.example/esp.png"]')).not.toBeNull();
@@ -92,9 +92,12 @@ describe('player showcase', () => {
     expect(cutout.getAttribute('src')).toBe(portraits[0].src);
     expect(cutout.className).toContain('object-contain');
     expect(cutout.className).toContain('z-10');
-    expect(cutout.getAttribute('width')).toBe('600');
-    expect(cutout.getAttribute('height')).toBe('720');
+    // High-resolution cutout: the card requests a big transparent PNG and marks it.
+    expect(cutout.getAttribute('width')).toBe('1024');
+    expect(cutout.getAttribute('height')).toBe('1228');
+    expect(cutout.getAttribute('data-portrait-resolution')).toBe('high');
     expect(cutout.className).toContain('bg-transparent');
+    expect(frame.getAttribute('data-player-cutout')).toBe('transparent');
     expect(frame.querySelector('[data-player-number-badge]').className).toContain('z-20');
     expect(frame.querySelector('[data-player-number-badge]').getAttribute('aria-label')).toBe('Shirt number 10');
     expect(frame.className).not.toContain('rounded-full');

@@ -24,7 +24,7 @@ function AccuracyRing({ value }) {
           cy="40"
           r={RING_RADIUS}
           fill="none"
-          stroke="#C6FF00"
+          stroke="#CCFF00"
           strokeWidth="8"
           strokeLinecap="round"
           strokeDasharray={RING_LENGTH}

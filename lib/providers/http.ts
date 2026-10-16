@@ -4,7 +4,7 @@
  * User-Agent (required by the Wikimedia API etiquette).
  */
 
-export const APP_USER_AGENT = 'EVIVLive/1.0 (+https://github.com/daftarlayl2-creator/footyLive)';
+export const APP_USER_AGENT = 'LimonLive/1.0 (+https://github.com/daftarlayl2-creator/footyLive)';
 
 export interface FetchJsonOptions {
   /** Next.js data-cache lifetime in seconds. */

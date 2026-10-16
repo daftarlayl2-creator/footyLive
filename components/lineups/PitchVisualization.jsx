@@ -197,7 +197,7 @@ export default function PitchVisualization({ formation = '4-3-3', players, teamN
 
         {/* Player positions */}
         {placed.map(({ player, pos }, idx) => {
-          const color = player.role === 'GK' ? '#C6FF00' : '#E4FF66';
+          const color = player.role === 'GK' ? '#CCFF00' : '#E4FF66';
 
           return (
             <g key={`${player.name || 'p'}-${idx}`}>

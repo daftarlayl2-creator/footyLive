@@ -1,5 +1,5 @@
 /**
- * Tactile UI feedback for EVIV Live: tiny synthesised sounds + haptics.
+ * Tactile UI feedback for Limon Live: tiny synthesised sounds + haptics.
  *
  * Every sound is generated on the fly with the Web Audio API — there are no
  * audio files to download, decode or cache — so feedback is scheduled within a

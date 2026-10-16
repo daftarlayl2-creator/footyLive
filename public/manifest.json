@@ -1,6 +1,6 @@
 {
-  "name": "EVIV Live — Real-Time Football Scores & Streams",
-  "short_name": "EVIV Live",
+  "name": "Limon Live — Real-Time Football Scores & Streams",
+  "short_name": "Limon Live",
   "description": "Every football match of the day with real-time scores, live minutes, cards and statistics, plus premium ad-free streams.",
   "start_url": "/",
   "display": "standalone",

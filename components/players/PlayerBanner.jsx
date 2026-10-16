@@ -6,6 +6,7 @@ import { ArrowUpRight, Flag } from 'lucide-react';
 import TeamLogo from '@/components/clubs/TeamLogo';
 import { clubHref } from '@/lib/clubs/links';
 import { safePlayerImage } from '@/lib/players/normalize';
+import { isTransparentCutoutUrl } from '@/lib/players/cutouts';
 
 function Fact({ label, children }) {
   return <div className="glass-dark-tile min-w-0 rounded-2xl px-4 py-3"><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{label}</dt><dd className="mt-1 flex items-center gap-2 text-sm font-extrabold text-white">{children}</dd></div>;
@@ -17,8 +18,9 @@ function portraitCandidates(player) {
     : player.portrait ? [{ src: player.portrait, kind: 'headshot', credit: 'ESPN' }] : [];
   return candidates.filter((candidate) => {
     const src = safePlayerImage(candidate.src);
-    return src && new URL(src).protocol === 'https:' && /\.png$/i.test(new URL(src).pathname) &&
-      (candidate.kind === 'cutout' || candidate.kind === 'headshot');
+    if (!src || !(candidate.kind === 'cutout' || candidate.kind === 'headshot')) return false;
+    // Transparent PNG cutouts (Transfermarkt style) — never an opaque thumbnail.
+    return candidate.kind === 'cutout' ? isTransparentCutoutUrl(src) : isTransparentCutoutUrl(src) || /\.png$/i.test(new URL(src).pathname);
   });
 }
 
@@ -75,8 +77,9 @@ export default function PlayerBanner({ player }) {
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center">
         {/* Player card header: cutout in front of a semi-transparent national flag. */}
         <div
-          className="relative isolate h-60 w-52 shrink-0 self-center sm:self-auto overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-navy-750/60 to-navy-950 shadow-xl ring-1 ring-lime-400/10 sm:h-72 sm:w-60"
+          className="relative isolate h-72 w-60 shrink-0 self-center self-auto overflow-hidden rounded-[2rem] border border-white/15 bg-gradient-to-b from-navy-750/60 to-navy-950 shadow-xl ring-1 ring-lime-400/10 sm:h-96 sm:w-72"
           data-player-portrait={portrait?.kind || 'silhouette'}
+          data-player-cutout={portrait?.kind === 'cutout' ? 'transparent' : 'none'}
         >
           {flag && (
             <img
@@ -96,12 +99,15 @@ export default function PlayerBanner({ player }) {
               src={portrait.src}
               alt={player.name}
               onError={() => setFailedPortraits((failed) => [...failed, portrait.src])}
-              width={600}
-              height={720}
+              width={1024}
+              height={1228}
               fetchPriority="high"
               decoding="async"
-              className="relative z-10 h-full w-full bg-transparent object-contain object-bottom drop-shadow-[0_14px_22px_rgba(0,0,0,0.6)]"
+              sizes="(min-width: 640px) 288px, 240px"
+              className="relative z-10 h-full w-full scale-[1.04] bg-transparent object-contain object-bottom drop-shadow-[0_18px_26px_rgba(0,0,0,0.65)]"
               data-portrait-credit={portrait.credit}
+              data-portrait-resolution="high"
+
             />
           ) : (
             <PlayerSilhouette name={player.name} jersey={player.jersey} />
@@ -129,11 +135,19 @@ export default function PlayerBanner({ player }) {
           {flag ? <img src={flag} alt="" onError={onFlagError} className="h-4 w-6 shrink-0 rounded-sm object-contain" /> : <Flag className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden="true" />}
           <span>{player.nationality || 'Not reported'}</span>
         </Fact>
-        <Fact label="Market value estimate">
-          <span>{amount || 'Not provided'}{value && <span className="mt-1 block text-[10px] font-medium text-zinc-400">{historical ? 'Historical estimate' : 'Estimate'} · {value.asOf.slice(0, 10)}</span>}</span>
+        <Fact label="Market value">
+          <span>
+            {amount || 'Not provided'}
+            {value && (
+              <span className="mt-1 block text-[10px] font-medium text-zinc-400">
+                {historical ? 'Historical' : 'Current'} · {value.asOf.slice(0, 10)}
+              </span>
+            )}
+          </span>
         </Fact>
       </dl>
       {value?.source && <p className="relative mt-3 text-[10px] text-zinc-400">Market value is a dated estimate, not a live valuation or transfer fee. <a href={value.source} target="_blank" rel="noopener noreferrer" className="text-zinc-200 underline underline-offset-2">Valuation source</a></p>}
+      {portrait?.kind === 'cutout' && <p className="relative mt-1 text-[10px] text-zinc-400" data-cutout-note="">High-resolution transparent action cutout — no circular crop or opaque backdrop.</p>}
       {portrait?.credit === 'TheSportsDB' && <p className="relative mt-1 text-[10px] text-zinc-400" data-portrait-attribution="">Player image: TheSportsDB.</p>}
     </section>
   );

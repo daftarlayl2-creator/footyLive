@@ -74,7 +74,7 @@ describe('HighlightCard', () => {
       <HighlightCard highlight={HIGHLIGHT} onPlay={() => {}} />
     );
     expect(html).toContain('hover:-translate-y-2');
-    expect(html).toContain('hover:shadow-[0_0_15px_#C6FF00]');
+    expect(html).toContain('hover:shadow-[0_0_15px_#CCFF00]');
     expect(html).toContain('transition-all');
     expect(html).toContain('group-hover:scale-[1.06]');
   });
@@ -111,7 +111,7 @@ describe('HighlightPlayerModal', () => {
     // Clean iframe embed params, autoplay on.
     expect(html).toContain('src="https://www.youtube.com/embed/abc123?rel=0&amp;modestbranding=1&amp;controls=1&amp;autoplay=1"');
     expect(html).toMatch(/allowfullscreen/i);
-    // Neon lime framed container — native to EVIV Live.
+    // Neon lime framed container — native to Limon Live.
     expect(html).toMatch(/border-2 border-lime-500/);
     expect(html).toMatch(/shadow-\[0_0_40px_rgba\(198,255,0,0\.35\)\]/);
     // Accessible dialog semantics.

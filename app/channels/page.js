@@ -5,7 +5,7 @@ import logger from '@/lib/logger';
 import { browsableChannels } from '@/lib/broadcast/pool';
 
 export const metadata = {
-  title: 'Live Channels — EVIV Live',
+  title: 'Live Channels — Limon Live',
   description: 'Live channels and events from dynamic M3U/JSON feeds, with real-time status.',
 };
 

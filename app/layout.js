@@ -4,6 +4,7 @@ import BrandLogo from '@/components/BrandLogo';
 import AdSlot from '@/components/ads/AdSlot';
 import HeaderNav from '@/components/nav/HeaderNav';
 import AccountButton from '@/components/auth/AccountButton';
+import WalletBadge from '@/components/coins/WalletBadge';
 import MobileBottomNav from '@/components/nav/MobileBottomNav';
 import SoundEffects from '@/components/ui/SoundEffects';
 import SoundToggle from '@/components/ui/SoundToggle';
@@ -17,10 +18,10 @@ import { subscriptionAccess } from '@/lib/subscription/plans';
 
 export const metadata = {
   metadataBase: new URL(siteUrl()),
-  title: 'EVIV Live — Real-Time Football Scores & Live Streams',
+  title: 'Limon Live — Real-Time Football Scores & Live Streams',
   description:
-    'EVIV Live tracks every football match of the day with real-time scores, live match statistics and reliable live streams.',
-  applicationName: 'EVIV Live',
+    'Limon Live tracks every football match of the day with real-time scores, live match statistics and reliable live streams.',
+  applicationName: 'Limon Live',
   icons: { icon: '/icon.svg' },
 };
 
@@ -85,12 +86,13 @@ export default async function RootLayout({ children }) {
           {/* The complete SVG lockup stays legible at mobile and desktop sizes. */}
           <header className="sticky top-0 z-50 flex w-full justify-center border-b border-navy-750 bg-navy-950/85 pt-[env(safe-area-inset-top)] text-zinc-100 backdrop-blur-xl backdrop-saturate-150">
             <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-2 px-3 py-1 sm:px-6 lg:px-8">
-              <Link href="/" aria-label="EVIV Live — home" className="tactile group shrink-0">
+              <Link href="/" aria-label="Limon Live — home" className="tactile group shrink-0">
                 <BrandLogo className="block h-auto w-[106px] transition-transform duration-300 group-hover:scale-105 sm:w-36" />
               </Link>
 
               <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <HeaderNav />
+                <WalletBadge className="hidden sm:inline-flex" />
                 <AccountButton />
                 <SoundToggle />
                 <ThemeToggle />
@@ -110,7 +112,7 @@ export default async function RootLayout({ children }) {
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:text-left">
                 <BrandLogo className="block h-auto w-28 shrink-0" />
                 <p className="max-w-lg leading-relaxed">
-                  © {new Date().getFullYear()} EVIV Live. Live fixtures and statistics come from public sports data;
+                  © {new Date().getFullYear()} Limon Live. Live fixtures and statistics come from public sports data;
                   streams are aggregated from third-party networks.
                 </p>
               </div>

@@ -111,7 +111,7 @@ describe('local accounts', () => {
 
 describe('avatar helpers', () => {
   it('recognises presets and image avatars and decodes data URLs', async () => {
-    expect(presetFor('preset:eagle')?.emoji).toBe('🦅');
+    expect(presetFor('preset:eagle')?.emoji).toBe('🍋');
     expect(presetFor('preset:unknown')).toBeNull();
     expect(isImageAvatar(TINY_PNG)).toBe(true);
     expect(isImageAvatar('preset:eagle')).toBe(false);

@@ -52,14 +52,14 @@ function backgroundFor(name: string): string {
 
 function taglineFor(name: string): string {
   const lower = (name || '').toLowerCase();
-  if (lower.includes('champions league')) return 'UEFA Champions League Night — Live on EVIV';
-  if (lower.includes('europa league')) return 'UEFA Europa League Night — Live on EVIV';
-  if (lower.includes('premier league')) return 'Premier League Matchday — Live on EVIV';
-  if (lower.includes('la liga')) return 'La Liga Matchday — Live on EVIV';
-  if (lower.includes('botola')) return 'Botola Pro Matchday — Live on EVIV';
-  if (lower.includes('international')) return 'International Football — Live on EVIV';
-  if (lower.includes('derby')) return 'Derby Day — Live on EVIV';
-  return `${name || 'Matchday'} — Live on EVIV`;
+  if (lower.includes('champions league')) return 'UEFA Champions League Night — Live on Limon';
+  if (lower.includes('europa league')) return 'UEFA Europa League Night — Live on Limon';
+  if (lower.includes('premier league')) return 'Premier League Matchday — Live on Limon';
+  if (lower.includes('la liga')) return 'La Liga Matchday — Live on Limon';
+  if (lower.includes('botola')) return 'Botola Pro Matchday — Live on Limon';
+  if (lower.includes('international')) return 'International Football — Live on Limon';
+  if (lower.includes('derby')) return 'Derby Day — Live on Limon';
+  return `${name || 'Matchday'} — Live on Limon`;
 }
 
 /**

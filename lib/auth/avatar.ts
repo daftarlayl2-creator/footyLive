@@ -12,7 +12,8 @@ export interface AvatarPreset {
 }
 
 export const AVATAR_PRESETS: readonly AvatarPreset[] = [
-  { id: 'eagle', label: 'EVIV Eagle', emoji: '🦅', from: '#C6FF00', to: '#4e6900' },
+  // Legacy id kept so existing avatars keep resolving; the label is the brand.
+  { id: 'eagle', label: 'Limon Lime', emoji: '🍋', from: '#CCFF00', to: '#4e6900' },
   { id: 'striker', label: 'Striker', emoji: '⚽', from: '#38bdf8', to: '#1d4ed8' },
   { id: 'fire', label: 'On fire', emoji: '🔥', from: '#fb923c', to: '#b91c1c' },
   { id: 'trophy', label: 'Champion', emoji: '🏆', from: '#fde047', to: '#a16207' },

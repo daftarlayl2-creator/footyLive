@@ -111,8 +111,8 @@ describe('player profile normalization', () => {
     const profile = normalizePlayerProfile(overview, roster, null, now)!;
     const enriched = withShowcaseSnapshot(profile);
     expect(enriched.honors.map((honor) => honor.name)).toContain('Golden Boy');
-    expect(enriched.honorsNote).toContain('through 2024');
-    expect(enriched.marketValue?.asOf).toBe('2024-10-21');
+    expect(enriched.honorsNote).toContain('Selected honors');
+    expect(enriched.marketValue).toMatchObject({ amount: 220_000_000, currency: 'EUR', asOf: '2026-10-09' });
     const other = { ...profile, dateOfBirth: '1990-01-01' } as PlayerProfile;
     expect(withShowcaseSnapshot(other).honors).toEqual([]);
     const provider = { ...profile, honors: [{ id: 'new', category: 'individual', name: 'Provider honor', years: ['2026'] }] } as PlayerProfile;
@@ -138,9 +138,13 @@ describe('player data loading', () => {
     });
     const profile = await getPlayerProfile('362150');
     expect(profile?.featured).toBe(true);
-    expect(profile?.portraits?.map(({ src }) => src)).toEqual([
-      CUTOUT, 'https://cdn.example.com/yamal.png', 'https://a.espncdn.com/i/headshots/soccer/players/full/362150.png',
-    ]);
+    // The transparent action cutout leads; ESPN's PNGs stay behind it as fallbacks.
+    const sources = profile?.portraits?.map(({ src }) => src) || [];
+    expect(sources[0]).toBe(CUTOUT);
+    expect(sources).toEqual(expect.arrayContaining([
+      'https://cdn.example.com/yamal.png', 'https://a.espncdn.com/i/headshots/soccer/players/full/362150.png',
+    ]));
+    expect(profile?.portraits?.[0].kind).toBe('cutout');
     // A portrait outage never hides the player.
     sportsDb.mockRejectedValue(new Error('HTTP 429'));
     expect((await getPlayerProfile('362150', '83', 'esp.1'))?.portraits?.[0].src).toBe('https://cdn.example.com/yamal.png');

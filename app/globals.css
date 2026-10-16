@@ -3,7 +3,7 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   EVIV Live — deep burgundy surfaces / electric lime accents.
+   Limon Live — deep burgundy surfaces / electric lime accents.
    Existing navy-* utility names are retained as aliases for older markup;
    their values now belong to the burgundy palette, not the old blue theme.
    ========================================================================== */
@@ -13,7 +13,7 @@
   --color-surface: #280713;
   --color-border: #3D0B1D;
 
-  /* EVIV brand marks (verified seal, player cards). */
+  /* Limon brand marks (verified seal, player cards). */
   --color-eviv-lime: #CCFF00;
   --color-eviv-burgundy: #2A0813;
 
@@ -32,7 +32,7 @@
   --color-navy-900: #280713;
   --color-navy-950: #18030A;
 
-  /* Electric lime: #C6FF00 is the primary action/live/active colour. */
+  /* Electric lime: #CCFF00 is the primary action/live/active colour. */
   --color-lime-50: #faffdc;
   --color-lime-100: #f4ffb9;
   --color-lime-150: #eeff9d;
@@ -42,7 +42,7 @@
   --color-lime-350: #dfff52;
   --color-lime-400: #d8ff3d;
   --color-lime-450: #cfff20;
-  --color-lime-500: #C6FF00;
+  --color-lime-500: #CCFF00;
   --color-lime-550: #9eca00;
   --color-lime-600: #628300;
   --color-lime-650: #597800;
@@ -53,7 +53,7 @@
   --color-lime-900: #233200;
   --color-lime-950: #162300;
 
-  --color-eviv-glow: #C6FF00;
+  --color-eviv-glow: #CCFF00;
 
   /* Custom intermediate zinc shades still referenced by legacy markup */
   --color-zinc-150: #e8e8ec;
@@ -179,13 +179,13 @@ html:not(.dark) {
 }
 
 .glow-orb-lime {
-  background: radial-gradient(circle, #C6FF00 0%, transparent 80%);
+  background: radial-gradient(circle, #CCFF00 0%, transparent 80%);
 }
 
 /* Legacy aliases kept so older markup keeps glowing */
 .glow-orb-purple,
 .glow-orb-emerald {
-  background: radial-gradient(circle, #C6FF00 0%, transparent 80%);
+  background: radial-gradient(circle, #CCFF00 0%, transparent 80%);
 }
 
 /* === Burgundy glass panels === */
@@ -228,14 +228,14 @@ html:not(.dark) {
 }
 
 .brand-gradient-text {
-  background-image: linear-gradient(100deg, #9BCC00 0%, #E4FF66 55%, #C6FF00 100%);
+  background-image: linear-gradient(100deg, #9BCC00 0%, #E4FF66 55%, #CCFF00 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .lime-cta {
-  background-image: linear-gradient(95deg, #C6FF00 0%, #E4FF66 100%);
+  background-image: linear-gradient(95deg, #CCFF00 0%, #E4FF66 100%);
   color: #18030A;
   box-shadow: 0 0 0 rgba(198, 255, 0, 0);
   transition: box-shadow 0.3s ease, transform 0.2s ease, filter 0.3s ease;
@@ -947,4 +947,82 @@ select,
 
 @media (max-width: 767px) {
   html[data-vip-ad-free="true"] { --mobile-ad-height: 0px; }
+}
+
+/* ==========================================================================
+   EVIV Coin — lime ring, deep-burgundy core, engraved E, glowing aura.
+   Pure CSS 3D (perspective + rotateY) so it stays GPU-cheap on phones.
+   ========================================================================== */
+.eviv-coin {
+  transform-style: preserve-3d;
+}
+
+.eviv-coin__rotor {
+  transform-style: preserve-3d;
+  backface-visibility: visible;
+}
+
+.eviv-coin--spin .eviv-coin__rotor {
+  animation: evivCoinSpin 6.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.eviv-coin__aura {
+  position: absolute;
+  inset: -18%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(204 255 0 / 0.5) 0%, rgb(204 255 0 / 0.12) 46%, transparent 72%);
+  filter: blur(6px);
+  animation: evivCoinAura 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.eviv-coin--burst .eviv-coin__rotor {
+  animation: evivCoinBurst 900ms cubic-bezier(0.22, 1.4, 0.36, 1) 1;
+}
+
+.eviv-coin__burst {
+  position: absolute;
+  inset: -30%;
+  border-radius: 9999px;
+  border: 2px solid rgb(204 255 0 / 0.75);
+  animation: evivCoinBurstRing 900ms ease-out 1 forwards;
+  pointer-events: none;
+}
+
+.eviv-coin--glow {
+  filter: drop-shadow(0 0 12px rgb(204 255 0 / 0.45));
+}
+
+@keyframes evivCoinSpin {
+  0% { transform: rotateY(0deg) rotateX(8deg); }
+  45% { transform: rotateY(168deg) rotateX(4deg); }
+  55% { transform: rotateY(192deg) rotateX(4deg); }
+  100% { transform: rotateY(360deg) rotateX(8deg); }
+}
+
+@keyframes evivCoinAura {
+  0%, 100% { opacity: 0.45; transform: scale(0.94); }
+  50% { opacity: 0.95; transform: scale(1.06); }
+}
+
+@keyframes evivCoinBurst {
+  0% { transform: scale(0.86) translateY(0); }
+  45% { transform: scale(1.16) translateY(-6px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes evivCoinBurstRing {
+  0% { opacity: 0.9; transform: scale(0.7); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eviv-coin--spin .eviv-coin__rotor,
+  .eviv-coin__aura,
+  .eviv-coin--burst .eviv-coin__rotor,
+  .eviv-coin__burst {
+    animation: none;
+  }
+  .eviv-coin--burst .eviv-coin__rotor { transform: none; }
+  .eviv-coin__burst { opacity: 0.35; }
 }

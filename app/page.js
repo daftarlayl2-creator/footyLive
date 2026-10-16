@@ -10,7 +10,7 @@ import { AD_PLACEMENTS } from '@/lib/adsConfig';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'EVIV Live — Today’s Football Fixtures, Live Scores & Streams',
+  title: 'Limon Live — Today’s Football Fixtures, Live Scores & Streams',
   description:
     'Every football match of the day with real-time scores, live minutes, cards and statistics — plus reliable live streams.',
 };
