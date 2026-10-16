@@ -65,6 +65,8 @@ describe('fixture-to-IPTV mapping', () => {
   it('infers FHD, HD and SD only when tags actually provide a quality', () => {
     expect(inferStreamQuality('Match', 'FHD')).toBe('FHD');
     expect(inferStreamQuality('Sports 1080p')).toBe('FHD');
+    expect(inferStreamQuality('Sports UHD 4K')).toBe('4K');
+    expect(inferStreamQuality('Sports 3840x2160')).toBe('4K');
     expect(inferStreamQuality('Sports 720p')).toBe('HD');
     expect(inferStreamQuality('Sports SD')).toBe('SD');
     expect(inferStreamQuality('Sports')).toBe('Auto');

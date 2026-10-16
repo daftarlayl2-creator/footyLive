@@ -26,6 +26,7 @@ import { signStreamRedirect } from './streamRedirect';
 import { detectStreamKind } from './player/servers';
 import { rankChannelsByHealth } from './broadcast/streamHealth';
 import { inferStreamQuality, matchChannelScore } from './broadcast/matching';
+import { regionalMetadata } from './broadcast/mena';
 
 const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_123_abc';
 
@@ -192,6 +193,7 @@ function toBackupServer(backup: LiveBackup): Channel {
     url: backup.channel.url,
     proxiedUrl: toPlaybackUrl(backup.channel),
     provider: backupProvider(backup),
+    ...regionalMetadata(backup.channel.tvgId),
     coverage: backup.coverage,
     ...(backup.health ? { health: backup.health } : {}),
     quality: inferStreamQuality(backup.channel.name, backup.channel.quality, backup.channel.tvgId),
@@ -250,7 +252,7 @@ export async function resolveAllStreams(
       throw new Error('No streams available from any provider');
     }
 
-    const qualityOrder: Record<string, number> = { 'FHD': 0, 'HD': 0, '1080p': 0, '720p': 1, 'SD': 2 };
+    const qualityOrder: Record<string, number> = { '4K': 0, 'FHD': 0, 'HD': 1, '1080p': 0, '720p': 1, 'SD': 2 };
     allServers.sort((a, b) => (qualityOrder[a.quality || 'SD'] ?? 2) - (qualityOrder[b.quality || 'SD'] ?? 2));
 
     const seenUrls = new Set<string>();

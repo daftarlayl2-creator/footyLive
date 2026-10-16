@@ -20,10 +20,13 @@
 import type { StreamHealth } from './health';
 
 export type StreamKind = 'hls' | 'mp4' | 'embed';
-export type ServerQuality = 'FHD' | 'HD' | 'SD' | 'Auto';
+export type ServerQuality = '4K' | 'FHD' | 'HD' | 'SD' | 'Auto';
 
 /** Shape of the channel objects pages hand to the player (see `Channel` in lib/types). */
 export interface ChannelLike {
+  tvgId?: string;
+  language?: string;
+  region?: string;
   name?: string;
   url?: string;
   proxiedUrl?: string;
@@ -35,6 +38,9 @@ export interface ChannelLike {
 }
 
 export interface PlayerServer {
+  tvgId?: string;
+  language?: string;
+  region?: string;
   /** Position in the list (0-based). */
   index: number;
   /** Identity that survives re-signing of the same upstream link (new exp/sig). */
@@ -122,7 +128,8 @@ const HD_QUALITIES = new Set(['HD', 'FHD', 'UHD', '4K', '2160P', '1440P', '1080P
 
 export function normalizeQuality(quality: string | null | undefined): ServerQuality {
   const q = String(quality || '').trim().toUpperCase();
-  if (['FHD', 'UHD', '4K', '2160P', '1440P', '1080P', '1080I'].includes(q)) return 'FHD';
+  if (['UHD', '4K', '2160P'].includes(q)) return '4K';
+  if (['FHD', '1440P', '1080P', '1080I'].includes(q)) return 'FHD';
   if (q === 'AUTO') return 'Auto';
   return HD_QUALITIES.has(q) ? 'HD' : 'SD';
 }
@@ -156,6 +163,7 @@ export function buildServerList(
       quality: normalizeQuality(ch.quality),
       name: ch.name || '',
       provider: ch.provider,
+      tvgId: ch.tvgId, language: ch.language, region: ch.region,
       coverage: ch.coverage,
       health: ch.health,
     });

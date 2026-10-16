@@ -22,10 +22,11 @@ export const BADGE_BURGUNDY = '#2A0813';
  * profiles, in the header and in chat.
  */
 export default function VerifiedBadge({ size = 16, className = '', title = 'Verified fan' }) {
-  const id = useId().replace(/:/g, '');
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const fill = `vb-fill-${id}`;
   const sheen = `vb-sheen-${id}`;
-  const px = Math.max(8, Math.round(Number(size) || 16));
+  const requested = Number(size);
+  const px = Number.isFinite(requested) ? Math.max(8, Math.min(96, Math.round(requested || 16))) : 16;
   return (
     <span
       role="img"

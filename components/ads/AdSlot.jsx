@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   BANNER_728x90,
   BANNER_300x250,
@@ -9,9 +9,11 @@ import {
   NATIVE_BANNER,
   bannerFrameHtml,
   nativeBannerFrameHtml,
-  socialBarScript,
+  socialBarFrameHtml,
   AD_REFRESH_INTERVAL_MS,
 } from '@/lib/adsConfig';
+
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 
 const emptySubscribe = () => () => {};
 
@@ -23,15 +25,13 @@ const BANNER_BY_ID = {
 
 const AD_FRAME_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
 
-let socialBarMounted = false;
-
 /** One Adsterra placement. Renders a deterministic, empty container on the
  * server (hydration-safe) and only injects the third-party code after mount.
  *
  *  - `variant="banner"`  → sized iframe frame running the exact `atOptions`
  *    banner code for `banner` (BANNER_728x90 | BANNER_300x250 | BANNER_320x50).
  *  - `variant="native"`  → iframe frame running the exact native-banner code.
- *  - `variant="social"`  → page-level social-bar script, injected once.
+ *  - `variant="social"`  → isolated social placement, removed entirely for VIP.
  *  - `variant="banner-refresh"`  → banner with auto-refresh support.
  */
 export default function AdSlot({
@@ -41,29 +41,22 @@ export default function AdSlot({
   label = 'Advertisement',
   refreshMs = AD_REFRESH_INTERVAL_MS,
 }) {
+  const { access } = useSubscription();
   const mounted = useSyncExternalStore(
     emptySubscribe,
     () => true,
     () => false
   );
-  const socialRef = useRef(null);
   // Auto-refresh is opt-in (`variant="banner-refresh"`). The nonce remounts the frame
   // so a fresh ad is pulled without ever leaving the slot blank.
-  const refreshNonce = useAdRefresh(variant === 'banner-refresh' ? refreshMs : 0);
+  const refreshNonce = useAdRefresh(!access.adFree && variant === 'banner-refresh' ? refreshMs : 0);
 
-  // Social bar: one script per document, appended after hydration.
-  useEffect(() => {
-    if (variant !== 'social' || socialBarMounted) return undefined;
-    socialBarMounted = true;
-    const script = socialBarScript();
-    (socialRef.current || document.body).appendChild(script);
-    return () => {
-      // The bar itself stays for the document lifetime; only React unmounts.
-    };
-  }, [variant]);
+  if (access.adFree) return null;
 
   if (variant === 'social') {
-    return <div ref={socialRef} data-ad-slot="social-bar" hidden aria-hidden="true" />;
+    return <div data-ad-slot="social-bar" className="ad-social-frame ad-slot" style={{ backgroundColor: 'transparent', colorScheme: 'dark' }}>
+      {mounted && <iframe title={label} srcDoc={socialBarFrameHtml()} sandbox={AD_FRAME_SANDBOX} className="ad-slot h-full w-full border-0" style={{ backgroundColor: 'transparent', colorScheme: 'dark' }} />}
+    </div>;
   }
 
   const isBanner = variant === 'banner' || variant === 'banner-refresh';

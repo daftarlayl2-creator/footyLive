@@ -62,6 +62,16 @@ describe('Guovin playlist transports', () => {
     expect(pickGuovinReleaseAsset({ message: 'API rate limit exceeded' }, 'result')).toBeNull();
   });
 
+  it('uses the requested primary before IPv4, and IPv4 before release/branch mirrors', async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request) => String(input) === GUOVIN_IPTV_API_URL ? text('down', 503) : text(PLAYLIST));
+    vi.stubGlobal('fetch', fetcher);
+    expect(await fetchFeedText(GUOVIN_IPTV_API_URL)).toBe(PLAYLIST);
+    expect(fetcher.mock.calls.map(([url]) => String(url))).toEqual([GUOVIN_IPTV_API_URL, 'https://guovin.github.io/iptv-api/ipv4.m3u']);
+    fetcher.mockClear().mockImplementation(async () => text(PLAYLIST));
+    expect(await fetchFeedText(GUOVIN_IPTV_API_URL)).toBe(PLAYLIST);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to the latest release asset when GitHub Pages is down', async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);

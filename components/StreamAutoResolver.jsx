@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Film, RadioTower, RefreshCw, SearchX } from 'lucide-react';
+import { Crown, Film, RadioTower, RefreshCw, SearchX } from 'lucide-react';
 import StreamPlayer from '@/components/StreamPlayer';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 
 /** Seconds of *visible* time between automatic re-resolutions; the last value repeats. */
 export const AUTO_RESOLVE_DELAYS_S = [6, 12, 20, 30, 45, 60];
@@ -14,6 +15,11 @@ export function autoResolveDelay(attempt) {
 }
 
 const COPY = {
+  premium: {
+    icon: Crown,
+    title: 'VIP-quality sources found',
+    body: 'The responding sources are FHD / 4K and require a pass. You can unlock them above, or stay on free HD while we keep checking for a standard-quality source.',
+  },
   searching: {
     icon: RadioTower,
     title: 'Finding a live stream…',
@@ -37,7 +43,10 @@ const COPY = {
  * fresh window of the backup pools — and mount the player the moment servers
  * appear. Countdowns tick only while the tab is visible.
  */
-export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 'live', initialReason = '' }) {
+export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 'live', initialReason = '', initialLockedCount = 0 }) {
+  const { access } = useSubscription(matchId);
+  const previousTier = useRef(access.tier);
+  const [lockedCount, setLockedCount] = useState(initialLockedCount);
   const initialStop = matchStatus === 'finished' ? 'finished' : matchStatus === 'missing' ? 'missing' : null;
   const [resolved, setResolved] = useState(null);
   const [stopped, setStopped] = useState(initialStop);
@@ -56,16 +65,20 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
     setChecking(true);
     let found = null;
     let stop = null;
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; request.abort(); }, 35_000);
     try {
       const response = await fetch(endpoint, { cache: 'no-store', signal: request.signal });
       const data = await response.json().catch(() => ({}));
+      if (request.signal.aborted) return null;
+      if (Number.isFinite(data.lockedCount)) setLockedCount(data.lockedCount);
       if (response.status === 404) stop = 'missing';
       else if (response.ok && Array.isArray(data.streams) && data.streams.length) found = data;
       else if (data?.matchStatus === 'finished') stop = 'finished';
     } catch {
-      /* offline, or replaced by a newer check */
-    }
-    if (request.signal.aborted) return null;
+      /* offline, timed out, or replaced by a newer check */
+    } finally { clearTimeout(timeout); }
+    if (request.signal.aborted && !timedOut) return null;
     setChecking(false);
     if (found) setResolved(found);
     else if (stop) setStopped(stop);
@@ -74,6 +87,14 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
   }, [endpoint]);
 
   const onDue = useEffectEvent(() => { check(); });
+
+  useEffect(() => {
+    if (previousTier.current === access.tier) return;
+    previousTier.current = access.tier;
+    if (stopped) return undefined;
+    const id = setTimeout(() => onDue(), 0);
+    return () => clearTimeout(id);
+  }, [access.tier, stopped]);
 
   // One countdown per attempt; like the player's watchdogs it only counts visible seconds.
   useEffect(() => {
@@ -99,6 +120,7 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
   if (resolved) {
     return (
       <StreamPlayer
+        matchId={matchId}
         streamUrl={resolved.defaultUrl}
         channels={resolved.streams}
         matchTitle={resolved.matchTitle || matchTitle}
@@ -109,7 +131,8 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
     );
   }
 
-  const state = stopped || 'searching';
+  const state = stopped || (lockedCount > 0 && access.tier === 'free' ? 'premium' : 'searching');
+  const searching = state === 'searching' || state === 'premium';
   const { icon: Icon, title, body } = COPY[state];
   return (
     <div
@@ -123,9 +146,9 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
         </div>
         <div>
           <p className="text-sm font-bold text-white">{title}</p>
-          <p className="mt-1 text-xs text-zinc-300">{state === 'searching' && initialReason ? `${initialReason} ${body}` : body}</p>
+          <p className="mt-1 text-xs text-zinc-300">{searching && initialReason ? `${initialReason} ${body}` : body}</p>
         </div>
-        {state === 'searching' && (
+        {searching && (
           <p
             role="status"
             aria-live="polite"
@@ -137,7 +160,7 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
           </p>
         )}
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-          {state === 'searching' && (
+          {searching && (
             <button
               type="button"
               onClick={check}

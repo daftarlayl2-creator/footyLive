@@ -9,6 +9,7 @@ import CrestDrop from '@/components/clubs/CrestDrop';
 import BallIcon from '@/components/ui/BallIcon';
 import useGoalAudio from '@/lib/hooks/useGoalAudio';
 import { formatScorerLine, scorersBySide } from '@/lib/match/scoreboard';
+import { matchHref } from '@/lib/seo/matches';
 
 /** Scorers grouped per player, anchored directly under their own team's row. */
 function TeamScorers({ side, teamName, groups }) {
@@ -52,8 +53,9 @@ export default function MatchCard({ match, tab }) {
   const { id, status, timestamp, homeTeam, awayTeam, sources, tournament, homeScore, awayScore, currentMinuteNumber, note, live } = match;
   const feedCount = status === 'live' && match.source === 'espn' ? match.feedStreamCount || 0 : 0;
   // `sources` is optional in practice: feed-only matches arrive without a resolved list.
-  const serverCount = sources?.length || feedCount;
-  const unverifiedFeed = !sources?.length && feedCount > 0 && match.feedStreamIsFallback;
+  const sourceCount = match.catalogStreamCount ?? sources?.length ?? 0;
+  const serverCount = sourceCount || feedCount;
+  const unverifiedFeed = !sourceCount && feedCount > 0 && match.feedStreamIsFallback;
   const hasHighlight = Boolean(match.highlight || match.highlightUrl || match.highlightVideo || match.hasHighlight || (Array.isArray(match.highlights) && match.highlights.length));
 
   const [liveData, setLiveData] = useState(null);
@@ -120,7 +122,7 @@ export default function MatchCard({ match, tab }) {
   const isMatchFavorited = homeFav || awayFav;
   const showScores = status === 'live' || status === 'finished';
 
-  const watchHref = `/watch/${id}?tab=${tab || 'live'}`;
+  const watchHref = `${matchHref(match)}?tab=${encodeURIComponent(tab || 'live')}`;
 
   return (
     <article

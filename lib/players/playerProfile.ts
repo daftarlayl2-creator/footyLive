@@ -95,5 +95,5 @@ export const getPlayerProfile = cache(async (id: string, clubParam = '', leagueP
   if (!/^\d{1,10}$/.test(id)) return null;
   const clubId = /^\d{1,10}$/.test(clubParam) ? clubParam : '';
   const league = /^[a-z0-9.-]{1,40}$/i.test(leagueParam) ? leagueParam : 'all';
-  return getCacheManager().swr(`player:profile:v4:${id}:${clubId}:${league}`, () => loadPlayer(id, clubId, league), PROFILE_TTL_S);
+  return getCacheManager().swr(`player:profile:v5:${id}:${clubId}:${league}`, () => loadPlayer(id, clubId, league), PROFILE_TTL_S);
 });

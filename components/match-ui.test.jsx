@@ -1,3 +1,4 @@
+import { matchHref } from '@/lib/seo/matches';
 /**
  * Server-render tests for the branded match & channel UI: they pin the parts of
  * the overhaul that matter — navy/lime palette, the pulsing LIVE indicator,
@@ -131,7 +132,7 @@ describe('MatchCard', () => {
     expect((html.match(/bg-amber-400/g) || []).length).toBeGreaterThan(0);
     expect((html.match(/bg-red-500/g) || []).length).toBeGreaterThan(0);
     // Links into the player page for real stream resolution.
-    expect(html).toContain('href="/watch/espn-700001?tab=live"');
+    expect(html).toContain(`href="${matchHref(LIVE_MATCH)}?tab=live"`);
     expect(html).toContain('1 stream server');
   });
 
@@ -141,7 +142,7 @@ describe('MatchCard', () => {
     expect(html).toContain('fixture unverified');
     expect(html).toContain('Try Live Channels');
     expect(html).not.toContain('Pending Link');
-    expect(html).toContain('href="/watch/espn-700001?tab=live"');
+    expect(html).toContain(`href="${matchHref(LIVE_MATCH)}?tab=live"`);
   });
 
   it('never labels a live ESPN fixture Pending Link even when the feed is unavailable', () => {
@@ -161,7 +162,7 @@ describe('MatchCard', () => {
     const html = renderToStaticMarkup(<MatchCard match={FINISHED_MATCH} tab="finished" />);
     expect(html).toContain('FT');
     expect(html).toContain('Full time');
-    expect(html).toMatch(/href="\/watch\/espn-700003\?tab=finished"/);
+    expect(html).toContain(`href="${matchHref(FINISHED_MATCH)}?tab=finished"`);
   });
 });
 

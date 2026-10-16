@@ -260,7 +260,6 @@ function guovinFallbackUrls(feedUrl: string): string[] {
     return [
       'https://guovin.github.io/iptv-api/result.m3u',
       'https://guovin.github.io/iptv-api/ipv4.m3u',
-      'https://guovin.github.io/iptv-api/ipv6.m3u',
     ].filter((candidate) => candidate !== feedUrl);
   } catch {
     return [];
@@ -310,16 +309,13 @@ async function fetchGuovinRelease(variant: GuovinVariant, feedUrl: string): Prom
 }
 
 /**
- * Every other transport for a Guovin playlist, raced in parallel so a dead
- * Pages deployment costs one timeout, not a queue of them: the sibling Pages
- * variants, the newest `playlist-*` release asset and finally the generator's
- * `gd` output branch through the Contents API (older, but real, data).
+ * Once the primary and IPv4 Pages variant fail, race the official release
+ * asset and generator's `gd` output branch through the Contents API.
  */
 async function fetchGuovinMirrors(feedUrl: string): Promise<string> {
   const variant = guovinVariant(feedUrl);
   if (!variant) throw new Error('Not a Guovin playlist');
   const attempts: Array<Promise<string>> = [
-    ...guovinFallbackUrls(feedUrl).map((url) => fetchFeedTextOnce(url)),
     fetchGuovinRelease(variant, feedUrl),
   ];
   const contents = guovinContentsApiUrl(variant);
@@ -347,6 +343,13 @@ export async function fetchFeedText(feedUrl: string): Promise<string> {
     }
   }
 
+  // The explicitly requested result.m3u is authoritative; IPv4 is a real
+  // fallback, not a race against a potentially older release/branch copy.
+  for (const sibling of guovinFallbackUrls(feedUrl)) {
+    try { return await fetchFeedTextOnce(sibling); }
+    catch (err) { if (!firstError) firstError = err; }
+  }
+
   // Each request gets its own timeout: a raw-host timeout must not abort the
   // API fallback before it has a chance to make a request on Vercel.
   for (const apiUrl of githubContentsCandidates(feedUrl)) {
@@ -360,8 +363,8 @@ export async function fetchFeedText(feedUrl: string): Promise<string> {
     }
   }
 
-  // Guovin publishes complete, IPv4-only and IPv6-only variants on Pages, as
-  // release assets and on its `gd` branch: any of them is the same real data.
+  // The release/gd copies are last-resort transports. Never add IPv6-only
+  // sources automatically to an IPv4 deployment.
   if (guovinVariant(feedUrl)) {
     try {
       return await fetchGuovinMirrors(feedUrl);

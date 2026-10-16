@@ -41,6 +41,7 @@ import {
 import { loadHls } from '@/lib/player/loadHls';
 import { rankStreams } from '@/lib/player/health';
 import useStreamHealth from '@/lib/hooks/useStreamHealth';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 import {
   EMBED_IFRAME_ALLOW,
   EMBED_REFERRER_POLICY,
@@ -154,12 +155,14 @@ export default function StreamPlayer({
   channels,
   matchTitle,
   matchStatus,
+  matchId,
   compact = false,
   initialMuted = false,
   onRefreshLinks,
 }) {
+  const { access } = useSubscription(matchId);
   const isUpcoming = matchStatus === 'upcoming';
-  const sourceServers = useMemo(() => buildServerList(channels, streamUrl), [channels, streamUrl]);
+  const sourceServers = useMemo(() => buildServerList(channels, streamUrl).filter((server) => !access.adFree || server.kind !== 'embed'), [channels, streamUrl, access.adFree]);
   const health = useStreamHealth(sourceServers, !isUpcoming);
   const servers = useMemo(() => {
     const observed = sourceServers.map((server) => ({ ...server, health: health[server.key] }));
@@ -207,6 +210,36 @@ export default function StreamPlayer({
 
   const router = useRouter();
   const [isRefreshing, startRefresh] = useTransition();
+  const authorizationKey = `${access.tier}:${access.adFree}:${access.expiresAt}`;
+  const previousTier = useRef(authorizationKey);
+  useEffect(() => {
+    if (previousTier.current === authorizationKey) return;
+    previousTier.current = authorizationKey;
+    // Resolve fresh *server-authorized* sources on activation/expiry/refund.
+    // Updating a local quality label must never be enough to mint VIP links.
+    startRefresh(() => router.refresh());
+  }, [authorizationKey, router]);
+
+  const renewVipLinks = useEffectEvent(() => {
+    startRefresh(async () => {
+      if (onRefreshLinks) {
+        try { await onRefreshLinks(); } catch { /* keep current playback; retry before expiry */ }
+      } else router.refresh();
+    });
+  });
+  useEffect(() => {
+    if (!isHydrated || isUpcoming || access.tier !== 'vip' || !activeUrl.startsWith('/api/proxy?')) return undefined;
+    const expiresAt = Number(new URLSearchParams(activeUrl.split('?')[1]).get('exp'));
+    // Rotate short-lived bearer links before expiry; never extend an expired pass.
+    if (!Number.isFinite(expiresAt) || !expiresAt || (access.expiresAt && expiresAt >= access.expiresAt)) return undefined;
+    let timer;
+    const renew = () => {
+      if (!document.hidden) renewVipLinks();
+      timer = setTimeout(renew, 30_000);
+    };
+    timer = setTimeout(renew, Math.max(1000, expiresAt - Date.now() - 60_000));
+    return () => clearTimeout(timer);
+  }, [isHydrated, isUpcoming, activeUrl, access.tier, access.expiresAt]);
 
   // DVR state: playback minute, how far through the seekable window we are, live vs. lagged.
   const [dvrMinute, setDvrMinute] = useState(0);
@@ -498,7 +531,13 @@ export default function StreamPlayer({
           .then((Hls) => {
             if (disposed || failureSent) return;
             if (Hls?.isSupported()) {
-              hls = new Hls(HLS_CONFIG);
+              hls = new Hls({
+                ...HLS_CONFIG,
+                lowLatencyMode: access.lowLatency,
+                maxLiveSyncPlaybackRate: access.lowLatency ? 1.05 : 1,
+                // Respect the source segment duration. LL-HLS parts are used only when published.
+                liveSyncDurationCount: access.lowLatency ? 2 : 3,
+              });
               hls.attachMedia(video);
               hls.loadSource(activeUrl);
               hls.on(Hls.Events.MEDIA_ATTACHED, autoplay);
@@ -545,7 +584,7 @@ export default function StreamPlayer({
         video.load();
       }
     };
-  }, [isHydrated, isUpcoming, activeKey, activeUrl, attempt, kind]);
+  }, [isHydrated, isUpcoming, activeKey, activeUrl, attempt, kind, access.lowLatency]);
 
   /* ------------------------------------------------------------------------ */
   /*  DVR Rewind / Fast-Forward handlers (same window events as <LiveMinute>) */
@@ -726,7 +765,7 @@ export default function StreamPlayer({
   /*  Render                                                                    */
   /* ------------------------------------------------------------------------- */
   return (
-    <div className="relative overflow-hidden rounded-2xl text-zinc-100 shadow-2xl" data-stream-player={compact ? 'compact' : 'full'}>
+    <div className="relative overflow-hidden rounded-2xl text-zinc-100 shadow-2xl" data-stream-player={compact ? 'compact' : 'full'} data-playback-tier={access.tier}>
       {/* Stage: the media plus everything that floats over it (and what goes fullscreen) */}
       <div ref={stageRef} className="player-stage group relative bg-black">
         {/* Video element */}

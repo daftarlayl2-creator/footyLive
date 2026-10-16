@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMatchDetails, resolveAllStreams } from '@/lib/streamEngine';
 import { detectStreamKind } from '@/lib/player/servers';
+import { getRequestSubscription } from '@/lib/subscription/server';
+import { subscriptionAccess } from '@/lib/subscription/plans';
+import { preparePlayback } from '@/lib/subscription/playback';
 
 export const dynamic = 'force-dynamic';
-const headers = { 'Cache-Control': 'no-store' };
+const headers = { 'Cache-Control': 'no-store, private', Vary: 'Cookie' };
 /** Seconds before a client should re-resolve a fixture that has no servers yet. */
 const RETRY_AFTER_S = 15;
 
@@ -22,15 +25,17 @@ export async function GET(
     const homeTeam = match.homeTeam?.name || '';
     const awayTeam = match.awayTeam?.name || '';
 
-    const resolved = await resolveAllStreams(match.title, matchId, homeTeam, awayTeam, match);
 
+    const access = subscriptionAccess((await getRequestSubscription(request)).grants, matchId);
+    if (new URL(request.url).searchParams.get('multiview') === '1' && !access.multiView) return NextResponse.json({ error: 'A site-wide VIP pass is required for Multi-View.' }, { status: 403, headers });
+    const resolved = await resolveAllStreams(match.title, matchId, homeTeam, awayTeam, match);
+    const playback = preparePlayback(resolved.channels || [], access);
     return NextResponse.json({
+      ...playback,
       matchTitle: match.title,
       matchStatus: match.status,
-      streams: resolved.channels || [],
-      defaultUrl: resolved.proxiedUrl,
       // Proxy links URL-encode the upstream path, so classify by the URL they carry.
-      isDirectHls: detectStreamKind(resolved.proxiedUrl) !== 'embed',
+      isDirectHls: detectStreamKind(playback.defaultUrl) !== 'embed',
     }, { headers });
   } catch {
     // No server answered yet. Live fixtures are re-resolved by the client (each

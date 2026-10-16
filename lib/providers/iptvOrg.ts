@@ -2,6 +2,7 @@ import type { Channel, Match } from '../types';
 import type { StreamProvider } from './types';
 import { getLiveChannels, toPlaybackUrl } from '../broadcast/feeds';
 import { inferStreamQuality } from '../broadcast/matching';
+import { regionalMetadata } from '../broadcast/mena';
 import { selectVerifiedIptvOrgChannels } from '../broadcast/iptvOrg';
 
 /**
@@ -22,6 +23,7 @@ export class IptvOrgProvider implements StreamProvider {
     return selected.map(({ channel, coverage, health }) => ({
       name: channel.name, url: channel.url, proxiedUrl: toPlaybackUrl(channel),
       provider: coverage === 'fixture' ? this.id : `${this.id}-fallback-${coverage}`,
+      ...regionalMetadata(channel.tvgId),
       coverage, health, quality: inferStreamQuality(channel.name, channel.quality, channel.tvgId),
     }));
   }

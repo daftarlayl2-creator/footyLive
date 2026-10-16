@@ -8,6 +8,8 @@ import MultiStreamSlot from './MultiStreamSlot';
 import { serverKey } from '@/lib/player/servers';
 import { HEALTH_REFRESH_MS } from '@/lib/player/health';
 
+vi.mock('@/components/subscription/SubscriptionProvider', () => ({ useSubscription: () => ({ access: { tier: 'vip', adFree: true, multiView: true, lowLatency: true }, grants: [], checkoutAvailable: true }) }));
+
 const media = vi.hoisted(() => ({ instances: [], refresh: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: media.refresh }) }));
 vi.mock('next/link', () => ({ default: ({ children, prefetch: _prefetch, ...props }) => <a {...props}>{children}</a> }));
@@ -56,7 +58,7 @@ beforeEach(() => {
       const id = String(url).split('/')[3];
       return json({ streams: streamsFor(id), matchTitle: channels.find((channel) => channel.id === id)?.name, matchStatus: 'live' });
     }
-    if (url === '/api/streams/espn-1') return json({ streams: streamsFor('match'), matchTitle: match.title, matchStatus: 'live' });
+    if (url === '/api/streams/espn-1?multiview=1') return json({ streams: streamsFor('match'), matchTitle: match.title, matchStatus: 'live' });
     if (url === '/api/stream-health') return json({ health: Object.fromEntries(JSON.parse(init.body).urls.map((stream) => [serverKey(stream), overrides[serverKey(stream)]?.() ?? live()])) });
     return json({ error: 'Not found' }, 404);
   });
@@ -150,7 +152,7 @@ describe('Multi-View IPTV integration', () => {
     await click(button('Arsenal vs Liverpool', document.querySelector('[role="dialog"]')));
     expect(container.querySelectorAll('video')).toHaveLength(2);
     expect(tile(1).querySelector('a').getAttribute('href')).toBe('/watch/espn-1');
-    expect(fetcher).toHaveBeenCalledWith('/api/streams/espn-1', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetcher).toHaveBeenCalledWith('/api/streams/espn-1?multiview=1', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 });
 
@@ -162,7 +164,7 @@ describe('official IPTV-Org match backups in Multi-View', () => {
       name: index ? 'ESPN 2 HD' : 'Fixture source', coverage: index ? 'broadcaster' : 'fixture',
       health: { ...live(index ? 30 : 800), mediaVerified: !!index },
     }));
-    fetcher.mockImplementation(async (url, init) => url === '/api/streams/espn-1'
+    fetcher.mockImplementation(async (url, init) => url === '/api/streams/espn-1?multiview=1'
       ? json({ streams, defaultUrl: streams[0].url, matchTitle: match.title, matchStatus: 'live' }) : originalFetch(url, init));
     await render(<MultiStreamSlot source={{ type: 'match', id: match.id, title: match.title }} />);
     expect(activeDecoders()[0].url).toBe(streams[0].url);
@@ -172,7 +174,7 @@ describe('official IPTV-Org match backups in Multi-View', () => {
     expect(first.destroyed).toBe(true);
     expect(activeDecoders()[0].url).toBe(streams[1].url);
     expect(container.querySelector('[data-unverified-backup]').textContent).toContain('may show a different fixture');
-    expect(fetcher).toHaveBeenCalledWith('/api/streams/espn-1', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetcher).toHaveBeenCalledWith('/api/streams/espn-1?multiview=1', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 });
 

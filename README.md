@@ -2,7 +2,7 @@
 
 **EVIV Live** is a high-performance live football hub built on **Next.js 16** with **React 19**, **Tailwind CSS v4** and a **Deep Burgundy / Electric Lime** brand system. It shows every real fixture of the day — past, live and upcoming — with genuine live statistics, then resolves multi-server streams on the fly.
 
-**No mock data, ever.** Fixtures, scores, match minutes, cards, scorers and statistics are read straight from ESPN's public scoreboard JSON. Streaming sources are aggregated from public feeds/providers and always played through a signed first-party proxy.
+**No mock production data.** Fixtures, scores, match minutes, cards, scorers and statistics are read straight from ESPN's public scoreboard JSON. Streaming sources are aggregated from public feeds/providers and always played through a signed first-party proxy.
 
 > **Brand:** page `#18030A` · cards `#280713` · borders `#3D0B1D` · neon lime `#C6FF00`. Dark is the default; light is an explicit opt-in.
 > **Mark:** the EVIV Live eagle, wordmark and animated on-air signal are one responsive SVG lockup.
@@ -10,6 +10,9 @@
 ---
 
 ## 🌟 Key Features
+
+* 👑 **Verified VIP passes (`/pricing`)**: Single Match **3 MAD**, Weekly **15 MAD**, Monthly **40 MAD**, Annual **150 MAD**. Free fans keep standard HD (up to 720p) with EVIV ads. Paid access removes EVIV ads, enables source-provided low-latency FHD/4K and removes artificial viewing timers; site-wide passes also unlock four-screen Multi-View. A glass paywall explains scope and prices. Checkout is **disabled until an authenticated billing adapter and strong, distinct signing keys are configured**; no local flag or success URL grants access. See [billing setup and deployment limitations](docs/subscriptions.md).
+* 🔎 **Programmatic SEO**: descriptive `/match/teams-competition-date--id` URLs, canonical redirects from old match IDs, canonical metadata on `/watch/[id]`, server-rendered `SportsEvent` JSON-LD from real fixture facts, `Person` schema on player profiles, sitemap and robots routes. Set `SITE_URL` for your production origin.
 
 * 🛰️ **REAL Data Only (ESPN public API)**: the home dashboard consumes `https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard` for every competition of the day — live, finished and upcoming — plus per-match summaries for statistics and play-by-play. Nothing is fabricated: a match is only marked live when ESPN reports `status.type.state === "in"`, and unparseable values are omitted rather than invented.
 * ⚽ **Live Match Statistics on the Cards**: live cards show the real score, the real match minute (`62'`, `HT`, `90'+3'`), yellow/red card chips and the goal scorers — grouped per player and listed directly under their own team (`Bukayo Saka 20', 55'`). Each card then polls `/api/match/{id}` every 30 s to stay current.
@@ -23,9 +26,9 @@
 * 🎨 **Burgundy & Lime Design System**: Tailwind v4 `@theme` tokens (legacy `navy-*` utility names now map to burgundy shades; `lime-*` maps to the new electric lime) drive every surface, button, active state and player control. Cards and live badges animate, respecting `prefers-reduced-motion`.
 * 📺 **Interactive Stream Player**: auto-detects direct stream formats (HLS/m3u8/mp4) and uses `hls.js` for native low-latency playback. Provider embeds run in an **unsandboxed** iframe with a permissive `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"` list — provider players refuse to play inside `sandbox` ("Remove sandbox attributes on the iframe tag").
 * 🔀 **Server Selector & Automatic Failover**: every source becomes a server (Server 1, Server 2, …, Backup) with automatic failover on fatal errors, no-first-frame and stalls. Embeds are watched too: a refused/expired signed link inside the frame and provider pages the server-side probe (`/api/stream-redirect?…&check=1`) reports gone fail over immediately, and after an embed fails the **direct HLS/MP4 backups are tried first** — while a restricted/offline direct stream hands over to the next **embedded web player** first (delivery paths alternate). Viewers can tap **Next server** when a provider shows its own error. Once every server failed, the player re-signs links and **retries the whole list on its own** (10 s → 30 s → 60 s, with a countdown and Cancel), plus a manual **Retry all**.
-* 🧠 **Health-Aware IPTV**: Live-events, the official IPTV-Org sports feed and the Guovin IPTV-API playlist are mapped together — two-team/broadcaster evidence, multilingual football relevance (football, fútbol, calcio, 足球, CCTV-5, كرة القدم…), media-verified automatic backups and FHD/HD speed/stability ranking shared by the match player and Multi-View. A live match never dead-ends on “Stream is Offline”: it keeps re-resolving fresh backup windows and starts playback as soon as a server answers. Latency is measured from the server, not the viewer.
-* 🖥️ **Multistream Arena**: up to four independent live matches or IPTV channels in a responsive, resizable grid. Search, replace/remove sources, control per-tile audio and mute all without restarting streams.
-* 🏅 **Player Showcases (`/player/[id]`)**: full-card squad links, a card header with a transparent player cutout in front of a subtle national-flag overlay (featured players lead with TheSportsDB cutouts; everyone else with ESPN headshots, then identity-checked TheSportsDB images, then a branded silhouette — never a generic placeholder), age/position/nationality banner, linked club crest, dated valuation, five season metrics and a glass Trophy Cabinet (الفيترينة) with individual/team filters and expandable honors. Missing provider statistics stay explicit; selected editorial honors/valuations are historical and sourced.
+* 🧠 **Health-Aware IPTV**: Live-events, the hidden official IPTV-Org sports pool and the Guovin result/IPv4 pools are mapped together — two-team/broadcaster evidence, multilingual football relevance (football, fútbol, calcio, 足球, CCTV-5, كرة القدم…), media-verified automatic backups and FHD/HD speed/stability ranking shared by the match player and Multi-View. A live match never dead-ends on “Stream is Offline”: it keeps re-resolving fresh backup windows and starts playback as soon as a server answers. Latency is measured from the server, not the viewer.
+* 🖥️ **VIP Multistream Arena**: up to four independent live matches or IPTV channels in a responsive, resizable grid. Search, replace/remove sources, control per-tile audio and mute all without restarting streams.
+* 🏅 **Player Showcases (`/player/[id]`)**: full-card squad links, a card header with a transparent player cutout in front of a subtle national-flag overlay (all players first try identity-checked high-resolution TheSportsDB render/cutout PNGs, then full-size ESPN PNG headshots, then a branded silhouette; opaque thumbnails are excluded — never a generic placeholder), age/position/nationality banner, linked club crest, dated valuation, five season metrics and a glass Trophy Cabinet (الفيترينة) with individual/team filters and expandable honors. Missing provider statistics stay explicit; selected editorial honors/valuations are historical and sourced.
 * 🏆 **Standings, Top Scorers & Top Assists**: `/standings` has a scrollable league pill selector (Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Botola Pro, Europa League, Eredivisie, Primeira Liga, Saudi Pro League, MLS) and Table / Top Scorers / Top Assists tabs. Tables show Pos, Team, P, W, D, L, GF, GA, GD, Pts with qualification/relegation zones; phones get a combined `GF:GA` column so points never scroll off-screen. The league and tab live in the URL (`?league=esp.1&view=scorers`), so views can be shared.
 * 🛡️ **Club Pages (`/club/[id]`)**: every crest and club name (match cards, scoreboard, standings, leaderboards, fixtures) links to a club page. It has a hero in the official club colours with a high-res crest, plus founding year, stadium and current manager. Below that come the Wikipedia history/bio and tabs for **Form & Results**, **Fixtures** and **Squad**. ESPN data renders first; the Wikidata facts and bio stream in afterwards.
 * 💬 **Live Chat & One-Tap Predictions**: the chat input is never disabled. Messages appear instantly with delivery ticks and a one-tap retry, Enter sends, and focus stays in the field. Votes register on tap with a check-mark pop, ring pulse and chime; the tally updates immediately and a vote can be changed. Both sync through Supabase when it is configured. Without it they still work, stored in the browser and live-synced across tabs.
@@ -107,7 +110,7 @@ footylive/
 │   │   ├── streams/[matchId]  # Resolved servers with signed proxy URLs
 │   │   ├── stream-redirect    # HMAC-validated redirect for iframe embeds
 │   │   ├── proxy              # Signed HLS relay (playlist rewriting, Range/206, CORS)
-│   │   ├── live-channels      # Feed channels + best-effort status (never hides a channel)
+│   │   ├── live-channels      # Featured events + best-effort status; official pools stay hidden
 │   │   ├── standings          # League table + top scorers + top assists (?league=slug)
 │   │   ├── club/[id]          # Club profile: ESPN core + Wikipedia/Wikidata facts
 │   │   └── v1/                # 24h image proxies: league-logo, team-logo, poster
@@ -116,7 +119,10 @@ footylive/
 │   ├── channel/[id]/          # Proxied playback for one channel + bounded status check
 │   ├── watch/[matchId]/       # Live scoreboard, real stats, play-by-play, player + failover
 │   ├── profile/               # Fan profile: sign in / sign up, edit profile, Fan Stats
-│   ├── multistream/           # Up to 4 simultaneous players
+│   ├── multistream/           # Site-wide VIP: up to 4 simultaneous players
+│   ├── pricing/               # MAD pass catalog, checkout and verified status
+│   ├── match/[slug]/          # Descriptive canonical match centre + SportsEvent schema
+│   ├── player/[id]/           # Transparent cutout profile header + Person schema
 │   ├── standings/             # League pills + Table / Top Scorers / Top Assists tabs
 │   ├── club/[id]/             # Club hero, streamed facts + bio, Results / Fixtures / Squad tabs
 │   ├── layout.js              # Responsive SVG lockup in the header/footer, dark mode default
@@ -165,7 +171,7 @@ footylive/
 ## 🚀 How to Run Locally
 
 ### Prerequisites
-* **Node.js** v18.17.0 or higher
+* **Node.js** 22 LTS or newer (validated with 22.22.3)
 * **npm** v9+
 
 ### 1. Installation
@@ -176,10 +182,10 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env.local` file in the root directory:
+Copy `.env.example` to `.env.local` and supply a real, random stream signing key (never the public development fallback). Paid checkout additionally requires the server-only settings in [docs/subscriptions.md](docs/subscriptions.md):
 ```env
 # Cryptographic stream key (signs player links and proxy URLs via HMAC)
-STREAM_SECRET="default_stream_hmac_secret_key_123_abc"
+STREAM_SECRET="<generate-a-long-random-server-only-key>"
 
 # Optional: catalogue provider base URL (stream sources; defaults to https://api.watchfooty.st)
 # NEXT_PUBLIC_API_BASE="https://api.watchfooty.st"
@@ -299,7 +305,9 @@ The glass sprint adds suites for embed helpers and signed-redirect probing, the 
 fan auth (password hashing, local accounts, the GoTrue client, session refresh/sign-out), fan stats,
 and mounted UI tests: unsandboxed player frames with refused-link failover and the auto-retry
 countdown, the two-column scoreboard, dark-glass predictor, liquid-glass crests, the sign-up →
-verified profile flow, prediction accuracy and verified chat messages.
+verified profile flow, prediction accuracy and verified chat messages. The final VIP/SEO suites also cover fixed MAD prices, authenticated receipts and checkout, tamper resistance, exact expiry, ad teardown, premium-only streams, signed HLS quality ceilings, pre-expiry link renewal, Multi-View gates, transparent portraits, canonical redirects and SSR JSON-LD.
+
+Final validation commands: `npm run test`, `npm run typecheck`, `npm run lint`, plus `npm run build`. Real merchant settlement and third-party media availability require deployment checks; passing mocked contract tests is not proof of either.
 
 ---
 
@@ -309,9 +317,11 @@ Interactive documentation lives at [`/api-hub`](https://eviv.si/api-hub).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/matches` | GET | ESPN fixtures enriched with catalogue servers or best-effort live-feed preview counts |
+| `/api/matches` | GET | Real fixtures + stream availability counts; raw media URLs are omitted from the public catalog |
 | `/api/match/[matchId]` | GET | Live score, minute, cards, scorers and incidents for one match |
-| `/api/streams/[matchId]` | GET | Match-specific streams plus, for any live fixture, signed backups mapped across Live-events, IPTV-Org and Guovin; `503` + `Retry-After` (with `matchStatus`) while no server answers yet |
+| `/api/streams/[matchId]` | GET | Private/no-store, cookie-authorized match sources and verified backups; signed HD/VIP ceilings, `lockedCount` for premium-only sources, `503` + `Retry-After` during resolver outages; `?multiview=1` requires site-wide VIP |
+| `/api/subscription` | GET | Same-origin verified pass status; establishes the HttpOnly purchase cookie when billing is configured |
+| `/api/subscription/checkout` | POST | Same-origin fixed-price MAD checkout via the authenticated billing adapter; no client-supplied prices |
 | `/api/stream-redirect` | GET | HMAC-validated redirect to upstream embed URLs; `&check=1` returns a server-side probe of the provider page (`ok` / `offline` / `unknown`) |
 | `/api/proxy` | GET | Signed HLS relay: playlists rewritten server-side, segments streamed, `Range`/`206`/CORS preserved |
 | `/api/channels/[id]/streams` | GET | Signed, health-ranked source alternatives for a channel and Multi-View |
@@ -338,7 +348,9 @@ Every channel links to `/channel/{id}`, which resolves signed, health-ranked `/a
 
 **Official sports integration:** `https://iptv-org.github.io/iptv/categories/sports.m3u` is loaded dynamically by default alongside Live-events. If Pages is unavailable, the same file is fetched through GitHub's Contents API from the published **`gh-pages`** branch. Original high-resolution logos, groups, TVG identifiers and quality metadata are retained; the feed cache refreshes every ten minutes.
 
-**Guovin IPTV-API** (`https://guovin.github.io/iptv-api/result.m3u`) is a default feed too. When its Pages deployment is down, the sibling Pages variants, the newest `playlist-*` release asset and the generator's `gd` output branch (GitHub Contents API) are raced in parallel — the same real playlist over another transport. Its timestamp pseudo-channel is dropped; extension-less HLS redirectors (`Smart.php?id=…`) are kept as probe-gated candidates, while FLV/raw-TS/multicast relays are not.
+**Guovin IPTV-API** (`https://guovin.github.io/iptv-api/result.m3u`) is a default feed too. When its primary Pages URL fails, `https://guovin.github.io/iptv-api/ipv4.m3u` is tried next. If both fail, the newest `playlist-*` release asset and the generator's `gd` output branch (GitHub Contents API) are raced as last-resort transports. IPv6-only copies are not added automatically. Its timestamp pseudo-channel is dropped; extension-less HLS redirectors (`Smart.php?id=…`) are kept as probe-gated candidates, while FLV/raw-TS/multicast relays are not.
+
+The official Guovin/IPTV-Org pools are indexed server-side and excluded from `/channels` and its public API. Reported Arabic/MENA beIN hints target exact `beINSports1.qa@MENA` through `beINSports8.qa@MENA` IDs using a cached TVG-ID index; foreign editions are not silently substituted and broadcast rights are never invented.
 
 For **every live fixture**, up to six backups are mapped across all three feeds and added after any match-specific server (so a geo-blocked or expired fixture link fails over instead of dead-ending). Two-team evidence comes first, then actual broadcaster hints (beIN, ESPN, Canal+, etc.), then football channels and football-carrying networks (CCTV-5, beIN, ESPN…) woven together, then general sports. Other sports (basketball, golf, F1, 垂钓…) and general TV never stand in for a football match; explicit network numbers/editions are respected. The pool is interleaved by feed family so no feed starves another, near-duplicate editions wait their turn, and `[Geo-blocked]`/`[Not 24/7]` listings go last. IPTV-Org and Guovin entries need a **media-verified** probe (HLS variants followed, a real segment sampled); blocked, stale, offline, manifest-only or protected/key-dependent sources are not auto-injected. Rechecks use a 30-second cache and five-sample reliability history, preferring fast stable FHD/HD. The probe window (12 pinned + 12 rotating) rotates every 30 seconds **and immediately after a window that found nothing**, so each re-resolution explores new channels. When no server answers at all, the watch page shows **Finding a live stream…** and re-resolves on a visible-time back-off (6 s → 12 s → 20 s → 30 s → 45 s → every 60 s), mounting the player the moment a server appears.
 

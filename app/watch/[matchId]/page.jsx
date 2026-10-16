@@ -1,4 +1,4 @@
-import { getMatchDetails, getMatchStats, resolveAllStreams } from '@/lib/streamEngine';
+import { getMatchStats, resolveAllStreams } from '@/lib/streamEngine';
 import StreamPlayer from '@/components/StreamPlayer';
 import StreamAutoResolver from '@/components/StreamAutoResolver';
 import MatchCountdown from '@/components/MatchCountdown';
@@ -11,40 +11,38 @@ import GoalAlerts from '@/components/goals/GoalAlerts';
 import AdSlot from '@/components/ads/AdSlot';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { loadSeoMatch } from '@/lib/seo/matchData';
+import { matchMetadata, sportsEventSchema } from '@/lib/seo/matches';
+import { serializeJsonLd } from '@/lib/seo/site';
+import { getServerSubscription } from '@/lib/subscription/server';
+import { subscriptionAccess } from '@/lib/subscription/plans';
+import { preparePlayback } from '@/lib/subscription/playback';
+import PremiumButton from '@/components/subscription/PremiumButton';
 import { ArrowLeft, Calendar, MapPin, Trophy } from 'lucide-react';
 
-export const revalidate = 10;
+export const dynamic = 'force-dynamic';
 
-function createFallbackMatch(matchId) {
-  return {
-    id: matchId,
-    title: 'Match Not Found',
-    tournament: '',
-    timestamp: new Date().getTime(),
-    homeTeam: { name: 'Home', badge: '' },
-    awayTeam: { name: 'Away', badge: '' },
-    sources: [],
-    fallbackChannels: [],
-    leagueLogo: '',
-    poster: '',
-    venue: '',
-    note: '',
-  };
+export async function generateMetadata({ params }) {
+  const { matchId } = await params;
+  return matchMetadata(await loadSeoMatch(matchId));
 }
 
-export default async function WatchPage({ params, searchParams }) {
+export default async function WatchPage({ params, searchParams, initialMatch }) {
   const { matchId } = await params;
   const resolvedSearchParams = await searchParams;
-  const backTab = resolvedSearchParams?.tab || 'live';
+  const backTab = ['live', 'upcoming', 'finished', 'all'].includes(resolvedSearchParams?.tab) ? resolvedSearchParams.tab : 'live';
+  const access = subscriptionAccess((await getServerSubscription()).grants, matchId);
 
   let streamUrl = null;
   let channels = [];
   let streamsFailed = false;
+  let lockedCount = 0;
   let stats = null;
 
   // One retry absorbs a transient fixture-provider hiccup.
-  let match = await getMatchDetails(matchId).catch(() => getMatchDetails(matchId)).catch(() => null);
-  const matchFound = Boolean(match);
+  const match = initialMatch || await loadSeoMatch(matchId);
+  if (!match) notFound();
 
   if (match) {
     // Streams and statistics are independent: a fixture without a server yet
@@ -54,17 +52,18 @@ export default async function WatchPage({ params, searchParams }) {
       getMatchStats(matchId),
     ]);
     if (streamsResult.status === 'fulfilled') {
-      streamUrl = streamsResult.value.proxiedUrl || streamsResult.value.url;
-      channels = streamsResult.value.channels || [];
+      const playback = preparePlayback(streamsResult.value.channels || [], access);
+      streamUrl = playback.defaultUrl;
+      channels = playback.streams;
+      lockedCount = playback.lockedCount;
     } else {
       // "No streams available from any provider" (or a resolver outage).
       streamsFailed = true;
     }
     stats = statsResult.status === 'fulfilled' ? statsResult.value : null;
-  } else {
-    match = createFallbackMatch(matchId);
   }
 
+  const schema = sportsEventSchema(match);
   const hasServers = channels.length > 0 || Boolean(streamUrl && !streamsFailed);
   const backupsOnly = channels.length > 0 && channels.every((ch) => ch.provider?.includes('fallback'));
 
@@ -86,6 +85,7 @@ export default async function WatchPage({ params, searchParams }) {
 
   return (
     <div className="space-y-8 w-full max-w-6xl mx-auto">
+      {schema && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />}
       {/* Top navigation & Goal Alerts */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -107,6 +107,8 @@ export default async function WatchPage({ params, searchParams }) {
           status={match.status}
         />
       </div>
+
+      <h1 className="text-xl font-black text-navy-900 dark:text-white">{match.title}{match.tournament ? <span className="mt-1 block text-xs font-semibold text-navy-500 dark:text-zinc-400">{match.tournament} · Live scores & match centre</span> : null}</h1>
 
       {/* Scoreboard block */}
       {(match.status === 'live' || match.status === 'finished') && match.homeScore !== undefined ? (
@@ -133,9 +135,9 @@ export default async function WatchPage({ params, searchParams }) {
           dateStr,
           timeStr,
         }} />
-      ) : matchFound ? (
+      ) : (
         <MatchCountdown timestamp={match.timestamp} status={match.status} />
-      ) : null /* An unknown fixture has no kickoff: a countdown to "now" would refresh the page in a loop. */}
+      )}
 
       {/* Special notifications banners — driven by the real upstream state */}
       {match.status === 'finished' && (
@@ -179,16 +181,19 @@ export default async function WatchPage({ params, searchParams }) {
 
           <MatchInsights key={matchId} matchId={matchId} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
 
+          <PremiumButton matchId={matchId} />
+
           {/* Player window block: every resolved server goes to the player's selector / failover chain.
               A live fixture without a server keeps re-resolving instead of dead-ending. */}
           {hasServers || match.status === 'upcoming' ? (
-            <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
+            <StreamPlayer matchId={matchId} streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
           ) : (
             <StreamAutoResolver
               key={matchId}
               matchId={matchId}
+              initialLockedCount={lockedCount}
               matchTitle={match.title}
-              matchStatus={!matchFound ? 'missing' : match.status === 'finished' ? 'finished' : 'live'}
+              matchStatus={match.status === 'finished' ? 'finished' : 'live'}
             />
           )}
 

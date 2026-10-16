@@ -11,13 +11,13 @@ export function playbackProbeTarget(playbackUrl: string, now = Date.now()): { id
   const url = params.get('url') || '';
   const referer = params.get('ref') || '';
   const expiresAt = Number(params.get('exp'));
-  if (expiresAt <= now || !verifyProxySignature(url, referer, expiresAt, params.get('sig') || '') || !parseSafeUpstreamUrl(url)) return null;
+  if (expiresAt <= now || !verifyProxySignature(url, referer, expiresAt, params.get('sig') || '', params.has('maxHeight') ? Number(params.get('maxHeight')) : undefined) || !parseSafeUpstreamUrl(url)) return null;
   return { id: serverKey(playbackUrl), url, referer };
 }
 
 export async function getPlaybackHealth(urls: string[]): Promise<Record<string, StreamHealth>> {
   const targets = urls.map((url) => playbackProbeTarget(url)).filter((target) => target !== null);
-  return getChannelHealth(targets, { limit: 12 });
+  return getChannelHealth(targets, { limit: 12, verifyMedia: true });
 }
 
 /** Used on initial match/channel resolution; later refreshes use /api/stream-health. */

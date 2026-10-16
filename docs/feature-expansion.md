@@ -1,5 +1,7 @@
 # Confirmation links, player showcases and smart Multi-View
 
+For the final VIP/SEO sprint, exact MAD pricing, billing adapter setup and deployment limits, see [subscriptions.md](subscriptions.md).
+
 ## Supabase confirmation setup
 
 The application uses GoTrue's REST API and the existing browser auth store; no
@@ -130,7 +132,8 @@ media and probe links use the existing signed first-party proxy.
 - **GET `/api/channels/[id]/streams`** resolves signed, health-ranked channel
   sources for both the channel page and Multi-View. The response never exposes
   raw playlist entries.
-- `/multistream` provides four independent match/IPTV slots, searchable source
+- `/multistream` requires a verified Weekly, Monthly or Annual VIP pass and
+  provides four independent match/IPTV slots, searchable source
   selection, replacement/removal, width sliders/drag handles, quad reset,
   catalog refresh and channel deep links (`?channel=<channel-id>`). A picker
   portal covers sticky/mobile chrome and supports focus containment, keyboard
@@ -143,7 +146,9 @@ media and probe links use the existing signed first-party proxy.
 ### Official IPTV-Org sports integration
 
 The default feeds now include **`https://iptv-org.github.io/iptv/categories/sports.m3u`**
-as well as the existing Live-events index. No API key is required. An explicit
+as well as Guovin result/IPv4 and the existing Live-events index. Official
+Guovin/IPTV-Org channels remain in a hidden resolver pool, not the public
+navigation/catalog grid. No API key is required. An explicit
 `LIVE_FEED_URLS` list **replaces** defaults; remove an older one-feed override or
 append the official URL to enable both. `LIVE_FEED_URLS=''` disables feeds.
 
@@ -191,8 +196,10 @@ append the official URL to enable both. `LIVE_FEED_URLS=''` disables feeds.
   first.
 - Only a fresh `live` result with **`mediaVerified: true`** lets an IPTV-Org or
   Guovin entry enter the automatic pool (maximum six backups per fixture; event
-  feeds may add up to three blocked-but-not-offline entries). Strong probes follow up to two HLS
-  playlist levels and sample a segment (eight KiB per response) within the same
+  feeds may add up to three blocked-but-not-offline entries). Strong probes use
+  at most ten requests across four recursion levels, try up to three master
+  alternatives and the newest three segments, and check fMP4 initialization
+  maps / published LL-HLS parts (eight KiB per response) within the same
   3.5-second deadline. Bare playlist headers, HTML/JSON errors and inaccessible
   segments do not pass. DRM/key-dependent playlists remain unverified; no
   licensing, key retrieval or regional restriction bypass is attempted.

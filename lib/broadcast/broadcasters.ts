@@ -1,5 +1,6 @@
 /** Broadcaster hints are candidate evidence, never proof of fixture coverage. */
 import type { FeedEntry } from './types';
+import { isMenaBeinId, menaTargets } from './mena';
 
 /** Preserve the actual TV/streaming names ESPN supplies; never guess league rights. */
 export function fixtureBroadcasters(competition: any): string[] {
@@ -59,6 +60,14 @@ function networkDescriptor(value: string) {
 
 /** Regex/alias matching, with explicit channel numbers and editions respected. */
 export function broadcasterMatchScore(broadcasters: string[], channel: Pick<FeedEntry, 'name' | 'tvgId' | 'tags'>): number {
+  const targets = menaTargets(broadcasters);
+  if (targets.length && channel.tvgId) {
+    if (targets.includes(channel.tvgId) && isMenaBeinId(channel.tvgId)) return 2;
+    // An exact regional id is authoritative even if the label says "beIN Sports 1".
+    if (/^beINSports\d+\./i.test(channel.tvgId)) return 0;
+  }
+  if (targets.length && broadcasters.some((hint) => /@MENA|arabic|عربي/i.test(hint)) &&
+      /be\s*in|بي\s*[إا]?ن/i.test([channel.name, ...(channel.tags || [])].join(' '))) return 0;
   // Human-readable title is authoritative; a tvg-id is a useful secondary hint.
   const primary = networkDescriptor(channel.name);
   const candidates = primary ? [primary] : [channel.tvgId?.replace(/\.[a-z]{2,3}(?:@.*)?$/i, ''), ...(channel.tags ?? [])]
