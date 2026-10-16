@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { BarChart3, MessageSquare, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import PitchVisualization from '@/components/lineups/PitchVisualization';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import ClubLink from '@/components/clubs/ClubLink';
 import CrestDrop from '@/components/clubs/CrestDrop';
 
@@ -205,18 +206,20 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
           </button>
 
           {showLineups && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-              <PitchVisualization
-                teamName={homeTeam?.name || 'Home'}
-                formation={homeLineup.formation}
-                players={homeLineup.players}
-              />
-              <PitchVisualization
-                teamName={awayTeam?.name || 'Away'}
-                formation={awayLineup.formation}
-                players={awayLineup.players}
-              />
-            </div>
+            <ErrorBoundary name="lineup-field" title="Lineup field hit a snag" message="The tactical pitch could not be drawn from the line-up feed. Statistics and commentary below are unaffected.">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
+                <PitchVisualization
+                  teamName={homeTeam?.name || 'Home'}
+                  formation={homeLineup.formation}
+                  players={homeLineup.players}
+                />
+                <PitchVisualization
+                  teamName={awayTeam?.name || 'Away'}
+                  formation={awayLineup.formation}
+                  players={awayLineup.players}
+                />
+              </div>
+            </ErrorBoundary>
           )}
         </div>
       )}

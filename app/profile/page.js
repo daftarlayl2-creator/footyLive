@@ -3,6 +3,8 @@ import ProfileDashboard from '@/components/profile/ProfileDashboard';
 export const metadata = {
   title: 'Your fan profile — Limon Live',
   description: 'Sign in to Limon Live, edit your display name, avatar and favourite club, and track your prediction accuracy and chat activity.',
+  robots: { index: false, follow: true },
+  alternates: { canonical: '/profile' },
 };
 
 export default async function ProfilePage({ searchParams }) {

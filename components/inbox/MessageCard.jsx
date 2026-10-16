@@ -79,7 +79,7 @@ export default function MessageCard({ message, onRead, onArchive, expanded = fal
 
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <time className="text-[10px] font-bold opacity-75" dateTime={new Date(message.at).toISOString()}>
-            {stamp(message.at)}
+            <span suppressHydrationWarning>{stamp(message.at)}</span>
           </time>
           <div className="flex items-center gap-1">
             {!message.read ? (

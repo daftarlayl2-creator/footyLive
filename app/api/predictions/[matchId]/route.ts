@@ -24,6 +24,7 @@ import {
 import { isLocked, normalizePhase, safeUsername, settleVote, validateVote } from '@/lib/predictions/antiCheat';
 import { loadMatchVotes, readVote, writeVote } from '@/lib/predictions/server';
 import { loadWallet, creditPredictionReward } from '@/lib/coins/server';
+import { recordPredictionOutcome } from '@/lib/leaderboard/server';
 import { REWARD_CORRECT_PREDICTION } from '@/lib/coins';
 import { isViewerBanned, registerViewer } from '@/lib/admin/users';
 
@@ -173,6 +174,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ mat
       alreadyAwarded: wallet.awards.some((award) => award.matchId === matchId),
       reward: REWARD_CORRECT_PREDICTION,
     });
+    // Global leaderboard: the settled outcome feeds streaks + accuracy once.
+    if (settlement.settled) {
+      await recordPredictionOutcome({
+        userId: viewer.id,
+        handle: vote.username,
+        matchId,
+        correct: settlement.correct,
+      }).catch(() => null);
+    }
     if (settlement.coins > 0) {
       credited = (await creditPredictionReward(viewer.id, matchId, settlement.coins)).credited;
     }

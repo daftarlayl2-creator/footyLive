@@ -13,7 +13,8 @@ import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadSeoMatch } from '@/lib/seo/matchData';
-import { matchMetadata, sportsEventSchema } from '@/lib/seo/matches';
+import { matchHref, matchMetadata, sportsEventSchema } from '@/lib/seo/matches';
+import { breadcrumbSchema } from '@/lib/seo/schema';
 import { serializeJsonLd } from '@/lib/seo/site';
 import { getServerSubscription } from '@/lib/subscription/server';
 import { subscriptionAccess } from '@/lib/subscription/plans';
@@ -36,6 +37,9 @@ export default async function WatchPage({ params, searchParams, initialMatch }) 
 
   let streamUrl = null;
   let channels = [];
+  let stream1 = null;
+  let stream2 = null;
+  let stream3 = null;
   let streamsFailed = false;
   let lockedCount = 0;
   let stats = null;
@@ -55,6 +59,10 @@ export default async function WatchPage({ params, searchParams, initialMatch }) 
       const playback = preparePlayback(streamsResult.value.channels || [], access);
       streamUrl = playback.defaultUrl;
       channels = playback.streams;
+      // Named multi-server fallbacks (stream1/2/3): auto-switched on failure.
+      stream1 = playback.stream1;
+      stream2 = playback.stream2;
+      stream3 = playback.stream3;
       lockedCount = playback.lockedCount;
     } else {
       // "No streams available from any provider" (or a resolver outage).
@@ -64,6 +72,9 @@ export default async function WatchPage({ params, searchParams, initialMatch }) 
   }
 
   const schema = sportsEventSchema(match);
+  // BreadcrumbList (Home → match) alongside the SportsEvent graph; both are typed per schema.org.
+  const crumbName = [match.homeTeam?.name, match.awayTeam?.name].filter(Boolean).join(' vs ') || match.title || 'Match';
+  const crumbs = breadcrumbSchema([{ name: 'Home', path: '/' }, { name: crumbName, path: matchHref(match) }]);
   const hasServers = channels.length > 0 || Boolean(streamUrl && !streamsFailed);
   const backupsOnly = channels.length > 0 && channels.every((ch) => ch.provider?.includes('fallback'));
 
@@ -86,6 +97,7 @@ export default async function WatchPage({ params, searchParams, initialMatch }) 
   return (
     <div className="space-y-8 w-full max-w-6xl mx-auto">
       {schema && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />}
+      {crumbs && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(crumbs) }} />}
       {/* Top navigation & Goal Alerts */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -190,6 +202,9 @@ export default async function WatchPage({ params, searchParams, initialMatch }) 
               matchId={matchId}
               streamUrl={streamUrl}
               channels={channels}
+              stream1={stream1}
+              stream2={stream2}
+              stream3={stream3}
               matchTitle={match.title}
               matchStatus={match.status}
               initialLockedCount={lockedCount}

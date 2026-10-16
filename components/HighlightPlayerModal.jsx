@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { CalendarDays, ExternalLink, Eye, Tv, X } from 'lucide-react';
 import { stripIframeSandbox } from '@/lib/player/embed';
+import SafeExternalLink from '@/components/ui/ExternalLink';
 
 function relativeTime(iso) {
   const t = Date.parse(iso || '');
@@ -143,15 +144,14 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
             Playing inside Limon Live — the stream comes straight from YouTube&rsquo;s official player.
           </p>
           {highlight.url && (
-            <a
+            <SafeExternalLink
               href={highlight.url}
-              target="_blank"
-              rel="noopener noreferrer"
+              fallbackLabel="YouTube link unavailable"
               className="inline-flex shrink-0 items-center gap-1 font-bold text-zinc-400 transition-colors hover:text-lime-400"
             >
               Open on YouTube
               <ExternalLink className="h-3 w-3" aria-hidden="true" />
-            </a>
+            </SafeExternalLink>
           )}
         </div>
       </div>

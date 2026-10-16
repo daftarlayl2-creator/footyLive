@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Staff Portal · Limon Live',
   description: 'Unified team sign-in for Limon Live league moderators and support managers.',
   robots: { index: false, follow: false },
+  alternates: { canonical: '/staff' },
 };
 
 export const dynamic = 'force-dynamic';

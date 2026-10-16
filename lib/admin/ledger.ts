@@ -13,8 +13,8 @@ export const LEDGER_KEY = 'limon:admin:ledger:v1';
 const LEDGER_TTL_S = 400 * 24 * 60 * 60;
 const MAX_ENTRIES = 400;
 
-export type LedgerKind = 'coin-redeem' | 'admin-adjustment' | 'billing-grant';
-export const LEDGER_KINDS: readonly LedgerKind[] = ['coin-redeem', 'admin-adjustment', 'billing-grant'];
+export type LedgerKind = 'coin-redeem' | 'admin-adjustment' | 'billing-grant' | 'coin-grant';
+export const LEDGER_KINDS: readonly LedgerKind[] = ['coin-redeem', 'admin-adjustment', 'billing-grant', 'coin-grant'];
 
 export interface LedgerInput {
   kind: LedgerKind;

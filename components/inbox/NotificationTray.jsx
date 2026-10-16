@@ -35,7 +35,7 @@ function TrayRow({ message, onOpen }) {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className="truncate text-[11px] font-black" style={{ color: theme.accent }} dir="rtl">{theme.nameAr}</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">{stamp(message.at)}</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider opacity-60" suppressHydrationWarning>{stamp(message.at)}</span>
           </span>
           <span className="mt-0.5 block truncate text-[12px] font-bold text-white">{message.subject}</span>
         </span>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Play, Clock, ShieldAlert, Star, Flag, Timer } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { isTeamFavorited, toggleFavoriteTeam } from '@/lib/utils/favorites';
+import useHydrated from '@/lib/hooks/useHydrated';
 import ClubLink from '@/components/clubs/ClubLink';
 import CrestDrop from '@/components/clubs/CrestDrop';
 import BallIcon from '@/components/ui/BallIcon';
@@ -112,13 +113,16 @@ export default function MatchCard({ match, tab }) {
 
   const currentMinute = liveMinute || (currentMinuteNumber ? `${currentMinuteNumber}'` : '');
   const kickoff = new Date(timestamp);
-  const isToday = kickoff.toDateString() === new Date().toDateString();
-  const dayLabel = isToday ? '' : kickoff.toLocaleDateString([], { weekday: 'short' });
+  // Hydration-safe clock: the server and the hydration pass agree on one
+  // deterministic UTC string; only afterwards does the card switch to the
+  // viewer's locale/timezone (same contract as <LocalDateTime>). Countdown
+  // text is likewise filled in post-hydration — never a SSR/CSR mismatch.
+  const hydrated = useHydrated();
   const timeStr = status === 'live'
     ? (currentMinute || 'LIVE')
-    : `${dayLabel ? `${dayLabel} ` : ''}${kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    : kickoffLabel(kickoff, hydrated);
 
-  const timeLeft = status === 'upcoming' ? getTimeLeft(timestamp) : '';
+  const timeLeft = status === 'upcoming' && hydrated ? getTimeLeft(timestamp) : '';
   const isMatchFavorited = homeFav || awayFav;
   const showScores = status === 'live' || status === 'finished';
 
@@ -297,7 +301,7 @@ export default function MatchCard({ match, tab }) {
         )}
       </div>
 
-      {status === 'upcoming' && timeLeft && (
+      {status === 'upcoming' && (
         <div className="relative mt-3 rounded-2xl bg-navy-100/80 border border-navy-200 dark:bg-navy-950/70 dark:border-navy-750 px-3 py-2 text-center text-xs font-bold text-navy-700 dark:text-zinc-300 shadow-inner">
           {timeLeft.toLowerCase().trim().includes('starting soon') ? (
             <span className="text-lime-600 dark:text-lime-400 font-black animate-pulse">Starting soon</span>
@@ -328,4 +332,19 @@ function getTimeLeft(timestamp) {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+/**
+ * Kick-off label for upcoming/finished cards. Pre-hydration it formats the
+ * instant deterministically (fixed locale + UTC) so server HTML and the
+ * hydration render are byte-identical; afterwards it flips to the viewer's
+ * locale and timezone, with a weekday prefix on other days.
+ */
+function kickoffLabel(kickoff, hydrated) {
+  if (!hydrated) {
+    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }).format(kickoff);
+  }
+  const isToday = kickoff.toDateString() === new Date().toDateString();
+  const dayLabel = isToday ? '' : kickoff.toLocaleDateString([], { weekday: 'short' });
+  return `${dayLabel ? `${dayLabel} ` : ''}${kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }

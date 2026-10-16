@@ -105,7 +105,10 @@ export default function HighlightCard({ highlight, onPlay, featured = false, cla
             <span className="shrink-0 text-lime-500/90">{highlight.competition}</span>
           )}
           {highlight.competition && when && <span aria-hidden="true">·</span>}
-          {when && <span className="truncate">{when}</span>}
+          {/* Relative age is wall-clock text: React reconciles it silently across
+              the server/client render boundary (the documented use for
+              suppressHydrationWarning) instead of flagging a mismatch. */}
+          {when && <span className="truncate" suppressHydrationWarning>{when}</span>}
         </p>
       </div>
 

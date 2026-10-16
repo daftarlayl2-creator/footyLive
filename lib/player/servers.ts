@@ -18,6 +18,7 @@
  */
 
 import type { StreamHealth } from './health';
+import { slotIdForIndex } from './multiStream';
 
 export type StreamKind = 'hls' | 'mp4' | 'embed';
 export type ServerQuality = '4K' | 'FHD' | 'HD' | 'SD' | 'Auto';
@@ -43,6 +44,8 @@ export interface PlayerServer {
   region?: string;
   /** Position in the list (0-based). */
   index: number;
+  /** `stream1`, `stream2`, `stream3`, … — the multi-server fallback slot id. */
+  streamId: string;
   /** Identity that survives re-signing of the same upstream link (new exp/sig). */
   key: string;
   /** "Server 1", "Server 2", …, "Backup". */
@@ -148,7 +151,7 @@ export function buildServerList(
   fallbackUrl?: string | null
 ): PlayerServer[] {
   const seen = new Set<string>();
-  const usable: Omit<PlayerServer, 'index' | 'label'>[] = [];
+  const usable: Omit<PlayerServer, 'index' | 'label' | 'streamId'>[] = [];
 
   for (const ch of channels ?? []) {
     const url = ch?.proxiedUrl || ch?.url;
@@ -179,7 +182,13 @@ export function buildServerList(
     });
   }
 
-  return usable.map((s, index) => ({ ...s, index, label: serverLabel(index, usable.length) }));
+  return usable.map((s, index) => ({
+    ...s,
+    index,
+    // Named fallback slot: stream1, stream2, stream3, … (see lib/player/multiStream.ts).
+    streamId: slotIdForIndex(index),
+    label: serverLabel(index, usable.length),
+  }));
 }
 
 /* -------------------------------------------------------------------------- */

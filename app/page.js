@@ -1,6 +1,7 @@
 import { catalogMatch } from '@/lib/subscription/catalog';
 import { getMatches } from '@/lib/streamEngine';
 import MatchGrid from '@/components/MatchGrid';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { getHeroBanner } from '@/lib/bannerProvider';
 import AdSlot from '@/components/ads/AdSlot';
 import TopSportsBanner from '@/components/ads/TopSportsBanner';
@@ -14,6 +15,7 @@ export const metadata = {
   title: 'Limon Live — Today’s Football Fixtures, Live Scores & Streams',
   description:
     'Every football match of the day with real-time scores, live minutes, cards and statistics — plus reliable live streams.',
+  alternates: { canonical: '/' },
 };
 
 function selectVisibleMatches(matches) {
@@ -60,7 +62,9 @@ export default async function Home({ searchParams }) {
       <div className="-mx-4 flex w-[calc(100%+2rem)] justify-center overflow-hidden md:hidden">
         <AdSlot variant="banner" banner={AD_PLACEMENTS.homeTopMobile} />
       </div>
-      <MatchGrid matches={visible.map(catalogMatch)} defaultTab={tab} banner={banner} />
+      <ErrorBoundary name="match-grid" title="Fixtures panel hit a snag" message="The live fixture grid could not be rendered, but the rest of your matchday is still running. Try loading the grid again.">
+        <MatchGrid matches={visible.map(catalogMatch)} defaultTab={tab} banner={banner} />
+      </ErrorBoundary>
     </div>
   );
 }

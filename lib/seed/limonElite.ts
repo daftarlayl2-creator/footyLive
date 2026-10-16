@@ -24,6 +24,7 @@ import { loadWallet, saveWallet, type WalletState } from '@/lib/coins/server';
 import { ensureViewer, setViewerBalance } from '@/lib/admin/users';
 import { setViewerVipTier, viewerVipRecord, type AdminVipRecord } from '@/lib/admin/vip';
 import { writeVote } from '@/lib/predictions/server';
+import { seedLeaderboardRow } from '@/lib/leaderboard/server';
 import { deliverMessage, readInbox, type DeliverInput } from '@/lib/inbox/server';
 import { referenceFor } from '@/lib/inbox';
 
@@ -202,6 +203,20 @@ export async function ensureLimonEliteSeed(now = Date.now()): Promise<EliteSeedM
         changes: 0,
       }).catch(() => undefined);
     }
+
+    // 5b. The global leaderboard carries the same career record (marked as
+    //     seed data), so the showcase account ranks with real streaks and
+    //     accuracy on /leaderboard. The three seeded matches are flagged as
+    //     already settled — re-settling them can never double-count.
+    await seedLeaderboardRow({
+      userId: LIMON_ELITE_ID,
+      handle: LIMON_ELITE_HANDLE,
+      settled: LIMON_ELITE_RECORD.settled,
+      correct: LIMON_ELITE_RECORD.correct,
+      bestStreak: LIMON_ELITE_RECORD.bestStreak,
+      at: now,
+      settledIds: LIMON_ELITE_PREDICTIONS.map((row) => row.matchId),
+    }).catch(() => undefined);
 
     // 6. Diamond tier: an admin-granted, *expiring* entitlement (365 days) — the
     //    same record a paid annual pass produces, so the badge is genuinely live.

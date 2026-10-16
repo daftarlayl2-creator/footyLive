@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Flag } from 'lucide-react';
 import TeamLogo from '@/components/clubs/TeamLogo';
+import SafeExternalLink from '@/components/ui/ExternalLink';
 import { clubHref } from '@/lib/clubs/links';
 import { safePlayerImage } from '@/lib/players/normalize';
 import { isTransparentCutoutUrl } from '@/lib/players/cutouts';
@@ -146,7 +147,7 @@ export default function PlayerBanner({ player }) {
           </span>
         </Fact>
       </dl>
-      {value?.source && <p className="relative mt-3 text-[10px] text-zinc-400">Market value is a dated estimate, not a live valuation or transfer fee. <a href={value.source} target="_blank" rel="noopener noreferrer" className="text-zinc-200 underline underline-offset-2">Valuation source</a></p>}
+      {value?.source && <p className="relative mt-3 text-[10px] text-zinc-400">Market value is a dated estimate, not a live valuation or transfer fee. <SafeExternalLink href={value.source} fallbackLabel="Valuation source unavailable" className="text-zinc-200 underline underline-offset-2">Valuation source</SafeExternalLink></p>}
       {portrait?.kind === 'cutout' && <p className="relative mt-1 text-[10px] text-zinc-400" data-cutout-note="">High-resolution transparent action cutout — no circular crop or opaque backdrop.</p>}
       {portrait?.credit === 'TheSportsDB' && <p className="relative mt-1 text-[10px] text-zinc-400" data-portrait-attribution="">Player image: TheSportsDB.</p>}
     </section>

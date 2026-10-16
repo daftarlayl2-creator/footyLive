@@ -30,6 +30,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import ServerSelector, { ServerMenu } from '@/components/ServerSelector';
+import TacticalRadarPlayer from '@/components/player/TacticalRadarPlayer';
 import {
   autoRetryDelay,
   buildServerList,
@@ -38,6 +39,7 @@ import {
   initFailoverState,
   serverKinds,
 } from '@/lib/player/servers';
+import { isStreamHttpStatusFailure, streamsFromSlotMap } from '@/lib/player/multiStream';
 import { loadHls } from '@/lib/player/loadHls';
 import { rankStreams } from '@/lib/player/health';
 import useStreamHealth from '@/lib/hooks/useStreamHealth';
@@ -95,6 +97,12 @@ function hlsFailureReason(Hls, data) {
     return 'unsupported';
   }
   if (data.type === ErrorTypes.NETWORK_ERROR) {
+    // A 404/500-class answer on a manifest/level/fragment is a dead stream:
+    // switch to the secondary source immediately (the proxy passes upstream
+    // statuses through precisely so this decision can be made here).
+    if (isStreamHttpStatusFailure(data.response?.code)) {
+      return 'network';
+    }
     const timeouts = [ErrorDetails.MANIFEST_LOAD_TIMEOUT, ErrorDetails.LEVEL_LOAD_TIMEOUT, ErrorDetails.FRAG_LOAD_TIMEOUT];
     return timeouts.includes(data.details) ? 'timeout' : 'network';
   }
@@ -153,6 +161,9 @@ function initFromServers(list) {
 export default function StreamPlayer({
   streamUrl,
   channels,
+  stream1 = null,
+  stream2 = null,
+  stream3 = null,
   matchTitle,
   matchStatus,
   matchId,
@@ -162,7 +173,15 @@ export default function StreamPlayer({
 }) {
   const { access } = useSubscription(matchId);
   const isUpcoming = matchStatus === 'upcoming';
-  const sourceServers = useMemo(() => buildServerList(channels, streamUrl).filter((server) => !access.adFree || server.kind !== 'embed'), [channels, streamUrl, access.adFree]);
+  // Multi-server fallback: named `stream1/stream2/stream3` sources are merged
+  // into the channel list (deduplicated by the server-list builder), so a page
+  // can hand the player bare alternates and the failover chain walks them.
+  const sourceServers = useMemo(() => {
+    const named = streamsFromSlotMap({ stream1, stream2, stream3 })
+      .filter((source) => !(channels || []).some((channel) => (channel?.proxiedUrl || channel?.url) === source.url))
+      .map((source) => ({ name: source.name, url: source.url }));
+    return buildServerList([...(channels || []), ...named], streamUrl).filter((server) => !access.adFree || server.kind !== 'embed');
+  }, [channels, streamUrl, stream1, stream2, stream3, access.adFree]);
   const health = useStreamHealth(sourceServers, !isUpcoming);
   const servers = useMemo(() => {
     const observed = sourceServers.map((server) => ({ ...server, health: health[server.key] }));
@@ -397,6 +416,26 @@ export default function StreamPlayer({
       const audio = readAudio();
       video.muted = audio.muted;
       video.volume = audio.volume;
+
+      // HTTP preflight for raw upstream media links: an answer of 404/500/502/
+      // 503/504 is dead on arrival — fail over to the secondary stream right
+      // away instead of waiting for the media element's slower error path.
+      // Own signed links (`/api/…`) are exempt: their statuses surface through
+      // the proxy's pass-through and hls.js below (see `hlsFailureReason`).
+      if (!activeUrl.startsWith('/api/')) {
+        const preflight = new AbortController();
+        stops.push(() => preflight.abort());
+        fetch(activeUrl, { cache: 'no-store', signal: preflight.signal, headers: { Range: 'bytes=0-0' } })
+          .then((response) => {
+            const failedStatus = isStreamHttpStatusFailure(response.status);
+            preflight.abort();
+            if (disposed || failureSent) return;
+            if (failedStatus) fail('network');
+          })
+          .catch(() => {
+            /* preflight unavailable (CORS/offline/aborted): the element's own errors cover it */
+          });
+      }
     }
 
     // No first frame within this long → the server is dead.
@@ -768,7 +807,7 @@ export default function StreamPlayer({
     <div className="relative overflow-hidden rounded-2xl text-zinc-100 shadow-2xl" data-stream-player={compact ? 'compact' : 'full'} data-playback-tier={access.tier}>
       {/* Stage: the media plus everything that floats over it (and what goes fullscreen) */}
       <div ref={stageRef} className="player-stage group relative bg-black">
-        {/* Video element */}
+        {/* Stage surface: upcoming card · live media · tactical-radar backup */}
         {isUpcoming ? (
           <div className="p-8 text-center text-zinc-400">
             <Clock className="h-12 w-12 mx-auto mb-2" />
@@ -796,17 +835,34 @@ export default function StreamPlayer({
             data-player-frame=""
           />
         ) : (
-          <div className="p-8 text-center text-zinc-400">
-            <span className="text-lime-500">No stream available</span>
-          </div>
+          // Nothing to play (no source resolved): the interactive tactical
+          // radar backup player keeps the stage alive instead of a black box.
+          <TacticalRadarPlayer matchId={matchId || 'limon'} title={matchTitle || ''} compact={compact} />
         )}
 
         {/* Failure overlay: one server down, or every server exhausted */}
         {isHydrated && !isUpcoming && isDown && (
-          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-navy-950/92 p-6 text-center backdrop-blur-sm">
+          <div
+            className={
+              phase === 'exhausted'
+                ? // Every feed offline: the tactical radar becomes the stage
+                  // (covering the dead frame) with a compact recovery bar on top.
+                  'absolute inset-0 z-30 flex flex-col items-center justify-end gap-2.5 text-center'
+                : 'absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-navy-950/92 p-6 text-center backdrop-blur-sm'
+            }
+          >
+            {phase === 'exhausted' && activeKey && (
+              // Cover the dead frame with the radar; when no source ever
+              // resolved the stage fallback below already shows one.
+              <div className="absolute inset-0 overflow-hidden rounded-none" aria-hidden="true">
+                <TacticalRadarPlayer matchId={matchId || 'limon'} title={matchTitle || ''} compact={compact} />
+                <div className="absolute inset-0 bg-navy-950/35" />
+              </div>
+            )}
+            <div className={phase === 'exhausted' ? 'relative z-10 flex w-full flex-col items-center gap-2.5 bg-navy-950/85 p-4 backdrop-blur-md' : 'contents'}>
             <ShieldAlert className="h-8 w-8 text-red-400" aria-hidden="true" />
             <p className="text-sm font-bold text-zinc-100">
-              {phase === 'exhausted' ? 'All servers unavailable' : 'This server is unavailable'}
+              {phase === 'exhausted' ? 'All live streams offline — tactical radar engaged' : 'This server is unavailable'}
             </p>
             <p className="max-w-sm text-xs text-zinc-300">
               {activeKey ? describeFailure(failed[activeKey]) : 'No stream resolved for this match yet.'}
@@ -855,6 +911,7 @@ export default function StreamPlayer({
                 <ArrowRightLeft className="h-3.5 w-3.5" />
                 {isRefreshing ? 'Re-signing links…' : phase === 'exhausted' && retryCountdown !== null ? 'Retry now' : 'Retry all'}
               </button>
+            </div>
             </div>
           </div>
         )}

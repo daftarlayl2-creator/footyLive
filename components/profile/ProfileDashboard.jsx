@@ -1,6 +1,7 @@
 'use client';
 
-import { Cake, LogOut, MailWarning, ShieldCheck, UserRound } from 'lucide-react';
+import { Cake, LogOut, MailWarning, ShieldCheck, Sparkles, Trophy, UserRound } from 'lucide-react';
+import Link from 'next/link';
 import { signOut, useAuth } from '@/lib/auth';
 import { NICKNAME_STORAGE_KEY } from '@/lib/chat';
 import useFanStats from '@/lib/hooks/useFanStats';
@@ -16,6 +17,7 @@ import VerifiedBadge from '@/components/auth/VerifiedBadge';
 import VipBadge from '@/components/auth/VipBadge';
 import WalletCard from '@/components/coins/WalletCard';
 import RewardsStore from '@/components/coins/RewardsStore';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import useWallet from '@/lib/hooks/useWallet';
 import AuthPanel from './AuthPanel';
 import AuthReturnNotice from './AuthReturnNotice';
@@ -164,11 +166,30 @@ export default function ProfileDashboard({ authReturn = null, authReason = null 
   return (
     <div className="flex flex-col gap-6" data-profile-dashboard={auth.status}>
       <AuthReturnNotice authReturn={authReturn} reason={authReason} />
+      {/* Gamification shortcuts: daily wheel + global predictor leaderboard. */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/spin" data-sound="tab" className="tactile group flex items-center gap-3 rounded-2xl border border-lime-500/30 bg-lime-500/10 px-4 py-3 transition-colors hover:border-lime-400/50">
+          <Sparkles className="h-5 w-5 shrink-0 text-lime-500 dark:text-lime-300" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="block truncate text-xs font-black text-navy-900 dark:text-white">Daily Lemon Wheel</span>
+            <span className="block truncate text-[10px] font-semibold text-navy-500 dark:text-zinc-400">Spin every 24h — coins &amp; VIP</span>
+          </span>
+        </Link>
+        <Link href="/leaderboard" data-sound="tab" className="tactile group flex items-center gap-3 rounded-2xl border border-navy-200 bg-white/60 px-4 py-3 transition-colors hover:border-lime-500/40 dark:border-white/10 dark:bg-white/5">
+          <Trophy className="h-5 w-5 shrink-0 text-lime-500 dark:text-lime-300" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="block truncate text-xs font-black text-navy-900 dark:text-white">Predictor Leaderboard</span>
+            <span className="block truncate text-[10px] font-semibold text-navy-500 dark:text-zinc-400">Streaks, accuracy &amp; badges</span>
+          </span>
+        </Link>
+      </div>
       {/* The wallet and the Rewards Store are server-backed and independent of
           the sign-in state, so they paint on the first frame. */}
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <WalletCard wallet={wallet} />
-        <RewardsStore wallet={wallet} />
+        <ErrorBoundary name="rewards-drawer" title="Rewards Store hit a snag" message="The rewards catalogue could not be loaded right now. Your wallet balance is safe — try opening the store again.">
+          <RewardsStore wallet={wallet} />
+        </ErrorBoundary>
       </div>
       {auth.status === 'loading' ? <ProfileSkeleton /> : <>
       <ProfileHero auth={auth} guestName={guestName} level={stats.level} vipTier={vipTier} />

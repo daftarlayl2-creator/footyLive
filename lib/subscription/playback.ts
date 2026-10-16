@@ -1,6 +1,7 @@
 /** Apply access AFTER the shared resolver cache: one visitor's VIP URLs must never leak to another. */
 import { buildProxyUrl, PROXY_LINK_TTL_MS, verifyProxySignature } from '@/lib/hlsProxy';
 import { detectStreamKind, normalizeQuality } from '@/lib/player/servers';
+import { slotMap, type MultiStreamSlotId } from '@/lib/player/multiStream';
 import { inferStreamQuality } from '@/lib/broadcast/matching';
 import type { Channel } from '@/lib/types';
 import type { PlaybackAccess } from './plans';
@@ -25,5 +26,14 @@ export function preparePlayback(channels: Channel[], access: PlaybackAccess, now
     const protectedUrl = buildProxyUrl(url, { referer, expiresAt, maxHeight: access.maxHeight });
     return [{ ...channel, url: protectedUrl, proxiedUrl: protectedUrl }];
   });
-  return { streams, defaultUrl: streams[0]?.proxiedUrl || streams[0]?.url || null, lockedCount };
+  return {
+    streams,
+    defaultUrl: streams[0]?.proxiedUrl || streams[0]?.url || null,
+    // Named multi-server fallback slots (stream1/2/3): the player and Multi-View
+    // switch between them seamlessly when one returns 404/500 or fails to load.
+    ...slotMap(streams),
+    lockedCount,
+  };
 }
+
+export type PlaybackPayload = ReturnType<typeof preparePlayback> & Record<MultiStreamSlotId, string | null>;
