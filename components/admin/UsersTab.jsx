@@ -11,6 +11,7 @@ import {
   Filter,
   Flame,
   Loader2,
+  Lock,
   Mail,
   RefreshCcw,
   Search,
@@ -25,10 +26,28 @@ import {
 import EvivCoin from '@/components/coins/EvivCoin';
 import VipBadge from '@/components/auth/VipBadge';
 import { SENDER_THEMES } from '@/lib/inbox';
+import { PERMISSION_LABELS, STAFF_PERMISSIONS } from '@/lib/admin/rbac';
+
+/** Everything the owner desk may do — the default when no RBAC prop is passed. */
+const ALL_PERMISSIONS = STAFF_PERMISSIONS;
 
 const fmt = (value) => (Number.isFinite(value) ? value.toLocaleString('en-US') : '—');
 const short = (id) => (id.length > 16 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id);
 const fmtTime = (ts) => (ts ? new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
+
+/** Shown in place of an action the signed-in desk does not own. */
+function LockedCapability({ permission }) {
+  const label = PERMISSION_LABELS[permission];
+  return (
+    <span
+      data-locked-permission={permission}
+      title={`${label.en} — locked for your desk`}
+      className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-zinc-500"
+    >
+      <Lock className="h-3 w-3" aria-hidden="true" /> Locked
+    </span>
+  );
+}
 
 const VIP_TIER_OPTIONS = [
   { id: 'free', label: 'Free (No tier)', badgeColor: 'text-zinc-400 bg-white/5 border-white/10' },
@@ -43,8 +62,15 @@ const VIP_TIER_OPTIONS = [
  *
  * Direct coin adjustments, one-click Ban/Unban, manual VIP tier assignment,
  * and direct sender messaging (إدارة الموقع / الأدمين / الدعم الفني).
+ *
+ * RBAC: the whole table renders for every desk, but an action the signed-in role
+ * does not own is replaced by a locked chip naming the capability it needs.
+ * The API enforces the same rule, so hiding a button is convenience, never the
+ * security boundary. Pass `permissions`/`role` from the staff portal to narrow
+ * the table; omit them on `/mounadel` for the owner's full set.
  */
-export default function UsersTab() {
+export default function UsersTab({ permissions = ALL_PERMISSIONS, role = 'owner' }) {
+  const can = (permission) => permissions.includes(permission);
   const [users, setUsers] = useState(null);
   const [tiers, setTiers] = useState(null);
   const [error, setError] = useState('');
@@ -192,6 +218,9 @@ export default function UsersTab() {
           </h2>
           <p className="mt-0.5 text-[11px] font-semibold text-zinc-400">
             Real-time viewer mutations: instant coin adjustments, one-click moderation, VIP tier grants, and direct dispatches.
+          </p>
+          <p className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-zinc-400" data-users-role={role}>
+            <Shield className="h-3 w-3 text-eviv-lime" aria-hidden="true" /> Desk: {role} · {permissions.length} capabilities
           </p>
         </div>
         <button
@@ -386,6 +415,9 @@ export default function UsersTab() {
 
                       {/* VIP Tier Selector */}
                       <td className="px-3 py-3 whitespace-nowrap">
+                        {!can('users.vip') ? (
+                          <LockedCapability permission="users.vip" />
+                        ) : (
                         <div className="flex items-center gap-1.5">
                           {currentTier !== 'free' && (
                             <VipBadge tier={currentTier} size={16} title={currentTier.toUpperCase()} />
@@ -404,6 +436,7 @@ export default function UsersTab() {
                             ))}
                           </select>
                         </div>
+                        )}
                       </td>
 
                       {/* Status */}
@@ -421,6 +454,9 @@ export default function UsersTab() {
 
                       {/* Moderation Button */}
                       <td className="px-3 py-3 whitespace-nowrap">
+                        {!can('users.ban') ? (
+                          <LockedCapability permission="users.ban" />
+                        ) : (
                         <button
                           type="button"
                           disabled={busy}
@@ -441,10 +477,14 @@ export default function UsersTab() {
                           )}
                           {row.banned ? 'Unban' : 'Ban'}
                         </button>
+                        )}
                       </td>
 
                       {/* Direct Coin Adjustments: Quick buttons + input */}
                       <td className="px-3 py-3">
+                        {!can('users.coins') ? (
+                          <LockedCapability permission="users.coins" />
+                        ) : (
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -474,11 +514,15 @@ export default function UsersTab() {
                             -1k
                           </button>
                         </div>
+                        )}
                       </td>
 
                       {/* Custom Input & Dispatch */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
+                          {!can('users.coins') ? (
+                            <LockedCapability permission="users.coins" />
+                          ) : (
                           <form
                             className="flex items-center gap-1"
                             onSubmit={(event) => {
@@ -507,17 +551,22 @@ export default function UsersTab() {
                               Apply
                             </button>
                           </form>
+                          )}
 
                           {/* Message Button */}
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => setMessageModal({ userId: row.id, handle: row.handle || short(row.id) })}
-                            className="tactile p-1.5 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-eviv-lime/40"
-                            title="Send styled inbox message"
-                          >
-                            <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-                          </button>
+                          {can('users.message') ? (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setMessageModal({ userId: row.id, handle: row.handle || short(row.id) })}
+                              className="tactile p-1.5 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-eviv-lime/40"
+                              title="Send styled inbox message"
+                            >
+                              <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <LockedCapability permission="users.message" />
+                          )}
                         </div>
                       </td>
                     </tr>

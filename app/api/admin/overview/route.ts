@@ -5,7 +5,7 @@
  * finance rollups. Requires the signed admin session cookie.
  */
 import { NextResponse } from 'next/server';
-import { isAdminRequest } from '@/lib/admin/guard';
+import { requirePermission } from '@/lib/admin/guard';
 import { metricsSnapshot } from '@/lib/admin/metrics';
 import { listAdminUsers } from '@/lib/admin/users';
 import { ledgerSnapshot } from '@/lib/admin/ledger';
@@ -15,9 +15,8 @@ export const dynamic = 'force-dynamic';
 const headers = { 'Cache-Control': 'no-store, private', Vary: 'Cookie' };
 
 export async function GET(request: Request) {
-  if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: 'Admin session required.' }, { status: 401, headers });
-  }
+  const gate = requirePermission(request, 'dashboard.view');
+  if (!gate.ok) return gate.response;
   const [metrics, users, ledger] = await Promise.all([metricsSnapshot(), listAdminUsers(), ledgerSnapshot()]);
   return NextResponse.json(
     {

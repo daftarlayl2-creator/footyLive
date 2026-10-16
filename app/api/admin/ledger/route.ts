@@ -3,7 +3,7 @@
  * Coin movements with running totals (latest first).
  */
 import { NextResponse } from 'next/server';
-import { isAdminRequest } from '@/lib/admin/guard';
+import { requirePermission } from '@/lib/admin/guard';
 import { ledgerSnapshot } from '@/lib/admin/ledger';
 
 export const dynamic = 'force-dynamic';
@@ -11,8 +11,7 @@ export const dynamic = 'force-dynamic';
 const headers = { 'Cache-Control': 'no-store, private', Vary: 'Cookie' };
 
 export async function GET(request: Request) {
-  if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: 'Admin session required.' }, { status: 401, headers });
-  }
+  const gate = requirePermission(request, 'finance.view');
+  if (!gate.ok) return gate.response;
   return NextResponse.json(await ledgerSnapshot(), { headers });
 }

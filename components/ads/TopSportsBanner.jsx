@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ChevronRight, Megaphone, Pause, Play, X } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowUpRight, ChevronRight, Megaphone, Pause, Play, Sparkles, X } from 'lucide-react';
 import { PARTNER_ROTATION_MS, SPORTS_PARTNERS } from '@/lib/ads/partners';
+import AdvertiseWithUsModal from '@/components/ads/AdvertiseWithUsModal';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import AdSlot from '@/components/ads/AdSlot';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
@@ -34,6 +36,11 @@ function PartnerIcon({ icon, accent }) {
  * has something on air. Smooth crossfade + slide, pauses on hover, dots for
  * manual navigation, dismissible per tab session, hidden for VIP (ad-free)
  * fans, and motion-safe for reduced-motion users.
+ *
+ * Monetisation: house slides land on our own advertiser desk
+ * (`/advertise?partner=…`) — never on a placeholder domain — and the final
+ * "Advertise With Us" slide plus the chrome button open the onboarding modal in
+ * place, so a brand can book a slot without leaving the page.
  */
 const readDismissed = () => {
   try {
@@ -52,17 +59,19 @@ export default function TopSportsBanner() {
   const [dismissedNow, setDismissedNow] = useState(false);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [advertiseOpen, setAdvertiseOpen] = useState(false);
+  const [advertiseFrom, setAdvertiseFrom] = useState('');
   const impressionFor = useRef(null);
   const creatives = SPORTS_PARTNERS;
   const dismissed = dismissedNow || storedDismissed;
 
   // Rotation engine: advance every PARTNER_ROTATION_MS unless paused/hidden.
   useEffect(() => {
-    if (!mounted || dismissed || paused || access.adFree) return undefined;
+    if (!mounted || dismissed || paused || advertiseOpen || access.adFree) return undefined;
     if (document.hidden) return undefined;
     const timer = setInterval(() => setIndex((current) => (current + 1) % creatives.length), PARTNER_ROTATION_MS);
     return () => clearInterval(timer);
-  }, [mounted, dismissed, paused, access.adFree, creatives.length]);
+  }, [mounted, dismissed, paused, advertiseOpen, access.adFree, creatives.length]);
 
   const active = creatives[index % creatives.length];
 
@@ -124,6 +133,10 @@ export default function TopSportsBanner() {
                 </div>
               );
             }
+            const ctaStyle = { background: creative.accent, color: '#18030A' };
+            const ctaClass =
+              'top-banner-cta inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide sm:px-3.5 sm:text-[11px]';
+            const onCta = () => trackClick('top-rotating-banner', creative.id);
             return (
               <div
                 key={creative.id}
@@ -144,19 +157,48 @@ export default function TopSportsBanner() {
                   </p>
                   <p className="mt-0.5 truncate text-xs font-bold text-white sm:text-sm">{creative.tagline}</p>
                 </div>
-                <a
-                  href={creative.href}
-                  target="_blank"
-                  rel="noopener sponsored nofollow"
-                  tabIndex={hidden ? -1 : 0}
-                  onClick={() => trackClick('top-rotating-banner', creative.id)}
-                  className="top-banner-cta inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide sm:px-3.5 sm:text-[11px]"
-                  style={{ background: creative.accent, color: '#18030A' }}
-                  data-banner-cta={creative.id}
-                >
-                  {creative.cta}
-                  <ChevronRight className="h-3 w-3" aria-hidden="true" />
-                </a>
+                {creative.advertise ? (
+                  // The house ad-slot: opens the advertiser onboarding modal here,
+                  // with a link through to the full rate card beside it.
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      tabIndex={hidden ? -1 : 0}
+                      onClick={() => {
+                        onCta();
+                        setAdvertiseFrom('');
+                        setAdvertiseOpen(true);
+                      }}
+                      className={`${ctaClass} top-banner-cta--sparkle`}
+                      style={ctaStyle}
+                      data-banner-cta={creative.id}
+                    >
+                      <Sparkles className="h-3 w-3" aria-hidden="true" />
+                      {creative.cta}
+                    </button>
+                    <Link
+                      href={creative.href}
+                      tabIndex={hidden ? -1 : 0}
+                      onClick={onCta}
+                      aria-label="See the rate card"
+                      className="top-banner-cta hidden items-center gap-1 rounded-lg border border-white/20 px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-white/90 hover:border-eviv-lime/50 hover:text-eviv-lime md:inline-flex"
+                    >
+                      Rate card <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                    </Link>
+                  </span>
+                ) : (
+                  <Link
+                    href={creative.href}
+                    tabIndex={hidden ? -1 : 0}
+                    onClick={onCta}
+                    className={ctaClass}
+                    style={ctaStyle}
+                    data-banner-cta={creative.id}
+                  >
+                    {creative.cta}
+                    <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                  </Link>
+                )}
               </div>
             );
           })}
@@ -185,6 +227,18 @@ export default function TopSportsBanner() {
           <div className="flex items-center gap-1.5">
             <button
               type="button"
+              onClick={() => {
+                setAdvertiseFrom('');
+                setAdvertiseOpen(true);
+              }}
+              aria-label="Advertise With Us — open the advertiser form"
+              data-banner-advertise-button=""
+              className="tactile hidden items-center gap-1 rounded-lg border border-eviv-lime/35 bg-eviv-lime/10 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-eviv-lime hover:bg-eviv-lime/20 sm:inline-flex"
+            >
+              <Megaphone className="h-3 w-3" aria-hidden="true" /> Advertise
+            </button>
+            <button
+              type="button"
               onClick={() => setPaused((value) => !value)}
               aria-label={paused ? 'Resume the rotating ads' : 'Pause the rotating ads'}
               aria-pressed={paused}
@@ -207,6 +261,12 @@ export default function TopSportsBanner() {
           </div>
         </div>
       </div>
+
+      <AdvertiseWithUsModal
+        open={advertiseOpen}
+        onClose={() => setAdvertiseOpen(false)}
+        initialPartner={advertiseFrom}
+      />
     </div>
   );
 }

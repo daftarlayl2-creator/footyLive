@@ -11,7 +11,7 @@
  *           escalation / moderation review). Admin session only.
  */
 import { NextResponse } from 'next/server';
-import { isAdminRequest } from '@/lib/admin/guard';
+import { requirePermission } from '@/lib/admin/guard';
 import { enrichViewerRow, listAdminUsers } from '@/lib/admin/users';
 import { deliverMessage, deliverToMany, readInbox } from '@/lib/inbox/server';
 import { INBOX_SENDER_IDS, isSenderId, senderTheme } from '@/lib/inbox';
@@ -26,9 +26,8 @@ const clean = (value: unknown, max: number): string =>
   (typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f<>]/g, '').trim() : '').slice(0, max);
 
 export async function GET(request: Request) {
-  if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: 'Admin session required.' }, { status: 401, headers });
-  }
+  const gate = requirePermission(request, 'users.view');
+  if (!gate.ok) return gate.response;
   const users = await listAdminUsers();
   const recipients = await Promise.all(
     users.slice(0, MAX_RECIPIENTS).map(async (row) => {
@@ -59,9 +58,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: 'Admin session required.' }, { status: 401, headers });
-  }
+  const readGate = requirePermission(request, 'users.view');
+  if (!readGate.ok) return readGate.response;
   let body: any = null;
   try {
     body = await request.json();
@@ -79,6 +77,8 @@ export async function POST(request: Request) {
   }
 
   if (action === 'send') {
+    const sendGate = requirePermission(request, 'users.message');
+    if (!sendGate.ok) return sendGate.response;
     const subject = clean(body?.subject, 140);
     const text = clean(body?.body, 900);
     if (subject.length < 3) return NextResponse.json({ error: 'Give the message a subject (3 characters or more).' }, { status: 400, headers });

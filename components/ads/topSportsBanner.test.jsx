@@ -67,7 +67,12 @@ describe('top rotating sports ad banner', () => {
   it('tracks CTA clicks as analytics clicks', async () => {
     await render(<TopSportsBanner />);
     const cta = container.querySelector(`[data-banner-cta="${SPORTS_PARTNERS[0].id}"]`);
-    expect(cta.getAttribute('rel')).toContain('sponsored');
+    // House creatives are first-party: they link to our own /advertise landing
+    // page, so they carry no `sponsored` rel and no external target. The
+    // third-party network slide (rendered by AdSlot) keeps its own ad markup.
+    expect(cta.getAttribute('rel')).toBeNull();
+    expect(cta.getAttribute('href')).toContain('/advertise');
+    expect(cta.getAttribute('target')).toBeNull();
     await act(async () => { cta.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
     expect(trackClick).toHaveBeenCalledWith('top-rotating-banner', SPORTS_PARTNERS[0].id);
   });

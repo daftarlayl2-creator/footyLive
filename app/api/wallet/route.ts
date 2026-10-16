@@ -36,8 +36,10 @@ import {
   VIP_REWARD,
   type WalletState,
 } from '@/lib/coins/server';
-import { REWARD_LIST, findReward } from '@/lib/rewards/catalog';
+import { REWARD_LIST, findReward, type RewardDefinition } from '@/lib/rewards/catalog';
+import type { RedeemContext } from '@/lib/rewards/messages';
 import { redemptionReceipt } from '@/lib/rewards/receipts';
+import { redeemFailureMessage } from '@/lib/rewards/messages';
 import { deliverMessage } from '@/lib/inbox/server';
 import { readVote } from '@/lib/predictions/server';
 import { settleVote } from '@/lib/predictions/antiCheat';
@@ -122,23 +124,16 @@ function walletPayload(userId: string, wallet: ReturnType<typeof sanitizeWallet>
   };
 }
 
-interface RedeemContext {
-  cost: number;
-  title: string;
-  needed: number;
-}
-
-/** Reason → the exact HTTP status and the sentence the fan sees. */
-const REDEEM_MESSAGES: Record<string, (context: RedeemContext) => { status: number; error: string }> = {
-  'insufficient-coins': ({ cost, needed, title }) => ({
-    status: 409,
-    error: `You need ${needed.toLocaleString('en-US')} more Limon Coins for ${title} (price ${cost.toLocaleString('en-US')}).`,
-  }),
-  'badge-owned': () => ({ status: 409, error: 'You already own this badge — flairs are permanent, so there is nothing to buy twice.' }),
-  'boost-full': () => ({ status: 409, error: 'Your boost queue is full (6 charges maximum). Spend a boost on a prediction, then come back.' }),
-  'missing-viewer': () => ({ status: 403, error: 'Open this page with cookies enabled to use the wallet.' }),
-  'already-active': () => ({ status: 409, error: 'This reward is already running on your account.' }),
-};
+/**
+ * Every refusal the engine can produce is answered by `lib/rewards/messages.ts`
+ * — one specific sentence per reason, never a vague catch-all — so the store
+ * always explains *what* is missing and *how much* it costs.
+ */
+const redeemContextFor = (reward: RewardDefinition, balance: number): RedeemContext => ({
+  cost: reward.cost,
+  title: reward.title,
+  needed: Math.max(0, reward.cost - balance),
+});
 
 export async function GET(request: Request) {
   const viewer = viewerFor(request);
@@ -255,9 +250,8 @@ export async function POST(request: Request) {
 
     const result = await redeemReward(viewer.id, reward.id);
     if (!result.ok) {
-      const context: RedeemContext = { cost: reward.cost, title: reward.title, needed: Math.max(0, reward.cost - result.wallet.balance) };
-      const failure = REDEEM_MESSAGES[result.reason ?? 'unknown-reward'] ?? (() => ({ status: 409, error: 'This reward could not be redeemed right now.' }));
-      const { status, error } = failure(context);
+      const context = redeemContextFor(reward, result.wallet.balance);
+      const { status, error } = redeemFailureMessage(result.reason, context);
       return withFreshCookie(
         NextResponse.json(
           {
