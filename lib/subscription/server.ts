@@ -4,6 +4,7 @@ import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { parseSafeUpstreamUrl } from '@/lib/hlsProxy';
 import { loadCoinGrants } from '@/lib/coins/server';
+import { loadAdminGrants } from '@/lib/admin/vip';
 import { WALLET_COOKIE, verifyWalletViewer, walletCookieFromHeader } from '@/lib/coins/session';
 import { getPlan, validateGrants, type PlanId, type SubscriptionGrant } from './plans';
 
@@ -73,19 +74,30 @@ export async function loadViewerGrants(viewer: string | null): Promise<Subscript
 }
 
 /**
- * Effective grants for one visitor: paid billing grants plus the VIP passes this
- * fan bought with EVIV Coins in the Rewards Store. The coin passes come from the
- * same signed viewer id the prediction/wallet API uses, so they are server-side
- * entitlements — not a client flag anyone could set through Inspect Element.
+ * Effective grants for one visitor: paid billing grants, the VIP passes this fan
+ * bought with Limon Coins in the Rewards Store, and any tier an operator assigned
+ * from /mounadel. All three are keyed to a signed server-side id (the billing
+ * viewer for paid passes, the wallet viewer for coins and admin tiers), so they
+ * are real entitlements — never a client flag anyone could set in Inspect Element.
  */
 async function subscriptionForCookie(value?: string | null, coinValue?: string | null) {
   const viewer = verifyViewer(value ?? undefined);
   const coinViewer = verifyWalletViewer(coinValue ?? undefined);
   try {
-    const [billing, coin] = await Promise.all([loadViewerGrants(viewer), loadCoinGrants(coinViewer)]);
-    return { grants: [...billing, ...coin], checkoutAvailable: billingConfigured(), unavailable: false, coinGrants: coin.length };
+    const [billing, coin, admin] = await Promise.all([
+      loadViewerGrants(viewer),
+      loadCoinGrants(coinViewer),
+      loadAdminGrants(coinViewer),
+    ]);
+    return {
+      grants: [...billing, ...coin, ...admin],
+      checkoutAvailable: billingConfigured(),
+      unavailable: false,
+      coinGrants: coin.length,
+      adminGrants: admin.length,
+    };
   } catch {
-    return { grants: [], checkoutAvailable: billingConfigured(), unavailable: true, coinGrants: 0 };
+    return { grants: [], checkoutAvailable: billingConfigured(), unavailable: true, coinGrants: 0, adminGrants: 0 };
   }
 }
 function cookieValue(header: string | null | undefined, name: string): string | undefined {

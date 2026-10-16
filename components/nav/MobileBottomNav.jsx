@@ -57,12 +57,12 @@ export default function MobileBottomNav() {
               </li>
             );
           })}
-          {/* EVIV Coin wallet → Rewards Store */}
+          {/* Limon Coin wallet → Rewards Store */}
           <li className="flex">
             <Link
               href="/profile#rewards"
               data-sound="tab"
-              aria-label={`EVIV Coin wallet${loaded ? ` — ${Number(balance).toLocaleString('en-US')} coins` : ''}. Open the Rewards Store.`}
+              aria-label={`Limon Coin wallet${loaded ? ` — ${Number(balance).toLocaleString('en-US')} coins` : ''}. Open the Rewards Store.`}
               aria-current={onWallet ? 'page' : undefined}
               className="tactile group flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl outline-offset-[-4px]"
             >

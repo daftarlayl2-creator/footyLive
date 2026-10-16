@@ -1,13 +1,25 @@
 /**
- * EVIV Coin wallet helpers for the Limon Live gamification layer.
+ * Limon Coin wallet helpers for the gamification layer.
  *
  * Pure helpers plus small storage adapters so the same code runs in
  * components, hooks and unit tests. Balances are non-negative integers;
  * settlements are validated before any state changes.
+ *
+ * The mark is the 3D golden lemon coin (see components/coins/EvivCoin.jsx); the
+ * old `eviv:` storage keys and `EVIV` alias exports stay, because fans already
+ * have balances under them and older code still reads them.
  */
 
-export const COIN_NAME = 'EVIV Coin';
-export const COIN_SYMBOL = 'E';
+import { findReward } from '@/lib/rewards/catalog';
+
+export const COIN_NAME = 'Limon Coin';
+export const COIN_NAME_AR = 'عملة ليمون';
+/** The lemon mark replaces the old engraved "E". */
+export const COIN_SYMBOL = 'L';
+export const COIN_EMOJI = '🍋';
+/** @deprecated Legacy brand, kept for old copy and translations. */
+export const COIN_LEGACY_NAME = 'EVIV Coin';
+export const LIMON_COIN_NAME = COIN_NAME;
 export const COIN_STORAGE_KEY = 'eviv:coins';
 export const COIN_AWARDED_KEY = 'eviv:coins:awarded';
 export const VIP_PASS_COIN_COST = 20000;
@@ -274,3 +286,38 @@ export const getBalance = getCoinBalance;
 export const readBalance = getCoinBalance;
 export const earn = addCoins;
 export const spend = spendCoins;
+
+/* -------------------------------------------------------------------------- */
+/*  Rewards Store price checks (catalogue-backed)                             */
+/* -------------------------------------------------------------------------- */
+
+/** The reason the store refuses a redemption that is not on the menu. */
+export const REWARD_NOT_VALID = 'unknown-reward';
+
+/** Price of any catalogue reward; 0 for an id the platform does not sell. */
+export function rewardPrice(rewardId: unknown): number {
+  return findReward(rewardId)?.cost ?? 0;
+}
+
+/** True when `rewardId` is something the server will actually honour. */
+export function isKnownReward(rewardId: unknown): boolean {
+  return findReward(rewardId) !== undefined;
+}
+
+/**
+ * Client-side affordability check for the store. It only decides whether the
+ * button is enabled — the server re-runs the same catalogue lookup (and the real
+ * balance check) before a single coin moves.
+ */
+export function canRedeemReward(balance: unknown, rewardId: unknown): boolean {
+  const reward = findReward(rewardId);
+  if (!reward) return false;
+  return toNonNegativeInteger(balance) >= reward.cost;
+}
+
+/** Coins still missing for a reward (0 when it is already affordable). */
+export function rewardShortfall(balance: unknown, rewardId: unknown): number {
+  const reward = findReward(rewardId);
+  if (!reward) return 0;
+  return Math.max(0, reward.cost - toNonNegativeInteger(balance));
+}

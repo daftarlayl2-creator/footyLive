@@ -28,6 +28,8 @@ export default function ProfileEditor({ user, favorites }) {
   const fileRef = useRef(null);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
+  const [avatarCategory, setAvatarCategory] = useState('all');
+  const [avatarSearch, setAvatarSearch] = useState('');
   const [club, setClub] = useState(user.favoriteClub);
   const [birthdate, setBirthdate] = useState(user.birthdate || '');
   const [countryCode, setCountryCode] = useState(normalizeCountryCode(user.countryCode) || '');
@@ -141,28 +143,80 @@ export default function ProfileEditor({ user, favorites }) {
             )}
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Brand avatars">
-          {AVATAR_PRESETS.map((preset) => {
-            const value = `preset:${preset.id}`;
-            const active = avatarUrl === value;
-            return (
+        {/* Expanded 100+ Avatars Gallery */}
+        <div className="mt-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+              Cyberpunk & Limon Gallery ({AVATAR_PRESETS.length} presets)
+            </span>
+            <input
+              type="text"
+              value={avatarSearch}
+              onChange={(e) => setAvatarSearch(e.target.value)}
+              placeholder="Filter avatars…"
+              aria-label="Filter avatar presets"
+              className="rounded-lg bg-black/40 border border-white/10 px-2 py-1 text-[11px] text-white placeholder-zinc-500 focus:outline-none focus:border-eviv-lime/50 w-32 sm:w-40"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Avatar categories">
+            {[
+              { id: 'all', label: `All (${AVATAR_PRESETS.length})` },
+              { id: 'lemon', label: '🍋 Citrus' },
+              { id: 'cyberpunk', label: '🤖 Cyberpunk' },
+              { id: 'football', label: '⚽ Football' },
+              { id: 'beast', label: '🦁 Beasts' },
+              { id: 'neon', label: '⚡ Neon' },
+            ].map((tab) => (
               <button
-                key={preset.id}
+                key={tab.id}
                 type="button"
-                onClick={() => setAvatarUrl(value)}
-                aria-label={`Use the ${preset.label} avatar`}
-                aria-pressed={active}
-                className={`tactile relative rounded-full p-0.5 ${active ? 'ring-2 ring-lime-400' : 'ring-1 ring-white/10 hover:ring-lime-500/50'}`}
+                onClick={() => setAvatarCategory(tab.id)}
+                className={`tactile px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition ${
+                  avatarCategory === tab.id
+                    ? 'bg-eviv-lime text-[#18030A]'
+                    : 'bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white'
+                }`}
               >
-                <UserAvatar name={preset.label} avatarUrl={value} size={40} ring={false} />
-                {active && (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-lime-500 text-navy-950">
-                    <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
-                  </span>
-                )}
+                {tab.label}
               </button>
-            );
-          })}
+            ))}
+          </div>
+
+          <div
+            className="mt-2 flex flex-wrap gap-2 max-h-56 overflow-y-auto p-2 rounded-2xl bg-black/30 border border-white/10 scrollbar-thin"
+            role="group"
+            aria-label="Brand avatars"
+          >
+            {AVATAR_PRESETS.filter((preset) => {
+              if (avatarCategory !== 'all' && preset.category !== avatarCategory) return false;
+              if (avatarSearch && !preset.label.toLowerCase().includes(avatarSearch.toLowerCase())) return false;
+              return true;
+            }).map((preset) => {
+              const value = `preset:${preset.id}`;
+              const active = avatarUrl === value;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setAvatarUrl(value)}
+                  aria-label={`Use the ${preset.label} avatar`}
+                  aria-pressed={active}
+                  title={preset.label}
+                  className={`tactile relative rounded-full p-0.5 transition ${
+                    active ? 'ring-2 ring-lime-400 scale-105' : 'ring-1 ring-white/10 hover:ring-lime-500/50 hover:scale-105'
+                  }`}
+                >
+                  <UserAvatar name={preset.label} avatarUrl={value} size={38} ring={false} />
+                  {active && (
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-lime-500 text-navy-950">
+                      <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </fieldset>
 

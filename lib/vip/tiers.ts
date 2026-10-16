@@ -64,20 +64,27 @@ export function tierForPlan(planId: unknown): VipTier | undefined {
   return VIP_TIERS.find((tier) => (tier.planIds as readonly unknown[]).includes(planId));
 }
 
+/** Tier an explicitly-labelled grant unlocks (admin-assigned passes). */
+export function tierForId(id: unknown): VipTier | undefined {
+  return typeof id === 'string' ? VIP_TIERS.find((tier) => tier.id === id) : undefined;
+}
+
 /**
  * Highest tier currently unlocked by active grants. Coin-redeemed monthly
  * passes are plain `monthly` grants, so they earn Gold exactly like paid ones.
+ * A grant may also carry an explicit `tier` (an admin assignment), which wins
+ * when it outranks whatever the plan id alone would give.
  */
 export function vipTierFromGrants(
-  grants: ReadonlyArray<Pick<SubscriptionGrant, 'planId' | 'expiresAt' | 'startsAt'>> | null | undefined,
+  grants: ReadonlyArray<Partial<Pick<SubscriptionGrant, 'planId' | 'expiresAt' | 'startsAt' | 'tier'>>> | null | undefined,
   now = Date.now(),
 ): VipTier | null {
   let best: VipTier | null = null;
   for (const grant of grants || []) {
     if (!grant || typeof grant !== 'object') continue;
     if (!Number.isFinite(grant.startsAt) || !Number.isFinite(grant.expiresAt)) continue;
-    if (grant.startsAt > now || grant.expiresAt <= now) continue;
-    const tier = tierForPlan(grant.planId);
+    if (grant.startsAt! > now || grant.expiresAt! <= now) continue;
+    const tier = tierForId(grant.tier) ?? tierForPlan(grant.planId);
     if (tier && (!best || vipTierRank(tier.id) > vipTierRank(best.id))) best = tier;
   }
   return best;

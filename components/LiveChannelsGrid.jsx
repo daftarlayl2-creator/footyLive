@@ -80,7 +80,7 @@ function ChannelCard({ channel }) {
     <Link
       href={channel.href}
       className="tactile-soft group relative flex flex-col gap-3 overflow-hidden rounded-3xl glass-panel glass-panel-hover p-4"
-      title={isOffline ? 'The probe could not reach this source — playback is still attempted through the proxy.' : 'Play through the EVIV proxy'}
+      title={isOffline ? 'The probe could not reach this source — playback is still attempted through the proxy.' : 'Play through the Limon proxy'}
     >
       <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(198,255,0,0.14),transparent_60%)]" />
       <div className="relative flex items-start gap-3 min-w-0">

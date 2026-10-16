@@ -5,6 +5,7 @@ import AdSlot from '@/components/ads/AdSlot';
 import HeaderNav from '@/components/nav/HeaderNav';
 import AccountButton from '@/components/auth/AccountButton';
 import WalletBadge from '@/components/coins/WalletBadge';
+import NotificationTray from '@/components/inbox/NotificationTray';
 import MobileBottomNav from '@/components/nav/MobileBottomNav';
 import SoundEffects from '@/components/ui/SoundEffects';
 import SoundToggle from '@/components/ui/SoundToggle';
@@ -93,6 +94,8 @@ export default async function RootLayout({ children }) {
 
               <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <HeaderNav />
+                {/* Message centre: receipts, payouts and platform notices. */}
+                <NotificationTray />
                 {/* Desktop/tablet wallet chip; phones get the tab-bar wallet. */}
                 <span className="hidden sm:flex">
                   <WalletBadge />

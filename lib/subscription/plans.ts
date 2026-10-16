@@ -17,6 +17,11 @@ export interface SubscriptionGrant {
   startsAt: number;
   expiresAt: number;
   matchId?: string;
+  /**
+   * Explicit tier override for passes that are not bought from the price list
+   * (an admin assigning a tier from /mounadel). Billing grants never carry it.
+   */
+  tier?: 'bronze' | 'silver' | 'gold' | 'diamond';
 }
 export interface PlaybackAccess {
   tier: 'free' | 'vip';
