@@ -92,7 +92,10 @@ export default async function RootLayout({ children }) {
 
               <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <HeaderNav />
-                <WalletBadge className="hidden sm:inline-flex" />
+                {/* Desktop/tablet wallet chip; phones get the tab-bar wallet. */}
+                <span className="hidden sm:flex">
+                  <WalletBadge />
+                </span>
                 <AccountButton />
                 <SoundToggle />
                 <ThemeToggle />
