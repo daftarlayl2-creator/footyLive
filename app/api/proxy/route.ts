@@ -1,3 +1,4 @@
+import { ResolutionLimitError } from '@/lib/hlsProxy';
 /**
  * GET /api/proxy?url=<upstream>&ref=<referer>&exp=<epoch-ms>&sig=<hmac>
  *
@@ -229,11 +230,12 @@ export async function GET(request: NextRequest) {
   const referer = searchParams.get('ref') || '';
   const exp = Number(searchParams.get('exp'));
   const sig = searchParams.get('sig') || '';
+  const maxHeight = searchParams.has('maxHeight') ? Number(searchParams.get('maxHeight')) : undefined;
   const clientIp = request.headers.get('x-forwarded-for') || 'unknown';
 
   if (!rawUrl) return errorResponse(400, 'Missing "url" parameter');
 
-  if (!verifyProxySignature(rawUrl, referer, exp, sig)) {
+  if (!verifyProxySignature(rawUrl, referer, exp, sig, maxHeight)) {
     logger.warn('HLS proxy: signature mismatch', { url: rawUrl, ip: clientIp });
     return errorResponse(403, 'Invalid signature');
   }
@@ -329,7 +331,13 @@ export async function GET(request: NextRequest) {
       return errorResponse(502, 'Upstream did not return a valid HLS playlist');
     }
 
-    const rewritten = rewritePlaylist(text, finalUrl, { referer });
+    let rewritten: string;
+    try {
+      rewritten = rewritePlaylist(text, finalUrl, { referer, expiresAt: exp, maxHeight: maxHeight as 720 | 2160 | undefined });
+    } catch (err) {
+      if (err instanceof ResolutionLimitError) return errorResponse(403, 'This source has no rendition within your pass. Try another server or unlock VIP.');
+      throw err;
+    }
 
     return new NextResponse(rewritten, {
       status: 200,

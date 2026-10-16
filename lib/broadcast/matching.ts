@@ -21,16 +21,18 @@ const STOP = new Set(['fc', 'cf', 'afc', 'sc', 'club', 'football']);
 const fold = (value: string) => value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const significant = (value: string) => fold(value).split(/\s+/).filter((word) => word && !STOP.has(word));
 
-export function inferStreamQuality(...tags: Array<string | undefined>): 'FHD' | 'HD' | 'SD' | 'Auto' {
+export function inferStreamQuality(...tags: Array<string | undefined>): '4K' | 'FHD' | 'HD' | 'SD' | 'Auto' {
   // Callers pass the display title before weaker database/quality hints.
   // Numeric resolution wins over vague labels within one hint: "HD (360p)"
   // must not outrank a real 720p stream because its TVG id still ends in @HD.
   for (const text of tags) {
     if (!text) continue;
-    if (/(?:\b|\dx)(?:1080|1440|2160)[pi]?\b/i.test(text)) return 'FHD';
+    if (/(?:\b|\dx)2160[pi]?\b/i.test(text)) return '4K';
+    if (/(?:\b|\dx)(?:1080|1440)[pi]?\b/i.test(text)) return 'FHD';
     if (/(?:\b|\dx)720[pi]?\b/i.test(text)) return 'HD';
     if (/(?:\b|\dx)(?:240|288|360|432|480|540|576)[pi]?\b/i.test(text)) return 'SD';
-    if (/\b(fhd|uhd|4k)\b/i.test(text)) return 'FHD';
+    if (/\b(uhd|4k)\b/i.test(text)) return '4K';
+    if (/\bfhd\b/i.test(text)) return 'FHD';
     if (/\bhd\b/i.test(text)) return 'HD';
     if (/\bsd\b/i.test(text)) return 'SD';
   }

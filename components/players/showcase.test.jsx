@@ -92,6 +92,12 @@ describe('player showcase', () => {
     expect(cutout.getAttribute('src')).toBe(portraits[0].src);
     expect(cutout.className).toContain('object-contain');
     expect(cutout.className).toContain('z-10');
+    expect(cutout.getAttribute('width')).toBe('600');
+    expect(cutout.getAttribute('height')).toBe('720');
+    expect(cutout.className).toContain('bg-transparent');
+    expect(frame.querySelector('[data-player-number-badge]').className).toContain('z-20');
+    expect(frame.querySelector('[data-player-number-badge]').getAttribute('aria-label')).toBe('Shirt number 10');
+    expect(frame.className).not.toContain('rounded-full');
     // The flag sits *behind* the player inside the card header, semi-transparent and decorative.
     const overlay = frame.querySelector('[data-player-flag-overlay]');
     expect(overlay.getAttribute('src')).toBe('https://cdn.example/esp.png');
@@ -125,6 +131,16 @@ describe('player showcase', () => {
     await act(async () => container.querySelector('[data-player-flag-overlay]').dispatchEvent(new Event('error')));
     expect(container.querySelector('[data-player-flag-overlay]')).toBeNull();
     expect(container.querySelector('[data-player-flag-wash]')).toBeNull();
+  });
+
+  it('rejects opaque portrait photos and unsafe URLs, keeping the flag and silhouette', async () => {
+    await render(<PlayerBanner player={{ name: 'New signing', position: 'Forward', jersey: '9', flag: 'https://cdn.example/mar.png', portraits: [
+      { src: 'https://cdn.example/photo.jpg', kind: 'photo' }, { src: 'javascript:alert(1)', kind: 'cutout' },
+    ] }} />);
+    expect(container.querySelector('[data-player-silhouette]')).not.toBeNull();
+    expect(container.querySelector('[data-player-flag-overlay]')).not.toBeNull();
+    expect(container.querySelector('[data-player-number-badge]').textContent).toBe('9');
+    expect(container.querySelector('[data-player-portrait] img[alt="New signing"]')).toBeNull();
   });
 
   it('uses honest empty states rather than claiming an unknown player has no trophies or a zero market value', async () => {

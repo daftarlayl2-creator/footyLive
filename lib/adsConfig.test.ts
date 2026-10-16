@@ -13,6 +13,7 @@ import {
   bannerFrameHtml,
   bannerInvokeScript,
   nativeBannerFrameHtml,
+  socialBarFrameHtml,
 } from './adsConfig.js';
 
 describe('Adsterra ad definitions', () => {
@@ -84,7 +85,7 @@ describe('exact Adsterra code blocks', () => {
   });
 
   it('guards every frame document against white ad backgrounds', () => {
-    for (const html of [bannerFrameHtml(BANNER_728x90), nativeBannerFrameHtml()]) {
+    for (const html of [bannerFrameHtml(BANNER_728x90), nativeBannerFrameHtml(), socialBarFrameHtml()]) {
       // The frame canvas is transparent with a dark colour scheme, so empty
       // or still-loading ads blend into the burgundy page behind them.
       expect(html).toContain('<meta name="color-scheme" content="dark">');

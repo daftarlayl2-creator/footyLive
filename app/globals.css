@@ -850,6 +850,8 @@ select,
     width: var(--vb-size);
     height: var(--vb-size);
     min-width: var(--vb-size);
+    min-height: var(--vb-size);
+    aspect-ratio: 1;
     line-height: 0;
     vertical-align: middle;
   }
@@ -916,4 +918,33 @@ select,
   .verified-badge__glow {
     animation: none;
   }
+}
+
+/* MovieBox-inspired VIP chrome, always deep burgundy regardless of page theme. */
+@layer components {
+  .vip-glass {
+    color-scheme: dark;
+    color: #f4f4f5;
+    background: radial-gradient(ellipse at 0% 0%, rgb(204 255 0 / 0.08), transparent 55%), linear-gradient(135deg, rgb(65 13 34 / 0.94), rgb(24 3 10 / 0.96));
+    border: 1px solid rgb(255 255 255 / 0.14);
+    box-shadow: 0 24px 80px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+  .vip-paywall button:focus-visible, .vip-plan button:focus-visible {
+    outline: 2px solid #CCFF00;
+    outline-offset: 4px;
+  }
+  .ad-social-frame {
+    position: fixed;
+    bottom: calc(140px + env(safe-area-inset-bottom));
+    right: 0;
+    z-index: 40;
+    width: min(320px, 100vw);
+    height: 100px;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 767px) {
+  html[data-vip-ad-free="true"] { --mobile-ad-height: 0px; }
 }

@@ -128,11 +128,14 @@ function looksLikeMedia(bytes: Uint8Array): boolean {
  * The same deadline, redirect validation, Referer and byte caps apply to every hop.
  * This is not a promise of rights, sustained decoding or viewer-side bandwidth. */
 async function probeMediaStatus(channel: ProbeTarget, controller: AbortController): Promise<ChannelStatus> {
-  let url = channel.url;
-  let expectsMedia = /\.(?:mp4|webm|m4v)(?:[?#]|$)/i.test(url);
-  for (let depth = 0; depth <= 2; depth++) {
+  const visited = new Set<string>();
+  let requests = 0;
+  const visit = async (url: string, expectsMedia: boolean, depth: number): Promise<ChannelStatus> => {
+    if (depth > 4 || requests >= 10 || controller.signal.aborted || visited.has(url) || !parseSafeUpstreamUrl(url)) return 'unknown';
+    visited.add(url);
     let sample: { bytes: Uint8Array; url: string } | undefined;
     for (const range of [true, false]) {
+      if (requests++ >= 10) return 'unknown';
       try {
         const result = await requestOnce({ ...channel, url }, controller.signal, 'GET', range);
         try {
@@ -148,16 +151,43 @@ async function probeMediaStatus(channel: ProbeTarget, controller: AbortControlle
     const text = new TextDecoder().decode(sample.bytes).trimStart();
     if (/<(?:html|!doctype\s+html)\b/i.test(text)) return 'offline';
     if (!text.startsWith('#EXTM3U')) return expectsMedia && looksLikeMedia(sample.bytes) ? 'live' : 'unknown';
-    if (!/^#EXT-X-(?:STREAM-INF|TARGETDURATION):/im.test(text)) return 'unknown';
-    // A protected/DRM playlist is not a working public automatic backup.
+    const master = /^#EXT-X-STREAM-INF:/im.test(text);
+    const media = /^#EXT-X-TARGETDURATION:/im.test(text);
+    if (!master && !media) return 'unknown';
     if (/^#EXT-X-(?:SESSION-)?KEY:.*(?:METHOD=SAMPLE-AES|KEYFORMAT="(?!identity")|METHOD=AES-128)/im.test(text)) return 'unknown';
-    const uri = text.split(/\r?\n/).find((line) => line.trim() && !line.trim().startsWith('#'))?.trim();
-    if (!uri || depth === 2) return 'unknown';
-    expectsMedia = /^#EXT-X-TARGETDURATION:/im.test(text) && !/^#EXT-X-STREAM-INF:/im.test(text);
-    try { url = new URL(uri, sample.url).href; } catch { return 'unknown'; }
-    if (!parseSafeUpstreamUrl(url)) return 'unknown';
-  }
-  return 'unknown';
+    const lines = text.split(/\r?\n/).map((line) => line.trim());
+    const uris = lines.filter((line) => line && !line.startsWith('#'));
+    // Follow a few alternate renditions if a master advertises an expired first one.
+    // Live windows shed old segments: check the newest segment first, not the oldest.
+    const candidates = master ? uris.slice(0, 3) : uris.slice(-3).reverse();
+    if (!master && !candidates.length) {
+      for (const line of lines.filter((line) => /^#EXT-X-PART:/i.test(line)).slice(-3).reverse()) {
+        const uri = /URI="([^"]+)"/i.exec(line)?.[1];
+        if (uri) candidates.push(uri);
+      }
+    }
+    if (!candidates.length) return 'unknown';
+    // A missing fMP4 init object is as unplayable as a missing segment.
+    if (!master) {
+      const map = /^#EXT-X-MAP:.*URI="([^"]+)"/im.exec(text)?.[1];
+      if (map) {
+        let init: string;
+        try { init = new URL(map, sample.url).href; } catch { return 'unknown'; }
+        const status = await visit(init, true, depth + 1);
+        if (status !== 'live') return status;
+      }
+    }
+    let unknown = false;
+    for (const uri of candidates) {
+      let next: string;
+      try { next = new URL(uri, sample.url).href; } catch { unknown = true; continue; }
+      const status = await visit(next, !master, depth + 1);
+      if (status === 'live') return 'live';
+      if (status === 'unknown') unknown = true;
+    }
+    return unknown ? 'unknown' : 'offline';
+  };
+  return visit(channel.url, /\.(?:mp4|webm|m4v)(?:[?#]|$)/i.test(channel.url), 0);
 }
 
 /** Never throws; latency covers the whole successful media probe (not an ICMP ping). */

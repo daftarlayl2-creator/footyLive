@@ -16,6 +16,9 @@ export interface StreamSource {
 }
 
 export interface Channel {
+  tvgId?: string;
+  language?: string;
+  region?: string;
   name: string;
   url: string;
   proxiedUrl?: string;
@@ -97,6 +100,8 @@ export interface Match {
   poster: string;
   venue: string;
   note: string;
+  /** Public catalog count; actual URLs are issued only by authorized playback routes. */
+  catalogStreamCount?: number;
   sources: StreamSource[];
   fallbackChannels: { name: string; url: string }[];
   /** Number of feed servers shown on a live ESPN card when the catalogue has none. */

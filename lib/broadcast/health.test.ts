@@ -169,6 +169,28 @@ describe('strong HLS media verification for automatic IPTV backups', () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it('checks newest segments first and tries alternate master renditions within one bounded probe', async () => {
+    const master = '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\ndead.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2\nalive.m3u8\n';
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === target.url) return new Response(master);
+      if (url.endsWith('/dead.m3u8')) return new Response('gone', { status: 404 });
+      if (url.endsWith('/alive.m3u8')) return new Response(mediaPlaylist.replace('segment.ts', 'old.ts\n#EXTINF:6,\nnew.ts'));
+      if (url.endsWith('/new.ts')) return new Response(segment());
+      return new Response('gone', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    expect(await probeChannelHealth(target, { verifyMedia: true })).toMatchObject({ status: 'live', mediaVerified: true });
+    expect(fetcher.mock.calls.map(([url]) => url).some((url) => url.endsWith('/old.ts'))).toBe(false);
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it('rejects an fMP4 stream when its initialization map has disappeared', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('init.mp4')
+      ? new Response('gone', { status: 404 })
+      : new Response(mediaPlaylist.replace('#EXTINF', '#EXT-X-MAP:URI="init.mp4"\n#EXTINF'))));
+    expect(await probeChannelHealth(target, { verifyMedia: true })).toMatchObject({ status: 'offline', mediaVerified: false });
+  });
+
   it('upgrades weak cached results, shares strong results with the player, and records stability', async () => {
     vi.useFakeTimers();
     let gone = false;
@@ -199,12 +221,15 @@ describe('strong HLS media verification for automatic IPTV backups', () => {
 
 describe('signed health API', () => {
   it('checks signed first-party playback links and returns keyed, no-store metrics', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('#EXTM3U\n')));
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const bytes = new Uint8Array(376); bytes[0] = 0x47; bytes[188] = 0x47;
+      return new Response(url.endsWith('.ts') ? bytes : '#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\nsegment.ts\n');
+    }));
     const url = buildProxyUrl(target.url, { referer: target.referer });
     const response = await POST(healthRequest([url]));
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('no-store');
-    expect((await response.json()).health[serverKey(url)]).toMatchObject({ status: 'live', successRate: 1, samples: 1 });
+    expect((await response.json()).health[serverKey(url)]).toMatchObject({ status: 'live', mediaVerified: true, successRate: 1, samples: 1 });
   });
 
   it('rejects unsigned, expired, tampered, unsafe and oversized batches before probing', async () => {

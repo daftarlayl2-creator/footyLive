@@ -1,3 +1,4 @@
+import { catalogMatch } from '@/lib/subscription/catalog';
 import { getMatches } from '@/lib/streamEngine';
 import MatchGrid from '@/components/MatchGrid';
 import { getHeroBanner } from '@/lib/bannerProvider';
@@ -55,7 +56,7 @@ export default async function Home({ searchParams }) {
       <div className="-mx-4 flex w-[calc(100%+2rem)] justify-center overflow-hidden md:hidden">
         <AdSlot variant="banner" banner={AD_PLACEMENTS.homeTopMobile} />
       </div>
-      <MatchGrid matches={visible} defaultTab={tab} banner={banner} />
+      <MatchGrid matches={visible.map(catalogMatch)} defaultTab={tab} banner={banner} />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { getLiveChannels, getStaticFallbackChannels } from '@/lib/broadcast/feeds';
 import { getChannelHealth } from '@/lib/broadcast/probe';
+import { browsableChannels } from '@/lib/broadcast/pool';
 import { inferStreamQuality } from '@/lib/broadcast/matching';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
     channels = getStaticFallbackChannels();
   }
 
+  channels = browsableChannels(channels);
   const health = probe ? await getChannelHealth(channels) : {};
   const payload = channels.map((ch) => ({
     id: ch.id,

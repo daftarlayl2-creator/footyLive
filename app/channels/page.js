@@ -2,6 +2,7 @@ import LiveChannelsGrid from '@/components/LiveChannelsGrid';
 import { getLiveChannels } from '@/lib/broadcast/feeds';
 import { getChannelStatuses } from '@/lib/broadcast/probe';
 import logger from '@/lib/logger';
+import { browsableChannels } from '@/lib/broadcast/pool';
 
 export const metadata = {
   title: 'Live Channels — EVIV Live',
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 async function loadInitialChannelFeed() {
   try {
-    const channels = await getLiveChannels();
+    const channels = browsableChannels(await getLiveChannels());
     // Bounded, best-effort probing — unverified channels report `unknown`.
     const statuses = await getChannelStatuses(channels, { limit: 24 });
     return { channels, statuses, checkedAt: Date.now() };
@@ -49,7 +50,7 @@ export default async function ChannelsPage() {
           Live <span className="brand-gradient-text">Channels</span>
         </h1>
         <p className="mt-1 text-xs text-navy-500 dark:text-zinc-400">
-          Events from our live feeds. Status is checked automatically; click a channel to watch it through the EVIV Live proxy.
+          Featured live events. Large IPTV playlists stay in the background and are matched to fixtures automatically, keeping this view focused.
         </p>
       </header>
       <LiveChannelsGrid

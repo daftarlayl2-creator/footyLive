@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowUpRight, Flag } from 'lucide-react';
 import TeamLogo from '@/components/clubs/TeamLogo';
 import { clubHref } from '@/lib/clubs/links';
+import { safePlayerImage } from '@/lib/players/normalize';
 
 function Fact({ label, children }) {
   return <div className="glass-dark-tile min-w-0 rounded-2xl px-4 py-3"><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{label}</dt><dd className="mt-1 flex items-center gap-2 text-sm font-extrabold text-white">{children}</dd></div>;
@@ -12,8 +13,13 @@ function Fact({ label, children }) {
 
 /** Portrait candidates: provider-ordered list, or the single ESPN headshot of older payloads. */
 function portraitCandidates(player) {
-  if (Array.isArray(player.portraits) && player.portraits.length) return player.portraits;
-  return player.portrait ? [{ src: player.portrait, kind: 'headshot', credit: 'ESPN' }] : [];
+  const candidates = Array.isArray(player.portraits) && player.portraits.length ? player.portraits
+    : player.portrait ? [{ src: player.portrait, kind: 'headshot', credit: 'ESPN' }] : [];
+  return candidates.filter((candidate) => {
+    const src = safePlayerImage(candidate.src);
+    return src && new URL(src).protocol === 'https:' && /\.png$/i.test(new URL(src).pathname) &&
+      (candidate.kind === 'cutout' || candidate.kind === 'headshot');
+  });
 }
 
 /** Branded stand-in when no provider portrait loads: burgundy bust, lime keyline, shirt number. */
@@ -69,7 +75,7 @@ export default function PlayerBanner({ player }) {
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center">
         {/* Player card header: cutout in front of a semi-transparent national flag. */}
         <div
-          className="relative isolate h-32 w-32 shrink-0 overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-navy-750/60 to-navy-950 shadow-xl ring-1 ring-lime-400/10 sm:h-40 sm:w-40"
+          className="relative isolate h-60 w-52 shrink-0 self-center sm:self-auto overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-navy-750/60 to-navy-950 shadow-xl ring-1 ring-lime-400/10 sm:h-72 sm:w-60"
           data-player-portrait={portrait?.kind || 'silhouette'}
         >
           {flag && (
@@ -90,14 +96,17 @@ export default function PlayerBanner({ player }) {
               src={portrait.src}
               alt={player.name}
               onError={() => setFailedPortraits((failed) => [...failed, portrait.src])}
-              className={portrait.kind === 'photo'
-                ? 'relative z-10 h-full w-full object-cover'
-                : 'relative z-10 h-full w-full object-contain object-bottom drop-shadow-[0_14px_22px_rgba(0,0,0,0.6)]'}
+              width={600}
+              height={720}
+              fetchPriority="high"
+              decoding="async"
+              className="relative z-10 h-full w-full bg-transparent object-contain object-bottom drop-shadow-[0_14px_22px_rgba(0,0,0,0.6)]"
               data-portrait-credit={portrait.credit}
             />
           ) : (
             <PlayerSilhouette name={player.name} jersey={player.jersey} />
           )}
+          {player.jersey && <span className="absolute right-3 top-3 z-20 flex h-11 min-w-11 items-center justify-center rounded-xl border border-eviv-lime/40 bg-eviv-burgundy/90 px-2 text-xl font-black text-eviv-lime shadow-lg backdrop-blur-md" aria-label={`Shirt number ${player.jersey}`} data-player-number-badge="">{player.jersey}</span>}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-lime-300">Player showcase {player.jersey ? `· #${player.jersey}` : ''}</p>

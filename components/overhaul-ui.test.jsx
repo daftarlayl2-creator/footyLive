@@ -1,3 +1,4 @@
+import { matchHref } from '@/lib/seo/matches';
 /**
  * Server-render tests for the UI/UX overhaul: club links everywhere, the
  * mobile tab bar, the fixed chat / voting widgets, the redesigned standings
@@ -89,7 +90,8 @@ describe('club links across the app', () => {
     expect(html).toContain('href="/club/359-arsenal"');
     expect(html).toContain('href="/club/364-liverpool"');
     // The whole-card link is an empty overlay, so club links are siblings, not children.
-    expect(html).toMatch(/<a href="\/watch\/espn-700001\?tab=live" aria-label="Arsenal vs Liverpool — open match"[^>]*><\/a>/);
+    expect(html).toContain(`<a href="${matchHref(MATCH)}?tab=live" aria-label="Arsenal vs Liverpool — open match"`);
+    expect(html).toMatch(/aria-label="Arsenal vs Liverpool — open match"[^>]*><\/a>/);
     expect(html).toContain('rounded-3xl');
   });
 
@@ -234,7 +236,7 @@ describe('club page building blocks', () => {
     expect(html).toContain('Fixtures');
     expect(html).toContain('Squad');
     expect(html).toContain('Recent form');
-    expect(html).toContain('href="/watch/espn-401915417"');
+    expect(html).toMatch(/href="\/match\/arsenal-vs-lille-[^"]+--espn-401915417"/);
     expect(html).toContain('href="/club/166-lille"');
     expect(html).toContain('UEFA Champions League');
     expect(html).toContain('3–0');

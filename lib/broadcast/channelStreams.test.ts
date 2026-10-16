@@ -29,12 +29,18 @@ describe('official channel and Multi-View shared resolution', () => {
   it('returns only signed stream payloads to Multi-View, with no raw entry fields', async () => {
     const response = await GET(new Request('https://footy.example/api/channels/test/streams'), { params: Promise.resolve({ id: sources[0].id }) });
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe('no-store, private');
     const data = await response.json();
     expect(data.streams).toHaveLength(2);
     expect(data.channel).toBeUndefined();
     expect(data.streams.every((stream: { url: string; proxiedUrl: string }) => stream.url.startsWith('/api/proxy?') && stream.url === stream.proxiedUrl)).toBe(true);
     expect(data.feedUrl).toBeUndefined();
+  });
+
+  it('refuses the Multi-View API mode for free visitors before resolving streams', async () => {
+    const response = await GET(new Request('https://footy.example/api/channels/test/streams?multiview=1'), { params: Promise.resolve({ id: sources[0].id }) });
+    expect(response.status).toBe(403);
+    expect(services.sources).not.toHaveBeenCalled();
   });
 
   it('rejects invalid ids before loading or probing and handles missing channels', async () => {

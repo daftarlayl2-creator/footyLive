@@ -5,10 +5,29 @@ import Link from 'next/link';
 import { Grid2X2, Layers, Plus, RefreshCw, Replace, VolumeX, X } from 'lucide-react';
 import MultiStreamSlot from '@/components/multiview/MultiStreamSlot';
 import SourcePicker from '@/components/multiview/SourcePicker';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
+import PremiumButton from '@/components/subscription/PremiumButton';
 
 const EMPTY_SLOTS = [null, null, null, null];
 
 export default function MultiStreamPage() {
+  const { access } = useSubscription();
+  if (!access.multiView) return (
+    <section className="vip-glass mx-auto w-full max-w-4xl rounded-3xl p-6 text-center sm:p-12" data-multiview-locked="">
+      <Layers className="mx-auto h-10 w-10 text-eviv-lime" aria-hidden="true" />
+      <p className="mt-5 text-[10px] font-black uppercase tracking-[0.25em] text-eviv-lime">EVIV LIVE VIP</p>
+      <h1 className="mt-3 text-3xl font-black text-white">Four screens. Every angle.</h1>
+      <p className="mx-auto mb-6 mt-4 max-w-lg text-sm text-zinc-300">Follow up to 4 live matches at once, with independent audio and automatic stream fallback. Multi-View is included in Weekly, Monthly and Annual VIP passes.</p>
+      <div className="mb-6 grid grid-cols-2 gap-3" aria-hidden="true">{[1, 2, 3, 4].map((i) => <div key={i} className="flex aspect-video items-center justify-center rounded-2xl border border-white/10 bg-black/30 text-3xl font-black text-white/15">{i}</div>)}</div>
+      <PremiumButton feature="multiview" />
+      <Link href="/" className="mt-5 block text-xs font-bold text-zinc-300 underline underline-offset-4">Keep watching free HD</Link>
+    </section>
+  );
+  return <MultiStreamArena />;
+}
+
+/** Mounted only after a server-verified site-wide VIP grant; no background decoders for free fans. */
+export function MultiStreamArena() {
   const [slots, setSlots] = useState(EMPTY_SLOTS);
   const [sizes, setSizes] = useState([50, 50, 50, 50]);
   const [matches, setMatches] = useState([]);

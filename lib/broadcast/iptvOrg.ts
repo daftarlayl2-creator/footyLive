@@ -25,7 +25,7 @@ export const MAX_IPTV_ORG_SERVERS = 3;
 export const MAX_IPTV_ORG_PROBES = 24;
 const PINNED_PROBES = 12;
 const priority = { fixture: 0, broadcaster: 1, sports: 2 };
-const qualityOrder = { FHD: 0, HD: 1, SD: 2, Auto: 3 };
+const qualityOrder = { '4K': 0, FHD: 1, HD: 2, SD: 3, Auto: 4 };
 const quality = (channel: LiveChannel) => inferStreamQuality(channel.name, channel.quality, channel.tvgId, ...(channel.tags ?? []));
 
 /** Exact two-team evidence outranks explicit network hints; no league-rights guesses. */

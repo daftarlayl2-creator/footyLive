@@ -2,8 +2,12 @@ import Link from 'next/link';
 import { ArrowLeft, RadioTower } from 'lucide-react';
 import { resolveChannelStreams } from '@/lib/broadcast/channelStreams';
 import StreamPlayer from '@/components/StreamPlayer';
+import { getServerSubscription } from '@/lib/subscription/server';
+import { subscriptionAccess } from '@/lib/subscription/plans';
+import { preparePlayback } from '@/lib/subscription/playback';
+import PremiumButton from '@/components/subscription/PremiumButton';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function ChannelPage({ params }) {
   const { id } = await params;
@@ -33,8 +37,10 @@ export default async function ChannelPage({ params }) {
     );
   }
 
-  const channels = resolved.streams;
-  const playbackUrl = resolved.defaultUrl;
+  const access = subscriptionAccess((await getServerSubscription()).grants);
+  const playback = preparePlayback(resolved.streams, access);
+  const channels = playback.streams;
+  const playbackUrl = playback.defaultUrl;
 
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto">
@@ -70,6 +76,7 @@ export default async function ChannelPage({ params }) {
         )}
       </div>
 
+      <PremiumButton />
       <StreamPlayer streamUrl={playbackUrl} channels={channels} matchTitle={channel.name} matchStatus="live" />
 
       <div className="space-y-1.5">

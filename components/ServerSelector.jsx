@@ -33,7 +33,7 @@ function QualityBadge({ quality }) {
   return (
     <span
       className={`rounded border px-1.5 py-0.5 text-[9px] font-extrabold uppercase ${
-        quality === 'HD' || quality === 'FHD'
+        quality === 'HD' || quality === 'FHD' || quality === '4K'
           ? 'border-lime-500/30 bg-lime-500/10 text-lime-300'
           : 'border-white/10 bg-white/5 text-zinc-300'
       }`}
@@ -47,6 +47,7 @@ function serverTooltip(server, status, reason) {
   return [
     server.label,
     server.quality,
+    server.language === 'ar' && server.region === 'MENA' ? 'Arabic commentary · MENA' : null,
     server.kind === 'embed' ? 'Embedded player' : 'Native HLS player',
     status === 'failed' ? `Failed: ${describeFailure(reason)}` : (STATUS_META[status] ?? STATUS_META.idle).text,
     server.health?.latencyMs != null ? `${server.health.latencyMs} ms server probe` : null,
@@ -99,6 +100,7 @@ export default function ServerSelector({ servers, activeKey, statusOf, failed, a
                   <Zap className="h-3 w-3 opacity-60" aria-hidden="true" />
                 )}
                 <QualityBadge quality={server.quality} />
+                {server.language === 'ar' && server.region === 'MENA' && <span className="text-[9px] font-bold text-eviv-lime" lang="ar" title="Arabic commentary · MENA">عربي</span>}
                 {server.health?.latencyMs != null && <span className="text-[9px] font-semibold tabular-nums opacity-70">{server.health.latencyMs} ms</span>}
               </button>
             );

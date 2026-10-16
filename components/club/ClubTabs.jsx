@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { matchHref as canonicalMatchHref } from '@/lib/seo/matches';
 import { CalendarDays, ChevronDown, History, Landmark, Shirt, Users } from 'lucide-react';
 import ClubLink from '@/components/clubs/ClubLink';
 import TeamLogo from '@/components/clubs/TeamLogo';
@@ -17,7 +18,7 @@ const RESULT_STYLES = {
 };
 
 function matchHref(match) {
-  return `/watch/espn-${match.id}`;
+  return canonicalMatchHref({ id: `espn-${match.id}`, homeTeam: match.home, awayTeam: match.away, tournament: match.competition, timestamp: Date.parse(match.date || '') });
 }
 
 function Venue({ match }) {

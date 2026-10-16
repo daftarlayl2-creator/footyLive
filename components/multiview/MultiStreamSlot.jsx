@@ -20,7 +20,7 @@ export default function MultiStreamSlot({ source }) {
     controller.current = request;
     setLoading(true);
     try {
-      const response = await fetch(endpoint, { cache: 'no-store', signal: request.signal });
+      const response = await fetch(`${endpoint}?multiview=1`, { cache: 'no-store', signal: request.signal });
       const data = await response.json();
       if (request.signal.aborted) return;
       if (!response.ok || !Array.isArray(data.streams) || !data.streams.length) throw new Error(data.error || 'No active servers are available for this source yet.');
@@ -49,7 +49,7 @@ export default function MultiStreamSlot({ source }) {
   );
   return (
     <>
-      <StreamPlayer compact initialMuted streamUrl={resolved.defaultUrl} channels={resolved.streams} matchTitle={resolved.matchTitle || source.title} matchStatus={resolved.matchStatus || 'live'} onRefreshLinks={resolve} />
+      <StreamPlayer compact initialMuted streamUrl={resolved.defaultUrl} channels={resolved.streams} matchTitle={resolved.matchTitle || source.title} matchStatus={resolved.matchStatus || 'live'} onRefreshLinks={resolve} matchId={source.type === 'match' ? source.id : undefined} />
       {error && <p role="status" className="bg-amber-500/10 p-2 text-[11px] text-amber-200">Fresh links are temporarily unavailable. Existing playback has been kept.</p>}
     </>
   );

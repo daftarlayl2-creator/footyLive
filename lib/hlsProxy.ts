@@ -29,6 +29,8 @@ export const PROXY_LINK_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 export interface ProxyLinkOptions {
   /** Referer/Origin to present upstream (some CDNs require it). */
   referer?: string;
+  /** Signed resolution ceiling, inherited by every variant/segment link. */
+  maxHeight?: 720 | 2160;
   /** Absolute epoch-ms expiry. Defaults to now + PROXY_LINK_TTL_MS. */
   expiresAt?: number;
 }
@@ -37,10 +39,10 @@ export interface ProxyLinkOptions {
 /*  Signing                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export function signProxyParams(url: string, referer: string, expiresAt: number): string {
+export function signProxyParams(url: string, referer: string, expiresAt: number, maxHeight?: number): string {
   return crypto
     .createHmac('sha256', SECRET_KEY)
-    .update(`${url}|${referer}|${expiresAt}`)
+    .update(`${url}|${referer}|${expiresAt}${maxHeight === undefined ? '' : `|h=${maxHeight}`}`)
     .digest('hex');
 }
 
@@ -48,10 +50,11 @@ export function verifyProxySignature(
   url: string,
   referer: string,
   expiresAt: number,
-  signature: string
+  signature: string,
+  maxHeight?: number
 ): boolean {
-  if (!signature || !Number.isFinite(expiresAt)) return false;
-  const expected = signProxyParams(url, referer, expiresAt);
+  if (!signature || !Number.isFinite(expiresAt) || (maxHeight !== undefined && maxHeight !== 720 && maxHeight !== 2160)) return false;
+  const expected = signProxyParams(url, referer, expiresAt, maxHeight);
   if (expected.length !== signature.length) return false;
   try {
     return crypto.timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(signature, 'utf8'));
@@ -64,11 +67,12 @@ export function verifyProxySignature(
 export function buildProxyUrl(targetUrl: string, opts: ProxyLinkOptions = {}): string {
   const referer = opts.referer || '';
   const expiresAt = opts.expiresAt ?? Date.now() + PROXY_LINK_TTL_MS;
-  const sig = signProxyParams(targetUrl, referer, expiresAt);
+  const sig = signProxyParams(targetUrl, referer, expiresAt, opts.maxHeight);
 
   const params = new URLSearchParams();
   params.set('url', targetUrl);
   if (referer) params.set('ref', referer);
+  if (opts.maxHeight !== undefined) params.set('maxHeight', String(opts.maxHeight));
   params.set('exp', String(expiresAt));
   params.set('sig', sig);
 
@@ -235,7 +239,7 @@ function resolveAgainst(base: string, uri: string): string | null {
  */
 export function rewritePlaylist(playlist: string, baseUrl: string, opts: ProxyLinkOptions = {}): string {
   const expiresAt = opts.expiresAt ?? Date.now() + PROXY_LINK_TTL_MS;
-  const linkOpts: ProxyLinkOptions = { referer: opts.referer, expiresAt };
+  const linkOpts: ProxyLinkOptions = { referer: opts.referer, expiresAt, maxHeight: opts.maxHeight };
 
   const proxify = (uri: string): string => {
     if (shouldSkipUri(uri)) return uri;
@@ -245,7 +249,7 @@ export function rewritePlaylist(playlist: string, baseUrl: string, opts: ProxyLi
     return buildProxyUrl(absolute, linkOpts);
   };
 
-  const lines = playlist.split(/\r?\n/);
+  const lines = limitPlaylistResolution(playlist, opts.maxHeight).split(/\r?\n/);
   const out: string[] = new Array(lines.length);
 
   for (let i = 0; i < lines.length; i++) {
@@ -272,5 +276,43 @@ export function rewritePlaylist(playlist: string, baseUrl: string, opts: ProxyLi
     out[i] = proxify(trimmed);
   }
 
+  return out.join('\n');
+}
+
+
+export class ResolutionLimitError extends Error {
+  constructor() { super('No rendition is available within this pass resolution.'); this.name = 'ResolutionLimitError'; }
+}
+
+/** Remove premium variants *before* signing their URIs (also covers native HLS in Safari).
+ * Unknown-resolution video variants are not silently advertised as free HD.
+ * A single media playlist has no rendition metadata; its provider's quality is gated
+ * in preparePlayback. This is access control, not DRM for public third-party sources.
+ */
+export function limitPlaylistResolution(playlist: string, maxHeight?: number): string {
+  if (!maxHeight || !/^#EXT-X-STREAM-INF:/im.test(playlist)) return playlist;
+  const lines = playlist.split(/\r?\n/);
+  const out: string[] = [];
+  let keepVariant = true;
+  let available = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^#EXT-X-STREAM-INF:/i.test(trimmed)) {
+      const height = Number(/RESOLUTION=\d+x(\d+)/i.exec(trimmed)?.[1]);
+      const audioOnly = /CODECS="(?:mp4a[^",]*|ac-3|ec-3|opus)"/i.test(trimmed);
+      keepVariant = height > 0 ? height <= maxHeight : audioOnly || maxHeight >= 2160;
+      if (keepVariant) { out.push(line); if (!audioOnly) available++; }
+    } else if (/^#EXT-X-I-FRAME-STREAM-INF:/i.test(trimmed)) {
+      const height = Number(/RESOLUTION=\d+x(\d+)/i.exec(trimmed)?.[1]);
+      if (height > 0 && height <= maxHeight) out.push(line);
+    } else if (/^#EXT-X-MEDIA:.*TYPE=VIDEO/i.test(trimmed)) {
+      // Alternate video has no resolution metadata and could bypass the ceiling.
+      continue;
+    } else if (trimmed && !trimmed.startsWith('#')) {
+      if (keepVariant) out.push(line);
+      keepVariant = true;
+    } else out.push(line);
+  }
+  if (!available) throw new ResolutionLimitError();
   return out.join('\n');
 }

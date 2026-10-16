@@ -1,12 +1,10 @@
 /**
  * Player portraits for the /player/[id] card — real provider images only.
  *
- *  - Featured (showcase) players lead with a high-resolution transparent
- *    cutout from TheSportsDB (`strCutout`, then the full-body `strRender`).
- *  - Everyone else leads with ESPN's own headshot (also a transparent PNG);
- *    TheSportsDB is consulted only when ESPN has no headshot.
- *  - Then ESPN's id-pattern headshot (published for many players the athlete
- *    payload omits) and, last, TheSportsDB's non-transparent photo thumb.
+ *  - Every profile prefers high-resolution transparent PNGs: an action render,
+ *    then the provider's cutout. No cropped photo thumbnails with opaque backdrops.
+ *  - ESPN's full-size transparent PNG headshot is the secondary source.
+ *  - Lookups are cached for 24 hours and bounded; outages never hide a profile.
  *
  * The banner walks this list on image errors and ends on a branded
  * silhouette. A TheSportsDB hit must be a soccer player with the same date of
@@ -50,7 +48,9 @@ export function pickSportsDbPlayer(json: unknown, player: Pick<PlayerProfile, 'n
   const soccer = (Array.isArray(list) ? list : []).filter((hit): hit is SportsDbPlayer => Boolean(hit) && (hit as SportsDbPlayer).strSport === 'Soccer');
   const dob = typeof player.dateOfBirth === 'string' ? player.dateOfBirth.slice(0, 10) : '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
-    return soccer.find((hit) => hit.dateBorn === dob) ?? null;
+    const names = new Set([player.name, player.fullName].map(fold).filter(Boolean));
+    const exact = soccer.filter((hit) => hit.dateBorn === dob && [hit.strPlayer, hit.strPlayerAlternate].some((name) => names.has(fold(name))));
+    return exact.length === 1 ? exact[0] : null;
   }
   // No birth date to compare: only an exact, unambiguous name.
   const names = new Set([player.name, player.fullName].map(fold).filter(Boolean));
@@ -71,8 +71,8 @@ export function sportsDbImages(hit: SportsDbPlayer | null | undefined): SportsDb
   const cutout = image(hit.strCutout);
   const render = image(hit.strRender);
   const thumb = image(hit.strThumb);
-  if (cutout) images.cutout = cutout;
-  if (render) images.render = render;
+  if (cutout && /\.png$/i.test(new URL(cutout).pathname)) images.cutout = cutout;
+  if (render && /\.png$/i.test(new URL(render).pathname)) images.render = render;
   if (thumb) images.thumb = thumb;
   return images;
 }
@@ -84,16 +84,17 @@ export function espnHeadshotUrl(id: string): string | undefined {
 
 /** Ordered, de-duplicated portrait candidates for the banner. */
 export function buildPortraitSources(player: Pick<PlayerProfile, 'id' | 'portrait' | 'featured'>, sportsDb: SportsDbImages | null = null): PlayerPortrait[] {
-  const espn: PlayerPortrait[] = player.portrait ? [{ src: player.portrait, kind: 'headshot', credit: 'ESPN' }] : [];
+  const source = safePlayerImage(player.portrait);
+  const fullSize = source?.replace(/\/headshots\/soccer\/players\/(?:thumb|small)\//, '/headshots/soccer/players/full/');
+  const espn: PlayerPortrait[] = fullSize && /\.png$/i.test(new URL(fullSize).pathname) ? [{ src: fullSize, kind: 'headshot', credit: 'ESPN' }] : [];
   const cutouts: PlayerPortrait[] = [
-    ...(sportsDb?.cutout ? [{ src: sportsDb.cutout, kind: 'cutout' as const, credit: 'TheSportsDB' as const }] : []),
     ...(sportsDb?.render ? [{ src: sportsDb.render, kind: 'cutout' as const, credit: 'TheSportsDB' as const }] : []),
+    ...(sportsDb?.cutout ? [{ src: sportsDb.cutout, kind: 'cutout' as const, credit: 'TheSportsDB' as const }] : []),
   ];
   const pattern = espnHeadshotUrl(player.id);
   const ordered: PlayerPortrait[] = [
-    ...(player.featured ? [...cutouts, ...espn] : [...espn, ...cutouts]),
+    ...cutouts, ...espn,
     ...(pattern ? [{ src: pattern, kind: 'headshot' as const, credit: 'ESPN' as const }] : []),
-    ...(sportsDb?.thumb ? [{ src: sportsDb.thumb, kind: 'photo' as const, credit: 'TheSportsDB' as const }] : []),
   ];
   const seen = new Set<string>();
   return ordered.filter(({ src }) => (seen.has(src) ? false : (seen.add(src), true)));
@@ -108,7 +109,7 @@ async function searchSportsDb(name: string): Promise<unknown> {
 
 /** Cached (24 h) TheSportsDB images for one player; outages are not cached. */
 export async function lookupSportsDbImages(player: Pick<PlayerProfile, 'id' | 'name' | 'fullName' | 'dateOfBirth'>): Promise<SportsDbImages> {
-  return getCacheManager().swr(`player:portrait:v1:${player.id}`, async () => {
+  return getCacheManager().swr(`player:portrait:v2:${player.id}`, async () => {
     let hit = pickSportsDbPlayer(await searchSportsDb(player.name), player);
     if (!hit && player.fullName && fold(player.fullName) !== fold(player.name)) {
       hit = pickSportsDbPlayer(await searchSportsDb(player.fullName), player);
@@ -122,7 +123,6 @@ export async function withPortraits(
   player: PlayerProfile,
   lookup: (player: PlayerProfile) => Promise<SportsDbImages> = lookupSportsDbImages,
 ): Promise<PlayerProfile> {
-  const needsLookup = Boolean(player.featured) || !player.portrait;
-  const sportsDb = needsLookup ? await lookup(player).catch(() => null) : null;
+  const sportsDb = await lookup(player).catch(() => null);
   return { ...player, portraits: buildPortraitSources(player, sportsDb) };
 }

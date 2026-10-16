@@ -35,9 +35,10 @@ describe('serverLabel', () => {
 describe('normalizeQuality', () => {
   it('keeps FHD distinct from HD, and preserves explicitly automatic quality', () => {
     for (const q of ['HD', 'hd', '720P']) expect(normalizeQuality(q)).toBe('HD');
-    for (const q of ['FHD', '1080p', '4K', ' uhd ']) expect(normalizeQuality(q)).toBe('FHD');
+    for (const q of ['FHD', '1080p']) expect(normalizeQuality(q)).toBe('FHD');
     for (const q of ['SD', '480p', '', undefined, null]) expect(normalizeQuality(q)).toBe('SD');
     expect(normalizeQuality('auto')).toBe('Auto');
+    for (const q of ['4K', ' uhd ', '2160P']) expect(normalizeQuality(q)).toBe('4K');
   });
 });
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { catalogMatch } from '@/lib/subscription/catalog';
 import { getMatches } from '@/lib/streamEngine';
 
 export const dynamic = 'force-dynamic';
@@ -16,10 +17,10 @@ export async function GET(request: NextRequest) {
       return a.timestamp - b.timestamp;
     });
 
-    return NextResponse.json({ matches: sorted });
-  } catch (err: any) {
+    return NextResponse.json({ matches: sorted.map(catalogMatch) }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch {
     return NextResponse.json(
-      { error: 'Failed to retrieve match fixtures: ' + err.message },
+      { error: 'Fixtures are temporarily unavailable. Please try again.' },
       { status: 500 }
     );
   }

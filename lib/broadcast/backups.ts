@@ -32,6 +32,8 @@ import { inferStreamQuality, matchChannelScore } from './matching';
 import { getChannelHealth } from './probe';
 import { isGuovinFeed, isIptvOrgFeed, isStandbyFeed } from './sources';
 import type { LiveChannel } from './types';
+import { channelIndex } from './pool';
+import { menaTargets } from './mena';
 
 export type BackupFamily = 'events' | 'iptv-org' | 'guovin' | 'standby';
 export type BackupCoverage = 'fixture' | 'broadcaster' | 'sports';
@@ -70,7 +72,7 @@ export const MAX_UNVERIFIED_BACKUPS = 3;
 
 const COVERAGE_ORDER: Record<BackupCoverage, number> = { fixture: 0, broadcaster: 1, sports: 2 };
 const FAMILY_ORDER: Record<BackupFamily, number> = { events: 0, 'iptv-org': 1, guovin: 2, standby: 3 };
-const QUALITY_ORDER = { FHD: 0, HD: 1, SD: 2, Auto: 3 } as const;
+const QUALITY_ORDER = { '4K': 0, FHD: 1, HD: 2, SD: 3, Auto: 4 } as const;
 /** Families whose blocked/slow entries may still be offered as unverified backups. */
 const TOLERATES_UNVERIFIED = new Set<BackupFamily>(['events']);
 
@@ -124,6 +126,7 @@ const restricted = (channel: LiveChannel) => Number(/\[(?:geo-?blocked|not\s*24\
 
 function compareCandidates(a: BackupCandidate & { index: number }, b: BackupCandidate & { index: number }): number {
   return COVERAGE_ORDER[a.coverage] - COVERAGE_ORDER[b.coverage] ||
+    Number(b.score === 2) - Number(a.score === 2) ||
     b.affinity - a.affinity ||
     restricted(a.channel) - restricted(b.channel) ||
     b.score - a.score ||
@@ -206,7 +209,12 @@ export function rankLiveBackupCandidates(channels: LiveChannel[], fixture: Backu
   const seen = new Set<string>();
   const hints = [...(fixture.broadcasters ?? []), fixture.title].filter((hint): hint is string => Boolean(hint?.trim()));
   const ranked: Array<BackupCandidate & { index: number }> = [];
-  channels.forEach((channel, index) => {
+  // Exact MENA targets enter the pinned probe window ahead of fuzzy labels.
+  const byId = channelIndex(channels);
+  const regional = menaTargets(hints).flatMap((id) => byId.get(id) || []);
+  const regionalIds = new Set(regional.map((channel) => channel.id));
+  const ordered = [...regional, ...channels.filter((channel) => !regionalIds.has(channel.id))];
+  ordered.forEach((channel, index) => {
     if (seen.has(channel.url)) return;
     seen.add(channel.url);
     const family = backupFamily(channel.feedUrl);
