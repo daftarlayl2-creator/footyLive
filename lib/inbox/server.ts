@@ -14,6 +14,7 @@ import { getCacheManager } from '@/lib/cache/cacheManager';
 import logger from '@/lib/logger';
 import {
   inboxMessageId,
+  referenceFor,
   sanitizeInboxMessage,
   senderTheme,
   sortInbox,
@@ -55,6 +56,27 @@ export interface DeliverInput {
 
 const EMPTY: InboxStore = { messages: [], updatedAt: 0 };
 const memory = new Map<string, InboxStore>();
+
+/**
+ * Per-fan write lock. Every mutation is a read-modify-write cycle (load → map →
+ * save); without the lock, two concurrent actions (e.g. the tray's `read-all`
+ * racing a GET's `ensureWelcomeMessage`) can each load the same snapshot and
+ * the loser's save silently discards the winner's — which is exactly how a
+ * "read" flag gets lost and the unread badge comes back after a refresh.
+ * Chaining each fan's writes keeps every cycle atomic per user.
+ */
+const locks = new Map<string, Promise<unknown>>();
+
+async function withInboxLock<T>(userId: string, task: () => Promise<T>): Promise<T> {
+  const previous = locks.get(userId) ?? Promise.resolve();
+  const next = previous.then(task, task);
+  locks.set(userId, next);
+  try {
+    return await next;
+  } finally {
+    if (locks.get(userId) === next) locks.delete(userId);
+  }
+}
 
 export const isValidInboxUser = (value: unknown): value is string =>
   typeof value === 'string' && VALID_USER.test(value);
@@ -116,14 +138,16 @@ async function saveInbox(userId: string, store: InboxStore, now: number): Promis
  */
 export async function deliverMessage(userId: string, input: DeliverInput, now = Date.now()): Promise<InboxMessage | null> {
   if (!isValidInboxUser(userId)) return null;
-  const id = input.id ?? inboxMessageId(senderTheme(input.from).id.slice(0, 4), now, Math.floor(Math.random() * 1e6));
-  const draft = sanitizeInboxMessage({ ...input, id, at: input.at ?? now, read: false, readAt: null });
-  if (!draft) return null;
+  return withInboxLock(userId, async () => {
+    const id = input.id ?? inboxMessageId(senderTheme(input.from).id.slice(0, 4), now, Math.floor(Math.random() * 1e6));
+    const draft = sanitizeInboxMessage({ ...input, id, at: input.at ?? now, read: false, readAt: null });
+    if (!draft) return null;
 
-  const store = await loadInbox(userId);
-  if (store.messages.some((message) => message.id === id)) return store.messages.find((message) => message.id === id)!;
-  await saveInbox(userId, { ...store, messages: [draft, ...store.messages] }, now);
-  return draft;
+    const store = await loadInbox(userId);
+    if (store.messages.some((message) => message.id === id)) return store.messages.find((message) => message.id === id)!;
+    await saveInbox(userId, { ...store, messages: [draft, ...store.messages] }, now);
+    return draft;
+  });
 }
 
 /** Delivers the same message to many fans (admin broadcast). Returns recipients. */
@@ -152,51 +176,59 @@ export async function readInbox(userId: string, options: { includeArchived?: boo
 
 export async function markRead(userId: string, ids: string[], now = Date.now()): Promise<{ updated: number; unread: number }> {
   if (!isValidInboxUser(userId)) return { updated: 0, unread: 0 };
-  const wanted = new Set(ids.filter((id) => typeof id === 'string' && id));
-  const store = await loadInbox(userId);
-  let updated = 0;
-  const messages = store.messages.map((message) => {
-    if (message.read || !wanted.has(message.id)) return message;
-    updated += 1;
-    return { ...message, read: true, readAt: now };
+  return withInboxLock(userId, async () => {
+    const wanted = new Set(ids.filter((id) => typeof id === 'string' && id));
+    const store = await loadInbox(userId);
+    let updated = 0;
+    const messages = store.messages.map((message) => {
+      if (message.read || !wanted.has(message.id)) return message;
+      updated += 1;
+      return { ...message, read: true, readAt: now };
+    });
+    if (updated) await saveInbox(userId, { ...store, messages }, now);
+    return { updated, unread: unreadCount(messages) };
   });
-  if (updated) await saveInbox(userId, { ...store, messages }, now);
-  return { updated, unread: unreadCount(messages) };
 }
 
 export async function markAllRead(userId: string, now = Date.now()): Promise<{ updated: number; unread: number }> {
   if (!isValidInboxUser(userId)) return { updated: 0, unread: 0 };
-  const store = await loadInbox(userId);
-  let updated = 0;
-  const messages = store.messages.map((message) => {
-    if (message.read) return message;
-    updated += 1;
-    return { ...message, read: true, readAt: now };
+  return withInboxLock(userId, async () => {
+    const store = await loadInbox(userId);
+    let updated = 0;
+    const messages = store.messages.map((message) => {
+      if (message.read) return message;
+      updated += 1;
+      return { ...message, read: true, readAt: now };
+    });
+    if (updated) await saveInbox(userId, { ...store, messages }, now);
+    return { updated, unread: 0 };
   });
-  if (updated) await saveInbox(userId, { ...store, messages }, now);
-  return { updated, unread: 0 };
 }
 
 export async function archiveMessage(userId: string, id: string, archived = true, now = Date.now()): Promise<{ updated: boolean }> {
   if (!isValidInboxUser(userId)) return { updated: false };
-  const store = await loadInbox(userId);
-  let updated = false;
-  const messages = store.messages.map((message) => {
-    if (message.id !== id) return message;
-    updated = true;
-    return { ...message, archived };
+  return withInboxLock(userId, async () => {
+    const store = await loadInbox(userId);
+    let updated = false;
+    const messages = store.messages.map((message) => {
+      if (message.id !== id) return message;
+      updated = true;
+      return { ...message, archived };
+    });
+    if (updated) await saveInbox(userId, { ...store, messages }, now);
+    return { updated };
   });
-  if (updated) await saveInbox(userId, { ...store, messages }, now);
-  return { updated };
 }
 
 export async function removeMessage(userId: string, id: string, now = Date.now()): Promise<{ removed: boolean }> {
   if (!isValidInboxUser(userId)) return { removed: false };
-  const store = await loadInbox(userId);
-  const messages = store.messages.filter((message) => message.id !== id);
-  if (messages.length === store.messages.length) return { removed: false };
-  await saveInbox(userId, { ...store, messages }, now);
-  return { removed: true };
+  return withInboxLock(userId, async () => {
+    const store = await loadInbox(userId);
+    const messages = store.messages.filter((message) => message.id !== id);
+    if (messages.length === store.messages.length) return { removed: false };
+    await saveInbox(userId, { ...store, messages }, now);
+    return { removed: true };
+  });
 }
 
 export async function unreadFor(userId: string): Promise<number> {
@@ -211,6 +243,11 @@ export async function ensureWelcomeMessage(userId: string, now = Date.now()): Pr
   await deliverMessage(
     userId,
     {
+      // A *stable* per-fan id (LL-WELC-XXXXX): if the cache behind the store is
+      // ever cold-started, the re-delivered welcome keeps the same id, so the
+      // client read-ledger recognises it as already-read instead of resurfacing
+      // the unread badge the fan already cleared.
+      id: referenceFor('WELC', userId),
       from: 'support',
       kind: 'welcome',
       subject: 'Welcome to Limon Live — your inbox is open',

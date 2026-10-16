@@ -140,64 +140,114 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
   const { icon: Icon, title, body } = COPY[state];
   return (
     <div
-      className="relative flex aspect-video items-center justify-center overflow-hidden rounded-3xl border border-navy-750 bg-navy-950 p-6 shadow-2xl"
+      className={`relative flex aspect-video items-center justify-center overflow-hidden rounded-3xl border border-navy-750 bg-navy-950 shadow-2xl ${searching ? '' : 'p-6'}`}
       data-stream-resolver={state}
     >
       {searching && (
         // No feed has answered yet: the interactive tactical radar keeps the
-        // stage alive (simulated match stats, drifting contacts) instead of a
-        // black player box while every backup window is re-checked.
-        <div className="absolute inset-0 opacity-70" aria-hidden="true">
-          <TacticalRadarPlayer matchId={matchId || 'limon'} title="" compact />
+        // stage alive (simulated stats, drifting contacts, shot trails)
+        // instead of a black player box while every backup window is checked.
+        // `chrome={false}` — this host draws its own top status badge, so the
+        // radar's header chip stays out of the way on phones.
+        <div className="absolute inset-0" aria-hidden="true">
+          <TacticalRadarPlayer matchId={matchId || 'limon'} title="" compact chrome={false} />
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(204,255,0,0.10),transparent_62%)]" aria-hidden="true" />
-      <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
-      <div className="relative max-w-sm space-y-3 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-lime-500/30 bg-lime-500/10">
-          <Icon className={`h-5 w-5 text-lime-300 ${checking ? 'animate-pulse motion-reduce:animate-none' : ''}`} aria-hidden="true" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-white">{title}</p>
-          <p className="mt-1 text-xs text-zinc-300">{searching && initialReason ? `${initialReason} ${body}` : body}</p>
-        </div>
-        {searching && (
-          <p
-            role="status"
-            aria-live="polite"
-            className="inline-flex items-center gap-2 rounded-full border border-lime-500/30 bg-lime-500/10 px-3 py-1 text-[11px] font-bold text-lime-300"
-            data-auto-resolve=""
+
+      {state === 'searching' ? (
+        // Searching: the old full-screen "Finding a live stream…" panel is gone.
+        // It is now a compact, top-aligned mini status badge with subtle
+        // transparency, so player dots, ball movement, shot trajectories and the
+        // live stat dock stay 100% visible on phones while the fallback search
+        // keeps running behind the radar.
+        <div className="absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-1.5 p-2 sm:p-3" data-search-banner="">
+          <div
+            className="flex max-w-full items-center gap-1.5 rounded-full border border-lime-400/25 bg-black/40 px-2.5 py-1 backdrop-blur-md sm:px-3 sm:py-1.5"
+            title={searching && initialReason ? `${initialReason} ${body}` : body}
           >
-            <RefreshCw className={`h-3 w-3 ${checking ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
-            {checking ? 'Checking every backup feed…' : `Next check in ${remaining}s`}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-          {searching && (
+            <Icon className={`h-3.5 w-3.5 shrink-0 text-lime-300 ${checking ? 'animate-pulse motion-reduce:animate-none' : ''}`} aria-hidden="true" />
+            <p className="truncate text-[10.5px] font-bold text-white sm:text-xs">{title}</p>
+            <span className="shrink-0 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-200 sm:text-[8.5px]">Simulated</span>
+            <span className="sr-only">{searching && initialReason ? `${initialReason} ${body}` : body}</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            <p
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 rounded-full border border-lime-500/30 bg-black/40 px-2.5 py-1 text-[10px] font-bold text-lime-300 backdrop-blur-md sm:text-[11px]"
+              data-auto-resolve=""
+            >
+              <RefreshCw className={`h-3 w-3 ${checking ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
+              {checking ? 'Checking every backup feed…' : `Next check in ${remaining}s`}
+            </p>
             <button
               type="button"
               onClick={check}
               disabled={checking}
-              className="tactile inline-flex cursor-pointer items-center gap-1.5 rounded-xl lime-cta px-3 py-1.5 text-[11px] font-bold disabled:opacity-60"
+              className="tactile inline-flex cursor-pointer items-center gap-1 rounded-full lime-cta px-2.5 py-1 text-[10px] font-bold disabled:opacity-60 sm:text-[10.5px]"
             >
               <RefreshCw className="h-3 w-3" aria-hidden="true" />
               Check now
             </button>
-          )}
-          {state === 'finished' && (
-            <Link href="/highlights" className="tactile inline-flex items-center gap-1.5 rounded-xl lime-cta px-3 py-1.5 text-[11px] font-bold">
-              Watch highlights
+            <Link
+              href="/channels"
+              className="tactile inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[10px] font-bold text-zinc-200 backdrop-blur-md transition-all hover:border-lime-500/40 hover:text-white sm:text-[10.5px]"
+            >
+              Browse channels
             </Link>
-          )}
-          <Link
-            href="/channels"
-            className="tactile inline-flex items-center gap-1.5 rounded-xl border border-navy-750 px-3 py-1.5 text-[11px] font-bold text-zinc-300 transition-all hover:border-lime-500/40 hover:text-white"
-          >
-            Browse live channels
-          </Link>
+          </div>
         </div>
-        {state !== 'missing' && <p className="text-[10px] text-zinc-400">Scores, statistics and the play-by-play keep updating in the meantime.</p>}
-      </div>
+      ) : (
+        <>
+          <div className="pointer-events-none absolute inset-0 bg-black/45" aria-hidden="true" />
+          <div className="relative max-w-sm space-y-3 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-lime-500/30 bg-lime-500/10">
+              <Icon className={`h-5 w-5 text-lime-300 ${checking ? 'animate-pulse motion-reduce:animate-none' : ''}`} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">{title}</p>
+              <p className="mt-1 text-xs text-zinc-300">{searching && initialReason ? `${initialReason} ${body}` : body}</p>
+            </div>
+            {searching && (
+              <p
+                role="status"
+                aria-live="polite"
+                className="inline-flex items-center gap-2 rounded-full border border-lime-500/30 bg-lime-500/10 px-3 py-1 text-[11px] font-bold text-lime-300"
+                data-auto-resolve=""
+              >
+                <RefreshCw className={`h-3 w-3 ${checking ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
+                {checking ? 'Checking every backup feed…' : `Next check in ${remaining}s`}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              {searching && (
+                <button
+                  type="button"
+                  onClick={check}
+                  disabled={checking}
+                  className="tactile inline-flex cursor-pointer items-center gap-1.5 rounded-xl lime-cta px-3 py-1.5 text-[11px] font-bold disabled:opacity-60"
+                >
+                  <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                  Check now
+                </button>
+              )}
+              {state === 'finished' && (
+                <Link href="/highlights" className="tactile inline-flex items-center gap-1.5 rounded-xl lime-cta px-3 py-1.5 text-[11px] font-bold">
+                  Watch highlights
+                </Link>
+              )}
+              <Link
+                href="/channels"
+                className="tactile inline-flex items-center gap-1.5 rounded-xl border border-navy-750 px-3 py-1.5 text-[11px] font-bold text-zinc-300 transition-all hover:border-lime-500/40 hover:text-white"
+              >
+                Browse live channels
+              </Link>
+            </div>
+            {state !== 'missing' && <p className="text-[10px] text-zinc-400">Scores, statistics and the play-by-play keep updating in the meantime.</p>}
+          </div>
+        </>
+      )}
     </div>
   );
 }

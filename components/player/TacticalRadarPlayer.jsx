@@ -108,9 +108,11 @@ function StatRow({ label, home, away }) {
 
 /**
  * The backup stage. `matchId` seeds the simulation; `title` is shown on the
- * radar header so viewers know which fixture this radar belongs to.
+ * radar header so viewers know which fixture this radar belongs to. `chrome`
+ * hides the header chip for hosts that draw their own top badge on top of the
+ * radar (the stream auto-resolver), so the two never collide on phones.
  */
-export default function TacticalRadarPlayer({ matchId = 'limon', title = '', compact = false }) {
+export default function TacticalRadarPlayer({ matchId = 'limon', title = '', compact = false, chrome = true }) {
   const canvasRef = useRef(null);
   const [stats, setStats] = useState(() => initialSimulatedStats(matchId));
 
@@ -149,6 +151,11 @@ export default function TacticalRadarPlayer({ matchId = 'limon', title = '', com
       });
     }
     const ball = { x: 0.5, y: 0.5, target: contacts[Math.floor(rand() * contacts.length)], wait: 0 };
+    /* Shot trajectories: a contact lines one up and the ball of light flies
+     * toward the opposing goal, leaving a fading trail. Kept as pure canvas
+     * state so nothing here can affect hydration. */
+    const shots = [];
+    let shotCooldown = 90 + Math.floor(rand() * 160);
 
     let raf = 0;
     let width = 0;
@@ -267,6 +274,72 @@ export default function TacticalRadarPlayer({ matchId = 'limon', title = '', com
       ctx.arc(bx, by, 6, 0, Math.PI * 2);
       ctx.stroke();
 
+      /* Shot trajectories: fading trails toward the goal mouths (home attacks
+       * the right goal, away the left). Drawn under the dots' glow so player
+       * contacts, ball and stats stay 100% legible on every screen size. */
+      const goalY = cy;
+      if (reduceMotion) {
+        // Static preview lines when motion is reduced.
+        ctx.setLineDash([4, 5]);
+        ctx.lineWidth = 1;
+        for (const shooter of [contacts[2], contacts[13]]) {
+          const sx = radius * 0.06 + shooter.x * radius * 1.88;
+          const sy = radius * 0.06 + shooter.y * radius * 1.88;
+          const gx = shooter.side === 'home' ? cx + radius : cx - radius;
+          ctx.beginPath();
+          ctx.strokeStyle = shooter.side === 'home' ? 'rgba(154, 255, 90, 0.30)' : 'rgba(86, 190, 255, 0.30)';
+          ctx.moveTo(sx, sy);
+          ctx.quadraticCurveTo((sx + gx) / 2, Math.min(sy, goalY) - radius * 0.18, gx, goalY);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      } else {
+        shotCooldown -= 1;
+        if (shotCooldown <= 0 && shots.length < 3) {
+          const shooter = contacts[Math.floor(Math.random() * contacts.length)];
+          shots.push({
+            side: shooter.side,
+            x0: radius * 0.06 + shooter.x * radius * 1.88,
+            y0: radius * 0.06 + shooter.y * radius * 1.88,
+            t: 0,
+          });
+          shotCooldown = 170 + Math.floor(Math.random() * 260);
+        }
+        for (let i = shots.length - 1; i >= 0; i -= 1) {
+          const shot = shots[i];
+          shot.t += 0.016;
+          if (shot.t >= 1) {
+            shots.splice(i, 1);
+            continue;
+          }
+          const gx = shot.side === 'home' ? cx + radius : cx - radius;
+          const head = shot.t;
+          const tail = Math.max(0, shot.t - 0.3);
+          const at = (u) => {
+            const x = shot.x0 + (gx - shot.x0) * u;
+            const y = shot.y0 + (goalY - shot.y0) * u - Math.sin(Math.PI * u) * radius * 0.16;
+            return [x, y];
+          };
+          const [hx, hy] = at(head);
+          const [tx, ty] = at(tail);
+          const home = shot.side === 'home';
+          const fade = Math.sin(Math.PI * Math.min(1, head));
+          const trail = ctx.createLinearGradient(tx, ty, hx, hy);
+          trail.addColorStop(0, home ? 'rgba(154, 255, 90, 0)' : 'rgba(86, 190, 255, 0)');
+          trail.addColorStop(1, home ? `rgba(154, 255, 90, ${0.75 * fade})` : `rgba(86, 190, 255, ${0.75 * fade})`);
+          ctx.beginPath();
+          ctx.strokeStyle = trail;
+          ctx.lineWidth = 1.6;
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(hx, hy);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.fillStyle = home ? `rgba(230, 255, 180, ${fade})` : `rgba(200, 235, 255, ${fade})`;
+          ctx.arc(hx, hy, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
       if (!reduceMotion) raf = requestAnimationFrame(draw);
     };
 
@@ -293,12 +366,14 @@ export default function TacticalRadarPlayer({ matchId = 'limon', title = '', com
     >
       <canvas ref={canvasRef} className={`w-full ${compact ? 'aspect-video' : 'aspect-video'}`} aria-hidden="true" />
 
-      {/* Header chip */}
-      <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full border border-lime-400/30 bg-black/55 px-3 py-1.5 backdrop-blur-md">
-        <Radar className="h-3.5 w-3.5 text-lime-300" aria-hidden="true" />
-        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-lime-300">Tactical Radar · Backup</span>
-        <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-200">Simulated</span>
-      </div>
+      {/* Header chip (suppressed when the host draws its own top badge) */}
+      {chrome ? (
+        <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full border border-lime-400/30 bg-black/55 px-3 py-1.5 backdrop-blur-md">
+          <Radar className="h-3.5 w-3.5 text-lime-300" aria-hidden="true" />
+          <span className="text-[10px] font-black uppercase tracking-[0.16em] text-lime-300">Tactical Radar · Backup</span>
+          <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-200">Simulated</span>
+        </div>
+      ) : null}
 
       {title ? (
         <p className="pointer-events-none absolute left-3 top-12 max-w-[70%] truncate text-[11px] font-semibold text-zinc-200">
@@ -306,16 +381,18 @@ export default function TacticalRadarPlayer({ matchId = 'limon', title = '', com
         </p>
       ) : null}
 
-      {/* Simulated stats dock */}
-      <div className="absolute inset-x-0 bottom-0 border-t border-lime-400/15 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-300">
+      {/* Simulated stats dock — informational only, so taps pass straight
+          through and nothing on the stage is ever blocked by it. Compact on
+          phones so the pitch keeps the majority of the frame. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-lime-400/15 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 sm:p-3" data-radar-dock="">
+        <div className="mb-1.5 flex items-center justify-between sm:mb-2">
+          <p className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-[0.18em] text-zinc-300 sm:text-[9px]">
             <Waves className="h-3 w-3 text-lime-400" aria-hidden="true" />
             Simulated match stats
           </p>
-          <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">not live data</p>
+          <p className="text-[8.5px] font-semibold uppercase tracking-wider text-zinc-500 sm:text-[9px]">not live data</p>
         </div>
-        <div className={`grid gap-2 ${compact ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
+        <div className={`grid gap-1.5 sm:gap-2 ${compact ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
           <StatRow label="Possession" home={`${stats.possession.home}%`} away={`${stats.possession.away}%`} />
           <StatRow label="Shots" home={stats.shots.home} away={stats.shots.away} />
           <StatRow label="On target" home={stats.onTarget.home} away={stats.onTarget.away} />

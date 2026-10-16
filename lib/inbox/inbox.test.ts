@@ -216,3 +216,75 @@ describe('GET/POST /api/inbox route handler', () => {
     expect(postBody.ticket.ref).toMatch(/^LL-TCK-/);
   });
 });
+
+describe('Read-state persistence hardening', () => {
+  it('keeps the welcome id stable (LL-WELC-…) so a cold cache cannot mint unread dupes', async () => {
+    await ensureWelcomeMessage(USER, NOW);
+    const firstId = (await readInbox(USER)).messages.find((message) => message.kind === 'welcome')?.id;
+    expect(firstId).toMatch(/^LL-WELC-/);
+
+    // Full loss: shared cache wiped AND the in-process copy gone (restart).
+    store.clear();
+    resetInboxMemory();
+    await ensureWelcomeMessage(USER, NOW + 1000);
+    const secondId = (await readInbox(USER)).messages.find((message) => message.kind === 'welcome')?.id;
+    // Same id → the client read-ledger can recognise it as already-read.
+    expect(secondId).toBe(firstId);
+  });
+
+  it('concurrent mutations never lose reads (per-user write lock)', async () => {
+    const a = await deliverMessage(USER, { from: 'platform', subject: 'Weekly summary', body: 'a', at: NOW });
+    const b = await deliverMessage(USER, { from: 'admin', subject: 'Boost window', body: 'b', at: NOW + 1 });
+
+    // The tray's read-all racing a receipt delivery and a single markRead —
+    // without the lock the last save used to discard the other's read flags.
+    await Promise.all([
+      markRead(USER, [a!.id], NOW + 10),
+      markAllRead(USER, NOW + 20),
+      deliverMessage(USER, { from: 'support', subject: 'Ticket received', body: 'c', at: NOW + 30 }),
+    ]);
+
+    const view = await readInbox(USER);
+    expect(view.messages).toHaveLength(3);
+    expect(view.unread).toBe(1); // only the brand-new delivery is unread
+    expect(view.messages.find((message) => message.id === a!.id)?.read).toBe(true);
+    expect(view.messages.find((message) => message.id === b!.id)?.read).toBe(true);
+  });
+
+  it('read state survives a process restart through the shared cache', async () => {
+    const msg = await deliverMessage(USER, { from: 'support', subject: 'Receipt', body: 'Coins added.', at: NOW });
+    await markRead(USER, [msg!.id], NOW + 5);
+
+    resetInboxMemory(); // process restart: the memory copy is gone
+    const view = await readInbox(USER);
+    expect(view.messages[0].read).toBe(true);
+    expect(view.messages[0].readAt).toBe(NOW + 5);
+    expect(view.unread).toBe(0);
+  });
+
+  it('GET pins the welcome note per browser: a cache wipe after read-all stays at zero unread', async () => {
+    const { id: viewerId, cookie } = createWalletViewer();
+    const reqHeaders = { Cookie: `${WALLET_COOKIE}=${cookie}` };
+
+    const first = await inboxGet(new Request('https://limonlive.app/api/inbox', { headers: reqHeaders }));
+    const setCookies = typeof first.headers.getSetCookie === 'function' ? first.headers.getSetCookie() : [first.headers.get('set-cookie') ?? ''];
+    const welcomeCookie = setCookies.find((entry) => entry.startsWith('limon_inbox_welcome='));
+    expect(welcomeCookie).toBeTruthy();
+    const welcomeValue = welcomeCookie!.split(';')[0].slice('limon_inbox_welcome='.length);
+    expect(welcomeValue).toBe(viewerId);
+
+    // The fan reads everything.
+    await markAllRead(viewerId, NOW + 5);
+
+    // …then the server cache and process are wiped, and the page refreshes.
+    store.clear();
+    resetInboxMemory();
+    const second = await inboxGet(new Request('https://limonlive.app/api/inbox', {
+      headers: { Cookie: `${WALLET_COOKIE}=${cookie}; limon_inbox_welcome=${welcomeValue}` },
+    }));
+    const body = await second.json();
+    // No welcome re-delivery → the unread badge cannot reappear on refresh.
+    expect(body.messages.some((message: { kind: string }) => message.kind === 'welcome')).toBe(false);
+    expect(body.unread).toBe(0);
+  });
+});
