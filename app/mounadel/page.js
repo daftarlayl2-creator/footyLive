@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command, Crown, Landmark, ListVideo, ShieldCheck, UsersRound } from 'lucide-react';
+import { capabilityList, findStaffRole } from '@/lib/admin/rbac';
 import CommandTab from '@/components/admin/CommandTab';
 import UsersTab from '@/components/admin/UsersTab';
 import FinanceTab from '@/components/admin/FinanceTab';
@@ -27,6 +28,10 @@ function useAuth() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [loggingIn, setLoggingIn] = useState(false);
   const [error, setError] = useState('');
+  // RBAC: the session tells the shell which desk signed in, so the tab strip can
+  // only offer surfaces this role can actually load.
+  const [role, setRole] = useState('owner');
+  const [permissions, setPermissions] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +40,8 @@ function useAuth() {
       .then((data) => {
         if (cancelled) return;
         setAuthenticated(Boolean(data?.authenticated));
+        if (data?.role) setRole(data.role);
+        if (Array.isArray(data?.capabilities)) setPermissions(data.capabilities.map((row) => row.id));
       })
       .catch(() => {
         if (cancelled) return;
@@ -65,6 +72,8 @@ function useAuth() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.authenticated) {
         setAuthenticated(true);
+        if (data?.role) setRole(data.role);
+        if (Array.isArray(data?.capabilities)) setPermissions(data.capabilities.map((row) => row.id));
       } else {
         setError(data?.error || 'Invalid username or password');
       }
@@ -85,7 +94,7 @@ function useAuth() {
     router.push('/');
   };
 
-  return { authenticated, checkingSession, loggingIn, error, handleLogin, handleLogout };
+  return { authenticated, checkingSession, loggingIn, error, handleLogin, handleLogout, role, permissions };
 }
 
 /** Page: Login screen. Auth state lives in the page so a successful login swaps in the dashboard. */
@@ -147,16 +156,20 @@ function LoginPage({ loggingIn, error, handleLogin }) {
 }
 
 const TABS = [
-  { id: 'command', label: 'Command', icon: Command, Component: CommandTab },
-  { id: 'users', label: 'Users', icon: UsersRound, Component: UsersTab },
-  { id: 'finance', label: 'Finance', icon: Landmark, Component: FinanceTab },
-  { id: 'streams', label: 'Streams', icon: ListVideo, Component: StreamsManager },
+  { id: 'command', label: 'Command', icon: Command, Component: CommandTab, needs: 'dashboard.view' },
+  { id: 'users', label: 'Users', icon: UsersRound, Component: UsersTab, needs: 'users.view' },
+  { id: 'finance', label: 'Finance', icon: Landmark, Component: FinanceTab, needs: 'finance.view' },
+  { id: 'streams', label: 'Streams', icon: ListVideo, Component: StreamsManager, needs: 'streams.manage' },
 ];
 
 /** Page: Admin dashboard shell (protected). */
-function DashboardPage({ onLogout }) {
-  const [tab, setTab] = useState('command');
-  const active = TABS.find((row) => row.id === tab) || TABS[0];
+function DashboardPage({ onLogout, role = 'owner', permissions = null }) {
+  const desk = findStaffRole(role);
+  const granted = permissions ?? capabilityList(role).map((row) => row.id);
+  const can = (needed) => (granted ? granted.includes(needed) : true);
+  const tabs = TABS.filter((row) => can(row.needs));
+  const [tab, setTab] = useState(tabs[0]?.id ?? 'command');
+  const active = tabs.find((row) => row.id === tab) || tabs[0] || TABS[0];
   const ActiveComponent = active.Component;
 
   return (
@@ -169,6 +182,13 @@ function DashboardPage({ onLogout }) {
             Limon Live
           </p>
           <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-100">Admin Command Center</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-zinc-400" data-admin-role={role}>
+            <span className={`rounded-full border px-2 py-0.5 ${desk?.chipClass ?? ''}`}>{desk?.label ?? role}</span>
+            <span>{granted.length} capabilities</span>
+            <a href="/staff" className="rounded-full border border-white/12 px-2 py-0.5 text-zinc-300 hover:border-eviv-lime/45 hover:text-eviv-lime">
+              Staff portal
+            </a>
+          </p>
         </div>
         <button
           type="button"
@@ -181,7 +201,7 @@ function DashboardPage({ onLogout }) {
 
       {/* Tabs */}
       <nav className="flex gap-1.5 overflow-x-auto border-b border-white/10 px-3 sm:px-6 py-2.5" aria-label="Admin sections">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
@@ -202,14 +222,18 @@ function DashboardPage({ onLogout }) {
 
       {/* Active panel (all tabs stay mounted=false — fresh data per switch) */}
       <main className="p-4 sm:p-6" key={active.id}>
-        <ActiveComponent />
+        {active.id === 'users' ? (
+          <UsersTab permissions={granted} role={role} />
+        ) : (
+          <ActiveComponent />
+        )}
       </main>
     </div>
   );
 }
 
 export default function MounadelPage() {
-  const { authenticated, checkingSession, loggingIn, error, handleLogin, handleLogout } = useAuth();
+  const { authenticated, checkingSession, loggingIn, error, handleLogin, handleLogout, role, permissions } = useAuth();
 
   if (checkingSession) {
     return (
@@ -222,7 +246,7 @@ export default function MounadelPage() {
   return (
     <div>
       {authenticated ? (
-        <DashboardPage onLogout={handleLogout} />
+        <DashboardPage onLogout={handleLogout} role={role} permissions={permissions} />
       ) : (
         <LoginPage loggingIn={loggingIn} error={error} handleLogin={handleLogin} />
       )}

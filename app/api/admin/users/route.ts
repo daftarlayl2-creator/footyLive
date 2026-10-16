@@ -14,7 +14,7 @@
  * one also files a receipt in the fan's inbox.
  */
 import { NextResponse } from 'next/server';
-import { isAdminRequest } from '@/lib/admin/guard';
+import { requirePermission } from '@/lib/admin/guard';
 import {
   adjustViewerCoins,
   enrichViewerRow,
@@ -35,9 +35,8 @@ const headers = { 'Cache-Control': 'no-store, private', Vary: 'Cookie' };
 const MAX_ENRICHED_ROWS = 80;
 
 export async function GET(request: Request) {
-  if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: 'Admin session required.' }, { status: 401, headers });
-  }
+  const gate = requirePermission(request, 'users.view');
+  if (!gate.ok) return gate.response;
   // The dashboard is where the stealth review account is inspected, so the
   // LimonElite seed is verified here (idempotent, never blocks on failure).
   await ensureLimonEliteSeed().catch(() => undefined);
@@ -56,9 +55,9 @@ const cleanText = (value: unknown, max: number): string =>
   (typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f<>]/g, '').trim() : '').slice(0, max);
 
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: 'Admin session required.' }, { status: 401, headers });
-  }
+  // Every mutation names the capability it needs; `users.view` is the floor.
+  const gate = requirePermission(request, 'users.view');
+  if (!gate.ok) return gate.response;
   let body: any = null;
   try {
     body = await request.json();
@@ -70,30 +69,40 @@ export async function POST(request: Request) {
   const note = cleanText(body?.note, 140);
 
   if (action === 'ban' || action === 'unban') {
+    const banGate = requirePermission(request, 'users.ban');
+    if (!banGate.ok) return banGate.response;
     const result = await setViewerBanned(id, action === 'ban', body?.reason);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 404, headers });
     return NextResponse.json({ ok: true, user: result.user }, { headers });
   }
 
   if (action === 'coins') {
+    const coinGate = requirePermission(request, 'users.coins');
+    if (!coinGate.ok) return coinGate.response;
     const result = await adjustViewerCoins(id, body?.delta, note);
     if (!result.ok) return NextResponse.json({ error: result.error || 'Adjustment failed.' }, { status: 400, headers });
     return NextResponse.json({ ok: true, balance: result.wallet?.balance ?? null, applied: result.applied ?? 0 }, { headers });
   }
 
   if (action === 'set-balance') {
+    const balanceGate = requirePermission(request, 'users.coins');
+    if (!balanceGate.ok) return balanceGate.response;
     const result = await setViewerBalance(id, body?.balance, note);
     if (!result.ok) return NextResponse.json({ error: result.error || 'Could not set that balance.' }, { status: 400, headers });
     return NextResponse.json({ ok: true, balance: result.wallet?.balance ?? null, applied: result.applied ?? 0 }, { headers });
   }
 
   if (action === 'vip') {
+    const vipGate = requirePermission(request, 'users.vip');
+    if (!vipGate.ok) return vipGate.response;
     const result = await setViewerTier(id, body?.tier, { days: body?.days, note });
     if (!result.ok) return NextResponse.json({ error: result.error || 'Tier assignment failed.' }, { status: 400, headers });
     return NextResponse.json({ ok: true, tier: result.tier, expiresAt: result.expiresAt }, { headers });
   }
 
   if (action === 'message') {
+    const messageGate = requirePermission(request, 'users.message');
+    if (!messageGate.ok) return messageGate.response;
     const from = isSenderId(body?.from) ? body.from : 'admin';
     const subject = cleanText(body?.subject, 140);
     const text = cleanText(body?.body, 900);

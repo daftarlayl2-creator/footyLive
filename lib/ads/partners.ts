@@ -6,6 +6,11 @@
  * Adsterra network slot rotates in as one of the creatives — a real ad every
  * few slides, partner art in between, so the banner always has something on
  * air even when the network has no fill.
+ *
+ * Every house creative now points at the platform's own advertiser desk
+ * (`/advertise?partner=<id>`), and the rotation ends on the "Advertise With Us"
+ * slide. The old `https://example.com/...` placeholders are gone: a click on a
+ * live banner can never land on a parked domain again.
  */
 
 export interface PartnerCreative {
@@ -18,12 +23,25 @@ export interface PartnerCreative {
   deep: string;
   /** Small inline SVG pictogram key drawn beside the copy. */
   icon: 'boot' | 'ball' | 'whistle' | 'jersey' | 'trophy' | 'bottle';
+  /** Where the CTA goes: an internal route for house slides, a URL for network. */
   href: string;
+  /** True when `href` leaves the platform (external ads get the sponsored rel). */
+  external?: boolean;
   /** Network creative: renders the Adsterra unit instead of house art. */
   network?: boolean;
+  /** The house ad-slots slide that opens the advertiser onboarding modal. */
+  advertise?: boolean;
 }
 
 export const PARTNER_ROTATION_MS = 7_000;
+
+/** The internal advertiser desk every house creative links to. */
+export const ADVERTISE_HREF = '/advertise';
+
+/** Deep link from a banner slide to the advertiser desk, pre-selecting the brand. */
+export function advertiseHrefFor(partnerId: string): string {
+  return `${ADVERTISE_HREF}?partner=${encodeURIComponent(partnerId)}`;
+}
 
 export const SPORTS_PARTNERS: readonly PartnerCreative[] = [
   {
@@ -34,7 +52,7 @@ export const SPORTS_PARTNERS: readonly PartnerCreative[] = [
     accent: '#CCFF00',
     deep: '#1A2A00',
     icon: 'boot',
-    href: 'https://example.com/atlas-boots',
+    href: advertiseHrefFor('atlas-boots'),
   },
   {
     id: 'hydrasport',
@@ -44,7 +62,7 @@ export const SPORTS_PARTNERS: readonly PartnerCreative[] = [
     accent: '#6EE7FF',
     deep: '#04202B',
     icon: 'bottle',
-    href: 'https://example.com/hydrasport',
+    href: advertiseHrefFor('hydrasport'),
   },
   {
     id: 'network-ads',
@@ -65,7 +83,7 @@ export const SPORTS_PARTNERS: readonly PartnerCreative[] = [
     accent: '#FFB454',
     deep: '#2B1503',
     icon: 'jersey',
-    href: 'https://example.com/kitlab',
+    href: advertiseHrefFor('kitlab'),
   },
   {
     id: 'prozone-analytics',
@@ -75,7 +93,7 @@ export const SPORTS_PARTNERS: readonly PartnerCreative[] = [
     accent: '#B49CFF',
     deep: '#160A2E',
     icon: 'whistle',
-    href: 'https://example.com/prozone',
+    href: advertiseHrefFor('prozone-analytics'),
   },
   {
     id: 'golden-boot-tours',
@@ -85,6 +103,26 @@ export const SPORTS_PARTNERS: readonly PartnerCreative[] = [
     accent: '#7DF9B0',
     deep: '#052014',
     icon: 'trophy',
-    href: 'https://example.com/goldenboottours',
+    href: advertiseHrefFor('golden-boot-tours'),
+  },
+  {
+    id: 'advertise-with-us',
+    brand: 'Your brand here',
+    tagline: '1.9M monthly impressions across the fan feed, match centre and Multi-View.',
+    cta: 'Advertise With Us',
+    accent: '#CCFF00',
+    deep: '#12030B',
+    icon: 'whistle',
+    href: ADVERTISE_HREF,
+    advertise: true,
   },
 ];
+
+/** The house slide that opens the advertiser onboarding modal. */
+export const ADVERTISE_CREATIVE: PartnerCreative =
+  SPORTS_PARTNERS.find((creative) => creative.advertise) ?? SPORTS_PARTNERS[0];
+
+/** Every real (non-network, non-house-ad) brand creative. */
+export const HOUSE_PARTNERS: readonly PartnerCreative[] = SPORTS_PARTNERS.filter(
+  (creative) => !creative.network && !creative.advertise
+);
