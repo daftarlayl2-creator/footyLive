@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Crown, Goal, Layers, Play, Radio, Trophy } from 'lucide-react';
+import { Crown, Goal, Layers, Play, Radio, Sparkles, Trophy } from 'lucide-react';
 import { PRIMARY_NAV, activeNavKey } from '@/lib/navigation';
 
 const ICONS = { matches: Goal, channels: Radio, standings: Trophy, multiview: Layers };
@@ -68,6 +68,28 @@ export default function HeaderNav() {
       >
         <Play className="h-4 w-4" aria-hidden="true" />
         <span className="hidden lg:inline">Highlights</span>
+      </Link>
+      {/* Gamification: Daily Lemon Wheel + global predictor leaderboard.
+          Icon-only on small screens (the header row is tight on phones). */}
+      <Link
+        href="/spin"
+        aria-label="Daily Lemon Wheel"
+        aria-current={pathname.startsWith('/spin') ? 'page' : undefined}
+        title="Daily Lemon Wheel"
+        className={`${BASE} ${pathname.startsWith('/spin') ? ACTIVE : IDLE} hidden w-9 px-0 md:inline-flex lg:w-auto lg:px-3`}
+      >
+        <Sparkles className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden lg:inline">Spin</span>
+      </Link>
+      <Link
+        href="/leaderboard"
+        aria-label="Predictor leaderboard"
+        aria-current={pathname.startsWith('/leaderboard') ? 'page' : undefined}
+        title="Predictor leaderboard"
+        className={`${BASE} ${pathname.startsWith('/leaderboard') ? ACTIVE : IDLE} hidden w-9 px-0 md:inline-flex lg:w-auto lg:px-3`}
+      >
+        <Trophy className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden lg:inline">Ranks</span>
       </Link>
     </>
   );

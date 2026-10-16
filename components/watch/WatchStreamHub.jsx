@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import StreamPlayer from '@/components/StreamPlayer';
+import LiveReactions from '@/components/reactions/LiveReactions';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import LiveChannelPicker from './LiveChannelPicker';
 import { ArrowLeft, MonitorPlay } from 'lucide-react';
 
@@ -18,15 +20,21 @@ export default function WatchStreamHub({
   matchId,
   streamUrl = null,
   channels = [],
+  stream1 = null,
+  stream2 = null,
+  stream3 = null,
   matchTitle,
   matchStatus,
   initialLockedCount = 0,
   initialChannelId = null,
 }) {
-  const [matchSources] = useState({ streamUrl, channels: channels || [] });
+  const [matchSources] = useState({ streamUrl, channels: channels || [], stream1, stream2, stream3 });
   const [active, setActive] = useState(() => ({
     streamUrl,
     channels: channels || [],
+    stream1,
+    stream2,
+    stream3,
     label: null,
     channelId: initialChannelId,
     lockedCount: initialLockedCount,
@@ -53,14 +61,26 @@ export default function WatchStreamHub({
         </div>
       )}
 
-      <StreamPlayer
-        key={usingChannel ? `channel-${active.channelId}` : 'match'}
-        matchId={matchId}
-        streamUrl={active.streamUrl}
-        channels={active.channels}
-        matchTitle={usingChannel ? active.label || matchTitle : matchTitle}
-        matchStatus={matchStatus}
-      />
+      <div className="relative">
+        <StreamPlayer
+          key={usingChannel ? `channel-${active.channelId}` : 'match'}
+          matchId={matchId}
+          streamUrl={active.streamUrl}
+          channels={active.channels}
+          stream1={active.stream1}
+          stream2={active.stream2}
+          stream3={active.stream3}
+          matchTitle={usingChannel ? active.label || matchTitle : matchTitle}
+          matchStatus={matchStatus}
+        />
+        {/* Match soundboard & live reactions: floating bubbles + shared counters
+            over the stream (independent of the player, so it survives failover). */}
+        {matchStatus !== 'upcoming' && (
+          <ErrorBoundary name="live-reactions" title="Reactions hit a snag" message="The reaction rail could not load — playback is unaffected.">
+            <LiveReactions matchId={matchId} />
+          </ErrorBoundary>
+        )}
+      </div>
 
       <LiveChannelPicker
         matchTitle={matchTitle}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import Link from 'next/link';
 import { Crown, Film, RadioTower, RefreshCw, SearchX } from 'lucide-react';
 import StreamPlayer from '@/components/StreamPlayer';
+import TacticalRadarPlayer from '@/components/player/TacticalRadarPlayer';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 
 /** Seconds of *visible* time between automatic re-resolutions; the last value repeats. */
@@ -123,6 +124,9 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
         matchId={matchId}
         streamUrl={resolved.defaultUrl}
         channels={resolved.streams}
+        stream1={resolved.stream1}
+        stream2={resolved.stream2}
+        stream3={resolved.stream3}
         matchTitle={resolved.matchTitle || matchTitle}
         matchStatus={resolved.matchStatus || 'live'}
         // Retry rounds re-resolve the match; a failed refresh keeps the current list.
@@ -139,7 +143,16 @@ export default function StreamAutoResolver({ matchId, matchTitle, matchStatus = 
       className="relative flex aspect-video items-center justify-center overflow-hidden rounded-3xl border border-navy-750 bg-navy-950 p-6 shadow-2xl"
       data-stream-resolver={state}
     >
+      {searching && (
+        // No feed has answered yet: the interactive tactical radar keeps the
+        // stage alive (simulated match stats, drifting contacts) instead of a
+        // black player box while every backup window is re-checked.
+        <div className="absolute inset-0 opacity-70" aria-hidden="true">
+          <TacticalRadarPlayer matchId={matchId || 'limon'} title="" compact />
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(204,255,0,0.10),transparent_62%)]" aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
       <div className="relative max-w-sm space-y-3 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-lime-500/30 bg-lime-500/10">
           <Icon className={`h-5 w-5 text-lime-300 ${checking ? 'animate-pulse motion-reduce:animate-none' : ''}`} aria-hidden="true" />

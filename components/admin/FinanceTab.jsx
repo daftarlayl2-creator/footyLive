@@ -12,6 +12,7 @@ const KIND_LABEL = {
   'coin-redeem': { label: 'VIP redemption', className: 'border-eviv-lime/35 bg-eviv-lime/10 text-eviv-lime' },
   'admin-adjustment': { label: 'Admin adjustment', className: 'border-sky-400/35 bg-sky-400/10 text-sky-200' },
   'billing-grant': { label: 'Pass purchase', className: 'border-amber-300/35 bg-amber-300/10 text-amber-200' },
+  'coin-grant': { label: 'Coin grant', className: 'border-lime-400/35 bg-lime-400/10 text-lime-200' },
 };
 
 /**

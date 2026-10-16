@@ -43,6 +43,7 @@ import { redeemFailureMessage } from '@/lib/rewards/messages';
 import { deliverMessage } from '@/lib/inbox/server';
 import { readVote } from '@/lib/predictions/server';
 import { settleVote } from '@/lib/predictions/antiCheat';
+import { recordPredictionOutcome } from '@/lib/leaderboard/server';
 import { isPrediction } from '@/lib/predictions';
 import { isViewerBanned } from '@/lib/admin/users';
 import { recordLedger } from '@/lib/admin/ledger';
@@ -186,6 +187,16 @@ export async function POST(request: Request) {
         alreadyAwarded: wallet.awards.some((award) => award.matchId === matchId),
         reward: REWARD_CORRECT_PREDICTION,
       });
+      // Live global leaderboard: settled outcomes are recorded once per match,
+      // server-side, so streaks and accuracy can never be inflated by a client.
+      if (settlement.settled) {
+        await recordPredictionOutcome({
+          userId: viewer.id,
+          handle: vote.username,
+          matchId,
+          correct: settlement.correct,
+        }).catch(() => null);
+      }
       if (settlement.coins > 0) {
         // Any armed prediction boost multiplies this payout and is consumed by the
         // same write that credits the coins — never two separate steps.

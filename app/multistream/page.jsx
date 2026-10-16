@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Grid2X2, Layers, Plus, RefreshCw, Replace, VolumeX, X } from 'lucide-react';
 import MultiStreamSlot from '@/components/multiview/MultiStreamSlot';
 import SourcePicker from '@/components/multiview/SourcePicker';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 import PremiumButton from '@/components/subscription/PremiumButton';
 
@@ -23,7 +24,11 @@ export default function MultiStreamPage() {
       <Link href="/" className="mt-5 block text-xs font-bold text-zinc-300 underline underline-offset-4">Keep watching free HD</Link>
     </section>
   );
-  return <MultiStreamArena />;
+  return (
+    <ErrorBoundary name="multiview" title="Multi-View arena hit a snag" message="The four-screen arena could not be mounted. Your matches are still available in the single-player view.">
+      <MultiStreamArena />
+    </ErrorBoundary>
+  );
 }
 
 /** Mounted only after a server-verified site-wide VIP grant; no background decoders for free fans. */
@@ -124,7 +129,11 @@ export function MultiStreamArena() {
               <button type="button" onClick={() => setActiveSlot(index)} aria-label={`${source ? 'Replace' : 'Choose'} source for screen ${index + 1}`} className="tactile rounded-lg p-1.5 text-zinc-300 hover:bg-white/10"><Replace className="h-4 w-4" aria-hidden="true" /></button>
               {source && <button type="button" onClick={() => setSlots((current) => current.map((slot, i) => i === index ? null : slot))} aria-label={`Remove screen ${index + 1}`} className="tactile rounded-lg p-1.5 text-zinc-400 hover:bg-red-500/20 hover:text-red-200"><X className="h-4 w-4" aria-hidden="true" /></button>}
             </div>
-            {source ? <MultiStreamSlot key={`${source.type}:${source.id}`} source={source} /> : <button type="button" onClick={() => setActiveSlot(index)} className="tactile flex aspect-video w-full flex-col items-center justify-center gap-3 p-6 text-center text-zinc-300 hover:bg-white/5"><Plus className="h-9 w-9 rounded-xl border border-dashed border-white/20 p-2 text-lime-300" aria-hidden="true" /><span className="text-sm font-bold">Add live stream</span><span className="text-[11px] text-zinc-400">Choose a match or an IPTV channel</span></button>}
+            {source ? (
+              <ErrorBoundary name={`multiview-slot-${index + 1}`} title="Screen failed" message="This screen hit a player glitch. The other screens keep playing — retry just this source.">
+                <MultiStreamSlot key={`${source.type}:${source.id}`} source={source} />
+              </ErrorBoundary>
+            ) : <button type="button" onClick={() => setActiveSlot(index)} className="tactile flex aspect-video w-full flex-col items-center justify-center gap-3 p-6 text-center text-zinc-300 hover:bg-white/5"><Plus className="h-9 w-9 rounded-xl border border-dashed border-white/20 p-2 text-lime-300" aria-hidden="true" /><span className="text-sm font-bold">Add live stream</span><span className="text-[11px] text-zinc-400">Choose a match or an IPTV channel</span></button>}
             <label className="flex items-center gap-3 border-t border-white/10 px-3 py-2 text-[10px] font-bold text-zinc-400">Width {sizes[index]}%<input type="range" min="25" max="100" step="5" value={sizes[index]} aria-label={`Screen ${index + 1} width`} onChange={(event) => setSize(index, Number(event.target.value))} className="h-1 min-w-0 flex-1 accent-lime-400" /></label>
             <div role="separator" aria-orientation="vertical" onPointerDown={(event) => startResize(event, index)} className="absolute bottom-10 right-0 top-12 w-2 cursor-col-resize touch-none hover:bg-lime-400/20" title="Drag to resize screen" />
           </section>
