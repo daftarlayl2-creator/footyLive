@@ -42,6 +42,16 @@
 
 ---
 
+## 🪙 EVIV Coins & anti-cheat
+
+The coin economy, the prediction rules and the Rewards Store are specified in
+[predictions & coins](docs/predictions-and-coins.md), including every server-side
+guarantee: a signed viewer cookie identity, one vote per `user_id + match_id`, an
+automatic lock at kick-off, rewards settled from real final scores at most once
+per match, and redemptions validated against the stored balance.
+
+---
+
 ## 🛠️ Tech Stack
 
 | Technology | Version | Purpose |
