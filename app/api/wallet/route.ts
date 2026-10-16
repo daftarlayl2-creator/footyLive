@@ -27,6 +27,8 @@ import { creditPredictionReward, loadWallet, redeemVipReward, sanitizeWallet, VI
 import { readVote } from '@/lib/predictions/server';
 import { settleVote } from '@/lib/predictions/antiCheat';
 import { isPrediction } from '@/lib/predictions';
+import { isViewerBanned } from '@/lib/admin/users';
+import { recordLedger } from '@/lib/admin/ledger';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +75,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const viewer = viewerFor(request);
+  // Admin moderation: a banned fan cannot settle, earn or spend coins.
+  if (await isViewerBanned(viewer.id)) {
+    return withFreshCookie(
+      NextResponse.json({ error: 'This fan account is suspended. Contact Limon Live support.', reason: 'banned' }, { status: 403, headers }),
+      viewer.fresh
+    );
+  }
   let body: any = null;
   try {
     body = await request.json();
@@ -150,6 +159,15 @@ export async function POST(request: Request) {
         { status: 409, headers }
       );
     }
+    // Finance tracking: the redemption is a coin spend buying a monthly pass.
+    await recordLedger({
+      kind: 'coin-redeem',
+      userId: viewer.id,
+      coins: -VIP_PASS_COIN_COST,
+      balanceAfter: result.wallet.balance,
+      planId: 'monthly',
+      note: '1-month VIP pass redeemed with EVIV Coins',
+    });
     return withFreshCookie(
       NextResponse.json(
         { ...walletPayload(viewer.id, result.wallet), grant: result.grant, redeemed: VIP_REWARD, verified: true },

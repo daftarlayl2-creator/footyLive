@@ -26,7 +26,7 @@ import {
 } from './localAuth';
 import { createSupabaseAuth, type SupabaseAuth, type SupabaseSession } from './supabaseAuth';
 import type { AuthProvider, AuthResult, AuthSnapshot, AuthUser, Credentials, ProfilePatch, SignUpInput } from './types';
-import { sanitizeDisplayName, validateDisplayName, validateEmail, validatePassword } from './validation';
+import { sanitizeBirthdate, sanitizeCountryCode, sanitizeDisplayName, validateBirthdate, validateDisplayName, validateEmail, validatePassword } from './validation';
 
 export const AUTH_SESSION_KEY = 'eviv:auth:session';
 /** Device copy of a Supabase user's avatar when the cloud upload was unavailable. */
@@ -414,6 +414,16 @@ export async function updateProfile(patch: ProfilePatch): Promise<AuthResult> {
     data.display_name = sanitizeDisplayName(patch.displayName);
   }
   if (patch.favoriteClub !== undefined) data.favorite_club = sanitizeFavoriteClub(patch.favoriteClub);
+  if (patch.birthdate !== undefined) {
+    const error = validateBirthdate(patch.birthdate);
+    if (error) return { ok: false, error };
+    data.birthdate = sanitizeBirthdate(patch.birthdate) ?? null;
+  }
+  if (patch.countryCode !== undefined) {
+    const country = sanitizeCountryCode(patch.countryCode);
+    if (country === undefined) return { ok: false, error: 'Pick your country from the list.' };
+    data.country_code = country;
+  }
   if (patch.avatarUrl !== undefined) {
     const avatar = sanitizeAvatarUrl(patch.avatarUrl);
     if (avatar === undefined) return { ok: false, error: 'That picture could not be used. Try a smaller JPG, PNG or WebP image.' };

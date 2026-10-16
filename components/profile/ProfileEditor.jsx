@@ -1,27 +1,48 @@
 'use client';
 
 import { useId, useRef, useState } from 'react';
-import { Camera, Check, ImageOff, Loader2, Save } from 'lucide-react';
+import { Cake, Camera, Check, ImageOff, Loader2, Save } from 'lucide-react';
 import { AVATAR_PRESETS, MAX_DISPLAY_NAME_LENGTH, resizeImageToDataUrl, updateProfile } from '@/lib/auth';
 import { playSound } from '@/lib/sound/uiSound';
+import { COUNTRIES, ageFromBirthdate, normalizeCountryCode } from '@/lib/geo/countries';
 import UserAvatar from '@/components/auth/UserAvatar';
 import ClubPicker from './ClubPicker';
+import WavingFlag from './WavingFlag';
 
 function sameClub(a, b) {
   return (a?.name || '') === (b?.name || '') && String(a?.id ?? '') === String(b?.id ?? '');
 }
 
-/** Edit display name, avatar picture (upload or brand preset) and primary favourite club. */
+/** Date input bounds: youngest fan 5, oldest 120 (server-side rule mirrors it). */
+function birthdateBounds() {
+  const now = new Date();
+  const iso = (year) => `${year}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return { min: iso(now.getFullYear() - 120), max: iso(now.getFullYear() - 5) };
+}
+
+/** Edit display name, avatar picture (upload or brand preset), fan identity (birthdate + country) and primary favourite club. */
 export default function ProfileEditor({ user, favorites }) {
   const nameId = useId();
+  const birthdateId = useId();
+  const countryId = useId();
   const fileRef = useRef(null);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
   const [club, setClub] = useState(user.favoriteClub);
+  const [birthdate, setBirthdate] = useState(user.birthdate || '');
+  const [countryCode, setCountryCode] = useState(normalizeCountryCode(user.countryCode) || '');
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState({ kind: 'idle', message: '' });
 
-  const dirty = displayName !== user.displayName || avatarUrl !== user.avatarUrl || !sameClub(club, user.favoriteClub);
+  const savedCountry = normalizeCountryCode(user.countryCode) || '';
+  const dirty =
+    displayName !== user.displayName ||
+    avatarUrl !== user.avatarUrl ||
+    !sameClub(club, user.favoriteClub) ||
+    (birthdate || '') !== (user.birthdate || '') ||
+    countryCode !== savedCountry;
+  const age = ageFromBirthdate(birthdate);
+  const bounds = birthdateBounds();
 
   const onFile = async (event) => {
     const file = event.target.files?.[0];
@@ -44,6 +65,8 @@ export default function ProfileEditor({ user, favorites }) {
     if (displayName !== user.displayName) patch.displayName = displayName;
     if (avatarUrl !== user.avatarUrl) patch.avatarUrl = avatarUrl;
     if (!sameClub(club, user.favoriteClub)) patch.favoriteClub = club;
+    if ((birthdate || '') !== (user.birthdate || '')) patch.birthdate = birthdate || null;
+    if (countryCode !== savedCountry) patch.countryCode = countryCode || null;
     if (!Object.keys(patch).length) return;
 
     setStatus({ kind: 'saving', message: 'Saving…' });
@@ -57,6 +80,8 @@ export default function ProfileEditor({ user, favorites }) {
       setDisplayName(result.user.displayName);
       setAvatarUrl(result.user.avatarUrl);
       setClub(result.user.favoriteClub);
+      setBirthdate(result.user.birthdate || '');
+      setCountryCode(normalizeCountryCode(result.user.countryCode) || '');
     }
     setStatus({ kind: 'saved', message: result.notice || 'Profile saved' });
     playSound('success');
@@ -138,6 +163,56 @@ export default function ProfileEditor({ user, favorites }) {
               </button>
             );
           })}
+        </div>
+      </fieldset>
+
+      {/* Fan identity: birthdate + country (waving flag next to the username) */}
+      <fieldset className="mt-5" data-fan-identity="">
+        <legend className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-200">Fan identity</legend>
+        <p className="mt-0.5 text-[11px] font-semibold text-zinc-300">Your age and flag wave next to your name on this profile.</p>
+        <div className="mt-2.5 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor={birthdateId} className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-200">Birthdate</label>
+            <div className="relative mt-1.5">
+              <input
+                id={birthdateId}
+                type="date"
+                value={birthdate}
+                min={bounds.min}
+                max={bounds.max}
+                onChange={(event) => setBirthdate(event.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 pr-9 text-base text-white [color-scheme:dark] outline-none focus:border-lime-500/60 focus:ring-2 focus:ring-lime-500/20 sm:text-sm"
+              />
+              <Cake className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lime-300" aria-hidden="true" />
+            </div>
+            <p className="mt-1 text-[10px] font-semibold text-zinc-400" aria-live="polite">
+              {birthdate
+                ? age !== null
+                  ? `${age} years old`
+                  : 'Pick a real date'
+                : 'Optional · never shown publicly'}
+            </p>
+          </div>
+          <div>
+            <label htmlFor={countryId} className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-200">Country</label>
+            <div className="mt-1.5 flex items-center gap-2.5">
+              <select
+                id={countryId}
+                value={countryCode}
+                onChange={(event) => setCountryCode(event.target.value)}
+                className="w-full min-w-0 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-base text-white [color-scheme:dark] outline-none focus:border-lime-500/60 focus:ring-2 focus:ring-lime-500/20 sm:text-sm"
+              >
+                <option value="">No country yet</option>
+                {COUNTRIES.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+              <WavingFlag code={countryCode || 'MA'} size={30} className={countryCode ? '' : 'opacity-30 grayscale'} />
+            </div>
+            <p className="mt-1 text-[10px] font-semibold text-zinc-400">The flag waves next to your name.</p>
+          </div>
         </div>
       </fieldset>
 

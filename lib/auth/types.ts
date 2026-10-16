@@ -18,6 +18,10 @@ export interface AuthUser {
   /** http(s) URL, a small data: URL (device / local accounts) or `preset:<id>`. */
   avatarUrl: string | null;
   favoriteClub: FavoriteClub | null;
+  /** ISO `YYYY-MM-DD` birthdate the fan set on /profile (drives the age chip). */
+  birthdate?: string | null;
+  /** Country selector code (see lib/geo/countries) shown as a waving flag. */
+  countryCode?: string | null;
   /** Registered fan with a confirmed account → shows the verified badge. */
   verified: boolean;
   provider: AuthProvider;
@@ -37,6 +41,8 @@ export interface ProfilePatch {
   displayName?: string;
   avatarUrl?: string | null;
   favoriteClub?: FavoriteClub | null;
+  birthdate?: string | null;
+  countryCode?: string | null;
 }
 
 export interface Credentials {

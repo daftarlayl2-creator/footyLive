@@ -25,6 +25,9 @@ import { CHAT_ACTIVITY_STORAGE_KEY, nextChatActivity, parseChatActivity } from '
 import { playSound } from '@/lib/sound/uiSound';
 import UserAvatar from '@/components/auth/UserAvatar';
 import VerifiedBadge from '@/components/auth/VerifiedBadge';
+import VipBadge from '@/components/auth/VipBadge';
+import { vipTierFromGrants } from '@/lib/vip/tiers';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 
 const TABLE = 'match_messages';
 
@@ -91,6 +94,9 @@ export default function MatchChatPanel({ matchId, userName }) {
   const auth = useAuth();
   const account = auth.status === 'authenticated' ? auth.user : null;
   const displayName = account?.displayName || storedName || userName || '';
+  // The viewer's own VIP tier badge rides on their own chat bubbles.
+  const { grants } = useSubscription();
+  const myTier = account ? vipTierFromGrants(grants) : null;
 
   const [messages, setMessages] = useState([]);
   const [connection, setConnection] = useState('connecting');
@@ -301,6 +307,7 @@ export default function MatchChatPanel({ matchId, userName }) {
               <span className="shrink-0 whitespace-nowrap">Chatting as</span>
               <span className="min-w-0 truncate font-extrabold text-navy-900 dark:text-zinc-100">{account.displayName}</span>
               {account.verified && <VerifiedBadge size={14} />}
+              {myTier && <VipBadge tier={myTier} size={15} />}
             </span>
             <Link href="/profile" className="tactile shrink-0 rounded-full px-1.5 py-0.5 font-bold text-lime-700 hover:underline dark:text-lime-300">
               Edit profile
@@ -400,6 +407,7 @@ export default function MatchChatPanel({ matchId, userName }) {
                   )}
                   <p className="whitespace-pre-wrap break-words">{message.message}</p>
                   <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${mine ? 'text-navy-900/60' : 'text-navy-500 dark:text-zinc-400'}`}>
+                    {mine && myTier && <VipBadge tier={myTier} size={12} />}
                     {formatTime(message.created_at)}
                     {mine && message._status === 'sending' && <Check className="h-3 w-3 opacity-60" aria-label="Sending" />}
                     {mine && message._status === 'sent' && <CheckCheck className="h-3 w-3" aria-label="Delivered" />}

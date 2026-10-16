@@ -8,7 +8,7 @@
 
 import { hashPassword, verifyPassword, type PasswordHash } from './password';
 import type { AuthUser, Credentials, FavoriteClub, ProfilePatch, SignUpInput } from './types';
-import { normalizeEmail, sanitizeDisplayName, validateDisplayName, validateEmail, validatePassword } from './validation';
+import { normalizeEmail, sanitizeBirthdate, sanitizeCountryCode, sanitizeDisplayName, validateBirthdate, validateDisplayName, validateEmail, validatePassword } from './validation';
 
 export const LOCAL_ACCOUNTS_KEY = 'eviv:auth:accounts';
 /** Avatars are downscaled client-side; anything bigger is rejected to protect storage. */
@@ -26,6 +26,8 @@ export interface LocalAccount {
   displayName: string;
   avatarUrl: string | null;
   favoriteClub: FavoriteClub | null;
+  birthdate?: string | null;
+  countryCode?: string | null;
   createdAt: string;
   password: PasswordHash;
 }
@@ -71,6 +73,8 @@ export function toAuthUser(account: LocalAccount): AuthUser {
     displayName: account.displayName,
     avatarUrl: account.avatarUrl,
     favoriteClub: account.favoriteClub,
+    birthdate: sanitizeBirthdate(account.birthdate) ?? null,
+    countryCode: sanitizeCountryCode(account.countryCode) ?? null,
     // A registered account on this device is a verified fan.
     verified: true,
     provider: 'local',
@@ -120,6 +124,8 @@ export function createLocalAuth(store: KeyValueStore, options: LocalAuthOptions 
       displayName: sanitizeDisplayName(input.displayName),
       avatarUrl: null,
       favoriteClub: null,
+      birthdate: null,
+      countryCode: null,
       createdAt: new Date(now()).toISOString(),
       password,
     };
@@ -159,6 +165,16 @@ export function createLocalAuth(store: KeyValueStore, options: LocalAuthOptions 
       next.avatarUrl = avatar;
     }
     if (patch.favoriteClub !== undefined) next.favoriteClub = sanitizeFavoriteClub(patch.favoriteClub);
+    if (patch.birthdate !== undefined) {
+      const error = validateBirthdate(patch.birthdate);
+      if (error) return { ok: false, error };
+      next.birthdate = sanitizeBirthdate(patch.birthdate) ?? null;
+    }
+    if (patch.countryCode !== undefined) {
+      const country = sanitizeCountryCode(patch.countryCode);
+      if (country === undefined) return { ok: false, error: 'Pick your country from the list.' };
+      next.countryCode = country;
+    }
 
     const updated = [...accounts];
     updated[index] = next;
