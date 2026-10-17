@@ -247,7 +247,13 @@ describe('Watch page interactive match components', () => {
   });
 
   it('renders MatchChatPanel with message list and reaction buttons', () => {
-    const html = renderToStaticMarkup(<MatchChatPanel matchId="espn-700001" />);
+    // Phase 7: collapsed by default — the body (messages, reactions) mounts
+    // only once expanded, so the collapsed shell shows just the toggle.
+    const collapsed = renderToStaticMarkup(<MatchChatPanel matchId="espn-700001" />);
+    expect(collapsed).toContain('Live Match Chat');
+    expect(collapsed).toContain('Expand chat');
+    expect(collapsed).not.toContain('No messages yet');
+    const html = renderToStaticMarkup(<MatchChatPanel matchId="espn-700001" defaultOpen />);
     expect(html).toContain('Live Match Chat');
     expect(html).toContain('No messages yet');
     expect(html).toContain('Celebrate goal');
