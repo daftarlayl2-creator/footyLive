@@ -175,4 +175,22 @@ describe('PitchVisualization — player card', () => {
     // The XI the geometry module placed is exactly the XI on screen.
     expect(placePlayers('3-4-3', XI)).toHaveLength(11);
   });
+
+  it('shows an honest unavailable state instead of placeholder shirts when no lineup was published (Phase 4)', () => {
+    for (const players of [undefined, []]) {
+      const html = renderToStaticMarkup(<PitchVisualization formation="4-3-3" players={players} teamName="Arsenal" />);
+      expect(html).toContain('data-lineup-unavailable');
+      expect(html).toContain('Lineup not available');
+      expect(html).toContain('Arsenal');
+      expect(html).not.toContain('data-pitch-roster');
+    }
+  });
+
+  it('labels an unpublished formation instead of asserting a default (Phase 4)', () => {
+    const html = renderToStaticMarkup(<PitchVisualization formation="4-3-3" formationKnown={false} players={XI} teamName="Arsenal" />);
+    expect(html).toContain('Formation not published');
+    const known = renderToStaticMarkup(<PitchVisualization formation="4-4-2" players={XI} teamName="Arsenal" />);
+    expect(known).toContain('4-4-2');
+    expect(known).not.toContain('Formation not published');
+  });
 });

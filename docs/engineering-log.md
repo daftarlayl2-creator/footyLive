@@ -45,3 +45,11 @@ Plus brand identity commit `5b0e6f4`.
 - Verified against real cloned repo files: ma 14 / fr 223 / es 277 /
   uk 227 entries parse; playback itself not verifiable in this sandbox
   (egress allowlist; streams are third-party and rights vary).
+
+## Phase 4 — Lineups & tactical pitch
+Audit: `lib/lineups/formations.ts` geometry is rigorous (0–100 viewBox, `preserveAspectRatio="meet"`, shared row y-values, symmetric x spread, jersey label truncation + `aria-label` full names) and fully tested — kept as-is. Defect found upstream of it: when ESPN published no roster, the watch page passed `players: undefined` and the pitch rendered 11 placeholder shirts in an assumed 4-3-3 — a fabricated lineup.
+- `components/lineups/PitchVisualization.jsx`: no verified players ⇒ explicit "Lineup not available" state (`data-lineup-unavailable`); new `formationKnown` prop — unpublished formation renders "Formation not published" instead of the layout default.
+- `components/MatchStatsSection.jsx`: `extractTeamLineup` returns the upstream formation only (`null` when absent); layout fallback kept internal, never labelled as fact.
+- Tests: +2 (unavailable state, unpublished-formation label); 9/9 pitch tests pass.
+- No trade dress copied: geometry is the repo's own original model; no predicted XIs exist anywhere in the app (grep-verified).
+- Phase 4 verification details consolidated in the final report; browser pixel checks at 1275px etc. unavailable here (no browser) — geometry covered by unit tests.
