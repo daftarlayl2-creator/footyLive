@@ -129,17 +129,49 @@ export default async function RootLayout({ children }) {
             </div>
           </div>
 
-          <footer className="relative z-10 flex w-full justify-center border-t border-navy-750 bg-navy-950/90 px-4 py-8 text-zinc-400">
-            <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-6 text-center text-xs md:flex-row md:text-left">
-              <div className="flex flex-col items-center gap-3 sm:flex-row sm:text-left">
+          {/* Compact multi-column footer (Phase 9) */}
+          <footer className="relative z-10 w-full border-t border-navy-750 bg-navy-950/90 px-4 py-8 text-zinc-400">
+            <div className="mx-auto grid w-full max-w-6xl gap-8 text-xs sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-3">
                 <BrandLogo className="shrink-0" />
-                <p className="max-w-lg leading-relaxed">
-                  © {new Date().getFullYear()} Limon Live. Live fixtures and statistics come from public sports data;
-                  streams are aggregated from third-party networks.
+                <p className="max-w-xs leading-relaxed">
+                  Live fixtures and statistics come from public sports data; streams are aggregated from third-party
+                  networks.
                 </p>
+                <Link href="/pricing" className="tactile inline-block rounded-xl border border-eviv-lime/30 px-4 py-2 font-bold text-eviv-lime">VIP passes · from 3 MAD</Link>
               </div>
-              <Link href="/pricing" className="tactile rounded-xl border border-eviv-lime/30 px-4 py-2 font-bold text-eviv-lime">VIP passes · from 3 MAD</Link>
+              <nav aria-label="Explore" className="space-y-2">
+                <p className="font-extrabold uppercase tracking-widest text-zinc-200">Explore</p>
+                <ul className="space-y-1.5">
+                  <li><Link className="hover:text-lime-400" href="/">Today&rsquo;s matches</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/standings">Standings</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/highlights">Highlights</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/leaderboard">Leaderboard</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/pricing">VIP passes</Link></li>
+                </ul>
+              </nav>
+              <nav aria-label="Company" className="space-y-2">
+                <p className="font-extrabold uppercase tracking-widest text-zinc-200">Company</p>
+                <ul className="space-y-1.5">
+                  <li><Link className="hover:text-lime-400" href="/about">About</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/contact">Contact</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/advertise">Advertise</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/api-partnerships">API Partnerships</Link></li>
+                </ul>
+              </nav>
+              <nav aria-label="Legal" className="space-y-2">
+                <p className="font-extrabold uppercase tracking-widest text-zinc-200">Legal</p>
+                <ul className="space-y-1.5">
+                  <li><Link className="hover:text-lime-400" href="/privacy">Privacy Policy</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/terms">Terms of Service</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/copyright">Copyright / DMCA</Link></li>
+                </ul>
+              </nav>
             </div>
+            <p className="mx-auto mt-8 w-full max-w-6xl border-t border-navy-800 pt-4 text-[11px] leading-relaxed">
+              © {new Date().getFullYear()} Limon Live. Scores and statuses are shown as reported by upstream providers;
+              third-party content remains the responsibility of its provider.
+            </p>
           </footer>
 
           {/* Mobile sticky footer banner (320x50), docked just above the bottom tab bar.
