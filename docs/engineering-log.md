@@ -78,3 +78,6 @@ Audit: rooms already keyed by stable match id, stable hash hues (`hueFor`), sani
 - Room lifecycle: `chatRoomState()` in `lib/chat.ts` — open before/during and for 24h after full-time, read-only afterwards (composer replaced by an explanatory note; `send()` hard-guarded; history still readable). Watch page passes `matchStatus`/`matchTimestamp`.
 - New `lib/chat.test.ts` (4 tests: lifecycle boundaries, fail-open on missing timestamps, hue stability, sanitizers).
 - Server-side note: writes go client→Supabase (RLS) or to the local store; RLS policies cannot be verified from this sandbox and were not invented here.
+
+## Phase 8 — Highlights resilience
+Existing safeguards (verified, kept): 3s-bounded provider + client fetch that degrades to an honest empty state, thumbnail fallback ladder on cards, official "Open on YouTube" link, sandboxed-frame hygiene. Gap closed in `components/HighlightPlayerModal.jsx`: the embed now reports `onLoad`/`onError`, and a 6s patience deadline detects frames that never become ready (region/embedding restrictions render inside the frame and are unreadable cross-origin). On failure/slowness the modal shows `data-highlight-fallback` pointing to the official watch page — no proxying, re-hosting, or restriction circumvention. State is keyed by video id (no reset effects).
