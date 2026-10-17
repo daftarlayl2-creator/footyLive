@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowDown, BadgeCheck, Check, CheckCheck, MessageCircle, Pencil, RotateCw, SendHorizontal, X } from 'lucide-react';
+import { ArrowDown, BadgeCheck, Check, CheckCheck, ChevronDown, ChevronUp, MessageCircle, Pencil, RotateCw, SendHorizontal, X } from 'lucide-react';
 import { createRowId, getLocalSupabase, useSupabase } from '@/lib/supabase';
 import { readLocal, useLocalValue, writeLocal } from '@/lib/hooks/useLocalValue';
 import {
   CHAT_HISTORY_LIMIT,
+  chatRoomState,
   MAX_MESSAGE_LENGTH,
   MAX_NICKNAME_LENGTH,
   NICKNAME_STORAGE_KEY,
@@ -84,8 +85,13 @@ const STATUS_PILL = {
  * the realtime channel, and the list auto-scrolls unless the reader has
  * scrolled up (then a "new messages" pill appears).
  */
-export default function MatchChatPanel({ matchId, userName }) {
+export default function MatchChatPanel({ matchId, userName, matchStatus, matchTimestamp, defaultOpen = false }) {
   const id = String(matchId);
+  // Phase 7: the panel is collapsed by default; the room keyed by the stable
+  // match id stays writable through full-time + 24h, then read-only.
+  const [open, setOpen] = useState(defaultOpen);
+  const roomState = chatRoomState(matchStatus, matchTimestamp);
+  const readOnly = roomState === 'readonly';
   const { supabase } = useSupabase();
   const [offline, setOffline] = useState(false);
   const client = offline ? getLocalSupabase() : supabase;
@@ -206,6 +212,7 @@ export default function MatchChatPanel({ matchId, userName }) {
   };
 
   const send = () => {
+    if (readOnly) return;
     const text = normalizeMessageText(input);
     if (!text) {
       inputRef.current?.focus();
@@ -277,7 +284,7 @@ export default function MatchChatPanel({ matchId, userName }) {
     <section
       aria-label="Live Match Chat"
       data-sound="none"
-      className="chat-panel app-card relative flex h-[460px] w-full flex-col overflow-hidden"
+      className={`chat-panel app-card relative flex w-full flex-col overflow-hidden ${open ? 'h-[460px]' : ''}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-navy-200/70 px-4 py-3 dark:border-navy-750">
@@ -296,8 +303,18 @@ export default function MatchChatPanel({ matchId, userName }) {
           <span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />
           {pill.label}
         </span>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-label={open ? 'Collapse chat' : 'Expand chat'}
+          className="tactile flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl text-navy-600 hover:bg-navy-100 dark:text-zinc-300 dark:hover:bg-navy-800"
+        >
+          {open ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+        </button>
       </div>
 
+      {open ? (<>
       {/* Identity */}
       <div className="flex items-center justify-between gap-2 px-4 pt-2 text-[11px]">
         {account ? (
@@ -466,7 +483,12 @@ export default function MatchChatPanel({ matchId, userName }) {
         ))}
       </div>
 
-      {/* Composer */}
+      {/* Composer (read-only once the room closes, full-time + 24h) */}
+      {readOnly ? (
+        <p data-chat-readonly className="border-t border-navy-200/70 px-4 py-3 text-center text-xs text-navy-500 dark:border-navy-750 dark:text-zinc-400" role="status">
+          This match room closed 24 hours after full-time. Messages stay readable here.
+        </p>
+      ) : (
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -512,6 +534,8 @@ export default function MatchChatPanel({ matchId, userName }) {
           <SendHorizontal className="h-5 w-5" aria-hidden="true" />
         </button>
       </form>
+      )}
+      </>) : null}
     </section>
   );
 }

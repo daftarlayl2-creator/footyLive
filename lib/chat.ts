@@ -100,6 +100,30 @@ export function isVerifiedMessage(message: Pick<ChatMessage, 'verified' | 'user_
   return Boolean(message?.verified && message?.user_id);
 }
 
+/** Rooms stay open through full-time plus 24 hours (Phase 7 lifecycle). */
+export const CHAT_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+
+export type ChatRoomState = 'open' | 'readonly';
+
+/**
+ * Room lifecycle keyed to the match itself: open before/during the match and
+ * for 24h after the final whistle, read-only afterwards. Uses the kickoff
+ * timestamp plus a generous match window (3h) as the end anchor when no
+ * explicit end time exists — the status still comes from upstream, never
+ * inferred; unknown fixtures fail open so fans are never locked out by a
+ * missing timestamp.
+ */
+export function chatRoomState(
+  status: string | undefined | null,
+  timestamp: number | undefined | null,
+  now = Date.now(),
+): ChatRoomState {
+  if (status !== 'finished') return 'open';
+  if (!timestamp || !Number.isFinite(timestamp)) return 'open';
+  const closesAt = timestamp + 3 * 60 * 60 * 1000 + CHAT_ROOM_TTL_MS;
+  return now <= closesAt ? 'open' : 'readonly';
+}
+
 /** Legacy row shape (for backends whose table predates user_id / verified). */
 export function legacyChatRecord<T extends ChatMessage>(record: T): ChatMessage {
   const { user_id: _userId, verified: _verified, _status, ...rest } = record;

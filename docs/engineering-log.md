@@ -71,3 +71,10 @@ Done:
 - Hero slot (TopSportsBanner) and the large slot between the new ticker and FavoritesHub (homeTop desktop/mobile) already exist on the homepage — verified, kept.
 - `lib/ads/creativeValidation.ts`: magic-byte-only PNG/JPEG/WEBP validation (2 MiB cap; SVG/HTML/GIF rejected) + 3 tests — ready for any future upload UI.
 BLOCKED (needs owner decision, not implemented): first-party campaign CRUD, creative upload storage, schedules, impression targets. There is no durable object/table store in this environment (no Supabase credentials, no Upstash token), and inventing an in-memory "campaign manager" would fabricate capabilities that vanish on restart. Recommended: Supabase Storage bucket `ad-creatives` + `ad_campaigns` table behind existing admin RBAC; `validateCreative` plugs into the upload route unchanged.
+
+## Phase 7 — Match chat
+Audit: rooms already keyed by stable match id, stable hash hues (`hueFor`), sanitizers, optimistic delivery states, Supabase-or-local store reuse, verified/VIP badges — all kept. Gaps closed:
+- Collapsed by default: header chevron toggle (`aria-expanded`), body mounts only when open, `h-[460px]` only while open.
+- Room lifecycle: `chatRoomState()` in `lib/chat.ts` — open before/during and for 24h after full-time, read-only afterwards (composer replaced by an explanatory note; `send()` hard-guarded; history still readable). Watch page passes `matchStatus`/`matchTimestamp`.
+- New `lib/chat.test.ts` (4 tests: lifecycle boundaries, fail-open on missing timestamps, hue stability, sanitizers).
+- Server-side note: writes go client→Supabase (RLS) or to the local store; RLS policies cannot be verified from this sandbox and were not invented here.
