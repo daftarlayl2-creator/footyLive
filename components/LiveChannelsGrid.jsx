@@ -10,9 +10,10 @@ const ORDER = { live: 0, checking: 1, unknown: 2, offline: 3 };
 const STATUS_META = {
   live: {
     label: 'Live',
-    dot: 'bg-lime-500',
+    dot: 'bg-navy-950',
     ping: true,
-    pill: 'bg-lime-500/10 border-lime-500/30 text-lime-600 dark:text-lime-400',
+    // Brand LIVE badge: solid live-red (#FF4D4D via the red-500 token), ink text.
+    pill: 'bg-red-500 border-red-500 text-navy-950',
   },
   checking: {
     label: 'Checking',

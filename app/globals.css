@@ -1,49 +1,59 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Cairo:wght@600&display=swap');
 
 @import "tailwindcss";
 
 /* ==========================================================================
-   Limon Live — deep burgundy surfaces / electric lime accents.
-   Existing navy-* utility names are retained as aliases for older markup;
-   their values now belong to the burgundy palette, not the old blue theme.
+   Limon Live brand palette — ink page, charcoal cards, chalk text, slate
+   muted text, lime primary actions, violet secondary accents, live-red
+   LIVE badges. Existing navy-* utility names are retained as aliases for
+   older markup; their values now belong to the brand palette below
+   (950 = ink page, 900/800 = charcoal card, 750 = border, 400 = slate).
+   The raw brand values also live in :root as --lime/--ink/--charcoal/
+   --chalk/--slate/--violet/--live-red.
    ========================================================================== */
 
 @theme {
-  --color-background: #18030A;
-  --color-surface: #280713;
-  --color-border: #3D0B1D;
+  --color-background: #0B0D0A;
+  --color-surface: #1A1F17;
+  --color-border: #2B332A;
 
   /* Limon brand marks (verified seal, player cards). */
-  --color-eviv-lime: #CCFF00;
-  --color-eviv-burgundy: #2A0813;
+  --color-eviv-lime: #C1F11D;
+  --color-eviv-burgundy: #0B0D0A;
 
-  /* Burgundy neutrals. 950 = page, 900/800 = card, 750 = border. */
-  --color-navy-50: #fff6f8;
-  --color-navy-100: #fbe6eb;
-  --color-navy-200: #efc2cf;
-  --color-navy-300: #d69cae;
-  --color-navy-400: #b8768e;
-  --color-navy-500: #965169;
-  --color-navy-600: #74334b;
-  --color-navy-700: #572339;
-  --color-navy-750: #3D0B1D;
-  --color-navy-800: #280713;
-  --color-navy-850: #21050f;
-  --color-navy-900: #280713;
-  --color-navy-950: #18030A;
+  /* Brand neutrals (chalk → slate → charcoal → ink). */
+  --color-navy-50: #F7F9F2;
+  --color-navy-100: #EDF1E4;
+  --color-navy-200: #D9E0CC;
+  --color-navy-300: #B9C3A6;
+  --color-navy-400: #8C9484;
+  --color-navy-500: #6E7665;
+  --color-navy-600: #525B4B;
+  --color-navy-700: #3C4436;
+  --color-navy-750: #2B332A;
+  --color-navy-800: #1A1F17;
+  --color-navy-850: #12160F;
+  --color-navy-900: #1A1F17;
+  --color-navy-950: #0B0D0A;
 
-  /* Electric lime: #CCFF00 is the primary action/live/active colour. */
+  /* Brand accents: violet (secondary) and live-red (LIVE badges/dots). */
+  --color-violet-500: #7C5CFF;
+  --color-brand-violet: #7C5CFF;
+  --color-red-500: #FF4D4D;
+  --color-live-red: #FF4D4D;
+
+  /* Brand lime: #C1F11D is the primary action/active colour (ink text on top). */
   --color-lime-50: #faffdc;
   --color-lime-100: #f4ffb9;
   --color-lime-150: #eeff9d;
   --color-lime-200: #e9ff80;
   --color-lime-250: #e5ff70;
-  --color-lime-300: #E4FF66;
-  --color-lime-350: #dfff52;
-  --color-lime-400: #d8ff3d;
-  --color-lime-450: #cfff20;
-  --color-lime-500: #CCFF00;
-  --color-lime-550: #9eca00;
+  --color-lime-300: #D9F769;
+  --color-lime-350: #d3f552;
+  --color-lime-400: #CDF23F;
+  --color-lime-450: #C7F22E;
+  --color-lime-500: #C1F11D;
+  --color-lime-550: #9dc515;
   --color-lime-600: #628300;
   --color-lime-650: #597800;
   --color-lime-700: #4e6900;
@@ -53,7 +63,7 @@
   --color-lime-900: #233200;
   --color-lime-950: #162300;
 
-  --color-eviv-glow: #CCFF00;
+  --color-eviv-glow: #C1F11D;
 
   /* Custom intermediate zinc shades still referenced by legacy markup */
   --color-zinc-150: #e8e8ec;
@@ -75,16 +85,17 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Layered depth (Material-style elevation tuned for the burgundy surfaces). */
-  --shadow-app: 0 1px 2px rgb(24 3 10 / 0.05), 0 12px 30px -16px rgb(24 3 10 / 0.3);
+  /* Layered depth (Material-style elevation tuned for the ink surfaces). */
+  --shadow-app: 0 1px 2px rgb(11 13 10 / 0.05), 0 12px 30px -16px rgb(11 13 10 / 0.3);
   --shadow-app-dark: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 2px 6px -2px rgb(0 0 0 / 0.45),
     0 20px 44px -24px rgb(0 0 0 / 0.9);
-  --shadow-app-raised: 0 2px 4px rgb(24 3 10 / 0.06), 0 22px 44px -18px rgb(24 3 10 / 0.38);
-  --shadow-glow-lime: 0 10px 28px -10px rgb(198 255 0 / 0.55);
+  --shadow-app-raised: 0 2px 4px rgb(11 13 10 / 0.06), 0 22px 44px -18px rgb(11 13 10 / 0.38);
+  --shadow-glow-lime: 0 10px 28px -10px rgb(193 241 29 / 0.55);
 
   /* Font family */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-wordmark: 'Cairo', 'Inter', sans-serif;
 }
 
 /* === Tailwind v4: Use class-based dark mode === */
@@ -92,15 +103,24 @@
 
 /* CSS custom properties used by embedded/third-party UI. Dark is the default. */
 :root {
-  --background: 339 78% 5%;
-  --foreground: 0 0% 98%;
-  --card: 338 70% 9%;
-  --card-foreground: 0 0% 98%;
-  --border: 338 70% 14%;
-  --muted: 338 70% 9%;
-  --muted-foreground: 339 15% 70%;
-  --accent: 74 100% 50%;
-  --accent-foreground: 339 78% 5%;
+  /* Limon Live brand palette */
+  --lime: #C1F11D;
+  --ink: #0B0D0A;
+  --charcoal: #1A1F17;
+  --chalk: #F4F6EE;
+  --slate: #8C9484;
+  --violet: #7C5CFF;
+  --live-red: #FF4D4D;
+
+  --background: 100 14% 4%;
+  --foreground: 84 33% 95%;
+  --card: 99 16% 11%;
+  --card-foreground: 84 33% 95%;
+  --border: 113 9% 18%;
+  --muted: 99 16% 11%;
+  --muted-foreground: 96 6% 55%;
+  --accent: 76 88% 53%;
+  --accent-foreground: 100 14% 4%;
 }
 
 /* === Base styles (no aggressive universal resets) === */
@@ -151,12 +171,12 @@ html:not(.dark) {
 
 /* === Selection + focus ring in brand colours === */
 ::selection {
-  background: rgba(198, 255, 0, 0.3);
+  background: rgba(193, 241, 29, 0.3);
   color: #f5ffe6;
 }
 
 :focus-visible {
-  outline: 2px solid rgba(198, 255, 0, 0.65);
+  outline: 2px solid rgba(193, 241, 29, 0.65);
   outline-offset: 2px;
 }
 
@@ -175,17 +195,17 @@ html:not(.dark) {
 }
 
 .glow-orb-navy {
-  background: radial-gradient(circle, #572339 0%, transparent 80%);
+  background: radial-gradient(circle, #3C4436 0%, transparent 80%);
 }
 
 .glow-orb-lime {
-  background: radial-gradient(circle, #CCFF00 0%, transparent 80%);
+  background: radial-gradient(circle, #C1F11D 0%, transparent 80%);
 }
 
 /* Legacy aliases kept so older markup keeps glowing */
 .glow-orb-purple,
 .glow-orb-emerald {
-  background: radial-gradient(circle, #CCFF00 0%, transparent 80%);
+  background: radial-gradient(circle, #C1F11D 0%, transparent 80%);
 }
 
 /* === Burgundy glass panels === */
@@ -193,13 +213,13 @@ html:not(.dark) {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid #efc2cf;
-  box-shadow: 0 1px 2px rgba(24, 3, 10, 0.04), 0 12px 28px -18px rgba(24, 3, 10, 0.28);
+  border: 1px solid #D9E0CC;
+  box-shadow: 0 1px 2px rgba(11, 13, 10, 0.04), 0 12px 28px -18px rgba(11, 13, 10, 0.28);
 }
 
 .dark .glass-panel {
-  background: #280713;
-  border: 1px solid #3D0B1D;
+  background: #1A1F17;
+  border: 1px solid #2B332A;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 18px 40px -26px rgba(0, 0, 0, 0.95);
 }
 
@@ -210,40 +230,40 @@ html:not(.dark) {
 
 .glass-panel-hover:hover {
   background: rgba(255, 255, 255, 0.98);
-  border-color: rgba(198, 255, 0, 0.35);
-  box-shadow: 0 18px 34px -14px rgba(24, 3, 10, 0.22), 0 0 22px -4px rgba(198, 255, 0, 0.18);
+  border-color: rgba(193, 241, 29, 0.35);
+  box-shadow: 0 18px 34px -14px rgba(11, 13, 10, 0.22), 0 0 22px -4px rgba(193, 241, 29, 0.18);
   transform: translateY(-4px);
 }
 
 .dark .glass-panel-hover:hover {
   background: #310918;
-  border-color: rgba(198, 255, 0, 0.45);
-  box-shadow: 0 24px 44px -20px rgba(0, 0, 0, 0.85), 0 0 26px -4px rgba(198, 255, 0, 0.28);
+  border-color: rgba(193, 241, 29, 0.45);
+  box-shadow: 0 24px 44px -20px rgba(0, 0, 0, 0.85), 0 0 26px -4px rgba(193, 241, 29, 0.28);
   transform: translateY(-4px);
 }
 
 /* === Brand utilities === */
 .text-glow-lime {
-  text-shadow: 0 0 18px rgba(198, 255, 0, 0.45);
+  text-shadow: 0 0 18px rgba(193, 241, 29, 0.45);
 }
 
 .brand-gradient-text {
-  background-image: linear-gradient(100deg, #9BCC00 0%, #E4FF66 55%, #CCFF00 100%);
+  background-image: linear-gradient(100deg, #9BCC00 0%, #E4FF66 55%, #C1F11D 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .lime-cta {
-  background-image: linear-gradient(95deg, #CCFF00 0%, #E4FF66 100%);
-  color: #18030A;
-  box-shadow: 0 0 0 rgba(198, 255, 0, 0);
+  background-image: linear-gradient(95deg, #C1F11D 0%, #E4FF66 100%);
+  color: #0B0D0A;
+  box-shadow: 0 0 0 rgba(193, 241, 29, 0);
   transition: box-shadow 0.3s ease, transform 0.2s ease, filter 0.3s ease;
 }
 
 .lime-cta:hover {
   filter: brightness(1.08);
-  box-shadow: 0 0 22px -2px rgba(198, 255, 0, 0.55);
+  box-shadow: 0 0 22px -2px rgba(193, 241, 29, 0.55);
 }
 
 .lime-cta:active {
@@ -259,18 +279,18 @@ html:not(.dark) {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(24, 3, 10, 0.2);
+  background: rgba(11, 13, 10, 0.2);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(198, 255, 0, 0.5);
+  background: rgba(193, 241, 29, 0.5);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(198, 255, 0, 0.28);
+  background: rgba(193, 241, 29, 0.28);
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(198, 255, 0, 0.55);
+  background: rgba(193, 241, 29, 0.55);
 }
 
 /* Premium utility to completely hide scrollbars but keep scrolling active */
@@ -310,11 +330,11 @@ html:not(.dark) {
 /* Live pulse — the lime heartbeat used on LIVE badges and channel dots */
 @keyframes livePulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(198, 255, 0, 0.7);
+    box-shadow: 0 0 0 0 rgba(193, 241, 29, 0.7);
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(198, 255, 0, 0);
+    box-shadow: 0 0 0 6px rgba(193, 241, 29, 0);
     opacity: 0.75;
   }
 }
@@ -344,7 +364,7 @@ html:not(.dark) {
   position: absolute;
   inset: 0 auto 0 0;
   width: 40%;
-  background: linear-gradient(100deg, transparent, rgba(198, 255, 0, 0.16), transparent);
+  background: linear-gradient(100deg, transparent, rgba(193, 241, 29, 0.16), transparent);
   transform: translateX(-120%);
   pointer-events: none;
 }
@@ -374,21 +394,21 @@ html:not(.dark) {
   background: transparent;
 }
 .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(198, 255, 0, 0.22);
+  background: rgba(193, 241, 29, 0.22);
   border-radius: 9999px;
 }
 .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(198, 255, 0, 0.6);
+  background: rgba(193, 241, 29, 0.6);
 }
 .dark .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(198, 255, 0, 0.18);
+  background: rgba(193, 241, 29, 0.18);
 }
 .dark .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(198, 255, 0, 0.5);
+  background: rgba(193, 241, 29, 0.5);
 }
 .custom-horizontal-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(198, 255, 0, 0.22) transparent;
+  scrollbar-color: rgba(193, 241, 29, 0.22) transparent;
 }
 
 /* Ken Burns zoom on hero banner background */
@@ -419,7 +439,7 @@ html:not(.dark) {
   background: transparent;
 }
 .tabs-scroll::-webkit-scrollbar-thumb {
-  background: rgba(198, 255, 0, 0.22);
+  background: rgba(193, 241, 29, 0.22);
   border-radius: 9999px;
 }
 
@@ -427,7 +447,7 @@ html:not(.dark) {
    Adsterra frames render as stark white rectangles while an ad loads or when
    a slot ends up empty. Every ad container, every ad iframe we mount and any
    iframe Adsterra injects itself is forced onto a transparent canvas with a
-   dark colour scheme, so an empty slot blends seamlessly into the #18030A
+   dark colour scheme, so an empty slot blends seamlessly into the #0B0D0A
    page background instead of ruining the dark theme. */
 .ad-slot,
 [data-ad-slot],
@@ -488,7 +508,7 @@ select,
 }
 .dark .app-card {
   background: linear-gradient(180deg, #2c0815 0%, #250611 100%);
-  border-color: #3d0b1d;
+  border-color: #2B332A;
   box-shadow: var(--shadow-app-dark);
 }
 
@@ -516,8 +536,8 @@ select,
 
 /* One-shot lime ring burst around a freshly selected control. */
 @keyframes ringPulse {
-  0% { box-shadow: 0 0 0 0 rgba(198, 255, 0, 0.6); }
-  100% { box-shadow: 0 0 0 16px rgba(198, 255, 0, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(193, 241, 29, 0.6); }
+  100% { box-shadow: 0 0 0 16px rgba(193, 241, 29, 0); }
 }
 .animate-ring-pulse {
   animation: ringPulse 700ms ease-out 1;
@@ -561,7 +581,7 @@ select,
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: rgba(24, 3, 10, 0.07);
+  background: rgba(11, 13, 10, 0.07);
 }
 .dark .skeleton {
   background: rgba(255, 255, 255, 0.05);
@@ -662,7 +682,7 @@ select,
   .glass-dark {
     color: #f4f4f5;
     background:
-      radial-gradient(120% 120% at 0% 0%, rgb(198 255 0 / 0.07) 0%, rgb(198 255 0 / 0) 42%),
+      radial-gradient(120% 120% at 0% 0%, rgb(193 241 29 / 0.07) 0%, rgb(193 241 29 / 0) 42%),
       linear-gradient(160deg, rgb(52 10 26 / 0.92) 0%, rgb(28 4 12 / 0.96) 100%);
     border: 1px solid rgb(255 255 255 / 0.08);
     box-shadow:
@@ -683,8 +703,8 @@ select,
     transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
   }
   .glass-dark-tile-hover:hover {
-    border-color: rgb(198 255 0 / 0.45);
-    background-color: rgb(198 255 0 / 0.05);
+    border-color: rgb(193 241 29 / 0.45);
+    background-color: rgb(193 241 29 / 0.05);
   }
 
   /* Fullscreen player stage: media fills the screen, letterboxed on black. */
@@ -715,7 +735,7 @@ select,
      ======================================================================== */
   .crest-drop {
     --drop-size: 44px;
-    --drop-tint: 198 255 0;
+    --drop-tint: 193 241 29;
     position: relative;
     isolation: isolate;
     display: inline-flex;
@@ -801,15 +821,15 @@ select,
       radial-gradient(70% 55% at 50% 100%, rgb(var(--drop-tint) / 0.32) 0%, rgb(var(--drop-tint) / 0) 72%),
       radial-gradient(120% 120% at 30% 18%, rgb(255 255 255 / 0.95) 0%, rgb(255 255 255 / 0.35) 45%, rgb(255 255 255 / 0) 70%),
       radial-gradient(100% 100% at 50% 50%, rgb(255 246 248 / 0.7) 0%, rgb(239 194 207 / 0.45) 100%);
-    border-color: rgb(24 3 10 / 0.1);
+    border-color: rgb(11 13 10 / 0.1);
     box-shadow:
       inset 0 1px 1px rgb(255 255 255 / 0.9),
       inset 0 calc(var(--drop-size) * -0.16) calc(var(--drop-size) * 0.3) calc(var(--drop-size) * -0.12) rgb(87 35 57 / 0.25),
-      0 1px 1px rgb(24 3 10 / 0.12),
-      0 calc(var(--drop-size) * 0.14) calc(var(--drop-size) * 0.3) calc(var(--drop-size) * -0.08) rgb(24 3 10 / 0.25);
+      0 1px 1px rgb(11 13 10 / 0.12),
+      0 calc(var(--drop-size) * 0.14) calc(var(--drop-size) * 0.3) calc(var(--drop-size) * -0.08) rgb(11 13 10 / 0.25);
   }
   html:not(.dark) .crest-drop:not(.crest-drop--dark) > .crest-drop__initials {
-    color: #3d0b1d;
+    color: #2B332A;
     text-shadow: none;
   }
 
@@ -880,7 +900,7 @@ select,
     height: 100%;
     max-width: none;
     overflow: visible;
-    filter: drop-shadow(0 1px 1.5px rgb(24 3 10 / 0.65));
+    filter: drop-shadow(0 1px 1.5px rgb(11 13 10 / 0.65));
   }
   .verified-badge__rosette {
     transform-box: fill-box;
@@ -915,7 +935,7 @@ select,
     justify-content: center;
     line-height: 0;
     border-radius: 9999px;
-    background: #18030A;
+    background: #0B0D0A;
     box-shadow: 0 0 0 1px rgb(204 255 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.45);
     pointer-events: none;
   }
@@ -942,13 +962,13 @@ select,
   .vip-glass {
     color-scheme: dark;
     color: #f4f4f5;
-    background: radial-gradient(ellipse at 0% 0%, rgb(204 255 0 / 0.08), transparent 55%), linear-gradient(135deg, rgb(65 13 34 / 0.94), rgb(24 3 10 / 0.96));
+    background: radial-gradient(ellipse at 0% 0%, rgb(204 255 0 / 0.08), transparent 55%), linear-gradient(135deg, rgb(65 13 34 / 0.94), rgb(11 13 10 / 0.96));
     border: 1px solid rgb(255 255 255 / 0.14);
     box-shadow: 0 24px 80px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.06);
     backdrop-filter: blur(24px) saturate(140%);
   }
   .vip-paywall button:focus-visible, .vip-plan button:focus-visible {
-    outline: 2px solid #CCFF00;
+    outline: 2px solid #C1F11D;
     outline-offset: 4px;
   }
   .ad-social-frame {
@@ -968,14 +988,14 @@ select,
 
 /* ==========================================================================
    Limon Coin — the 3D golden lemon bubble coin.
-   An inDrive-style lime ring (#CCFF00) around a radiant golden lemon core,
+   An inDrive-style lime ring (#C1F11D) around a radiant golden lemon core,
    with a glass bezel, a shine sweep, a breathing gold/lime aura and twinkling
    sparkles. Pure CSS 3D (perspective + rotateY) so it stays GPU-cheap on
    phones. The `eviv-coin*` class names are the legacy handles kept so the
    theme, the tests and the PWA chrome all keep pointing at the same mark.
    ========================================================================== */
 .lemon-coin {
-  filter: drop-shadow(0 6px 14px rgb(24 3 10 / 0.5));
+  filter: drop-shadow(0 6px 14px rgb(11 13 10 / 0.5));
 }
 
 html:not(.dark) .lemon-coin {
@@ -1130,7 +1150,7 @@ html:not(.dark) .lemon-coin {
   height: calc(var(--flag-w, 22px) * 0.68);
   border-radius: 2.5px;
   overflow: hidden;
-  background: var(--flag-bg, repeating-linear-gradient(45deg, #2A0813 0 6px, #CCFF00 6px 12px));
+  background: var(--flag-bg, repeating-linear-gradient(45deg, #0B0D0A 0 6px, #C1F11D 6px 12px));
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.5), inset 0 0 0 0.5px rgb(255 255 255 / 0.25);
   transform-origin: left center;
   animation: flagWave 2.8s ease-in-out infinite;
@@ -1322,7 +1342,7 @@ html:not(.dark) .lemon-coin {
   width: 9px;
   height: 9px;
   border-radius: 9999px;
-  background: #CCFF00;
+  background: #C1F11D;
   animation: adminLivePing 1.8s ease-out infinite;
 }
 @keyframes adminLivePing {
@@ -1350,15 +1370,15 @@ html:not(.dark) .lemon-coin {
     color: #f4f4f5;
     border-color: rgb(255 255 255 / 0.09);
     background:
-      radial-gradient(120% 140% at 0% 0%, var(--inbox-tint, rgb(198 255 0 / 0.08)) 0%, transparent 46%),
-      linear-gradient(160deg, rgb(52 10 26 / 0.9) 0%, rgb(24 3 10 / 0.96) 100%);
+      radial-gradient(120% 140% at 0% 0%, var(--inbox-tint, rgb(193 241 29 / 0.08)) 0%, transparent 46%),
+      linear-gradient(160deg, rgb(52 10 26 / 0.9) 0%, rgb(11 13 10 / 0.96) 100%);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.06),
       0 18px 40px -26px rgb(0 0 0 / 0.9);
     transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s var(--ease-out-expo);
   }
   .inbox-card:hover {
-    border-color: var(--inbox-edge, rgb(198 255 0 / 0.35));
+    border-color: var(--inbox-edge, rgb(193 241 29 / 0.35));
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.08),
       0 22px 46px -24px rgb(0 0 0 / 0.95);
@@ -1371,7 +1391,7 @@ html:not(.dark) .lemon-coin {
     border-color: rgb(245 197 68 / 0.28);
     background:
       radial-gradient(120% 140% at 0% 0%, rgb(245 197 68 / 0.16) 0%, transparent 44%),
-      linear-gradient(155deg, rgb(61 11 29 / 0.94) 0%, rgb(24 3 10 / 0.97) 100%);
+      linear-gradient(155deg, rgb(61 11 29 / 0.94) 0%, rgb(11 13 10 / 0.97) 100%);
   }
   .inbox-card--admin {
     --inbox-tint: rgb(204 255 0 / 0.16);
@@ -1401,7 +1421,7 @@ html:not(.dark) .lemon-coin {
     border-end-end-radius: 6px;
   }
   .inbox-rail--platform { background: linear-gradient(180deg, #FFE9A8 0%, #F5C544 42%, #A9761A 100%); }
-  .inbox-rail--admin { background: linear-gradient(180deg, #E7FF8F 0%, #CCFF00 45%, #6FA300 100%); box-shadow: 0 0 18px rgb(204 255 0 / 0.55); }
+  .inbox-rail--admin { background: linear-gradient(180deg, #E7FF8F 0%, #C1F11D 45%, #6FA300 100%); box-shadow: 0 0 18px rgb(204 255 0 / 0.55); }
   .inbox-rail--support { background: linear-gradient(180deg, #BAE6FD 0%, #38BDF8 50%, #0C6E9E 100%); }
 
   .inbox-header {
@@ -1416,12 +1436,12 @@ html:not(.dark) .lemon-coin {
   .inbox-header--support { background: linear-gradient(180deg, rgb(56 189 248 / 0.12) 0%, transparent 100%); }
 
   .inbox-sender-name--platform { color: #FFE9A8; text-shadow: 0 0 22px rgb(245 197 68 / 0.35); }
-  .inbox-sender-name--admin { color: #CCFF00; text-shadow: 0 0 22px rgb(204 255 0 / 0.4); }
+  .inbox-sender-name--admin { color: #C1F11D; text-shadow: 0 0 22px rgb(204 255 0 / 0.4); }
   .inbox-sender-name--support { color: #BAE6FD; text-shadow: 0 0 22px rgb(56 189 248 / 0.3); }
 
   .inbox-chip { border: 1px solid currentColor; }
   .inbox-chip--platform { color: #F5C544; background: rgb(245 197 68 / 0.12); }
-  .inbox-chip--admin { color: #CCFF00; background: rgb(204 255 0 / 0.12); }
+  .inbox-chip--admin { color: #C1F11D; background: rgb(204 255 0 / 0.12); }
   .inbox-chip--support { color: #7DD3FC; background: rgb(56 189 248 / 0.12); }
 
   .inbox-icon-button {
@@ -1436,7 +1456,7 @@ html:not(.dark) .lemon-coin {
     color: #d4d4d8;
     transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
   }
-  .inbox-icon-button:hover { border-color: rgb(204 255 0 / 0.45); color: #CCFF00; background: rgb(204 255 0 / 0.08); }
+  .inbox-icon-button:hover { border-color: rgb(204 255 0 / 0.45); color: #C1F11D; background: rgb(204 255 0 / 0.08); }
 
   /* Collapse/expand without layout jank. */
   .inbox-message-body {
@@ -1450,7 +1470,7 @@ html:not(.dark) .lemon-coin {
 
   /* Legend + tray rows */
   .inbox-legend { color: #e4e4e7; }
-  .inbox-legend--platform { border-color: rgb(245 197 68 / 0.28); background: linear-gradient(150deg, rgb(61 11 29 / 0.85), rgb(24 3 10 / 0.9)); }
+  .inbox-legend--platform { border-color: rgb(245 197 68 / 0.28); background: linear-gradient(150deg, rgb(61 11 29 / 0.85), rgb(11 13 10 / 0.9)); }
   .inbox-legend--admin { border-color: rgb(204 255 0 / 0.3); background: linear-gradient(150deg, rgb(42 8 19 / 0.85), rgb(11 18 0 / 0.9)); }
   .inbox-legend--support { border-color: rgb(56 189 248 / 0.28); background: linear-gradient(150deg, rgb(8 47 73 / 0.8), rgb(11 18 32 / 0.9)); }
 
@@ -1491,8 +1511,8 @@ html:not(.dark) .lemon-coin {
   html:not(.dark) .inbox-card h4,
   html:not(.dark) .inbox-card dt,
   html:not(.dark) .inbox-card dd { color: #2a1a20; }
-  html:not(.dark) .inbox-card h4 { color: #18030a; }
-  html:not(.dark) .inbox-card dd { color: #18030a; }
+  html:not(.dark) .inbox-card h4 { color: #0B0D0A; }
+  html:not(.dark) .inbox-card dd { color: #0B0D0A; }
   html:not(.dark) .inbox-card header time { color: #4a2835; }
   html:not(.dark) .inbox-card header p { color: #5a3341; }
   html:not(.dark) .inbox-header { border-bottom-color: rgb(42 8 19 / 0.08); }
@@ -1564,7 +1584,7 @@ html:not(.dark) .lemon-coin {
   }
   .admin-panel {
     color: #f4f4f5;
-    background: linear-gradient(160deg, rgb(52 10 26 / 0.9) 0%, rgb(24 3 10 / 0.96) 100%);
+    background: linear-gradient(160deg, rgb(52 10 26 / 0.9) 0%, rgb(11 13 10 / 0.96) 100%);
     border: 1px solid rgb(255 255 255 / 0.09);
   }
   .admin-row-action {
@@ -1579,7 +1599,7 @@ html:not(.dark) .lemon-coin {
     letter-spacing: 0.02em;
     transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s var(--ease-spring);
   }
-  .admin-row-action:hover:not(:disabled) { border-color: rgb(204 255 0 / 0.5); background: rgb(204 255 0 / 0.1); color: #CCFF00; }
+  .admin-row-action:hover:not(:disabled) { border-color: rgb(204 255 0 / 0.5); background: rgb(204 255 0 / 0.1); color: #C1F11D; }
   .admin-row-action:disabled { opacity: 0.45; }
   .admin-toast {
     position: fixed;
@@ -1646,7 +1666,7 @@ html:not(.dark) .lemon-coin {
   }
   .advertise-hero__title { color: #ffffff; }
   .advertise-hero__copy { color: #e4dfe2; }
-  .advertise-badge { color: #CCFF00; }
+  .advertise-badge { color: #C1F11D; }
 
   .advertise-stat {
     border-color: rgb(255 255 255 / 0.1);
@@ -1680,7 +1700,7 @@ html:not(.dark) .lemon-coin {
   .staff-portal { color: #f4f4f5; }
   .staff-title { color: #ffffff; }
   .staff-copy { color: #d4d4d8; }
-  .staff-note { color: #CCFF00; }
+  .staff-note { color: #C1F11D; }
 
   .staff-tab {
     border-color: rgb(255 255 255 / 0.12);
@@ -1688,7 +1708,7 @@ html:not(.dark) .lemon-coin {
     background: rgb(255 255 255 / 0.04);
   }
   .staff-tab:hover { color: #ffffff; border-color: rgb(204 255 0 / 0.4); }
-  .staff-tab--active { color: #18030A; border-color: transparent; }
+  .staff-tab--active { color: #0B0D0A; border-color: transparent; }
 
   .staff-locked {
     border-color: rgb(255 255 255 / 0.1);
@@ -1704,23 +1724,23 @@ html:not(.dark) .lemon-coin {
     border-color: rgb(110 160 0 / 0.32);
     box-shadow: 0 22px 48px -34px rgb(42 8 19 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.7);
   }
-  html:not(.dark) .advertise-hero__title { color: #18030a; }
+  html:not(.dark) .advertise-hero__title { color: #0B0D0A; }
   html:not(.dark) .advertise-hero__copy { color: #3f2029; }
   /* Lime on paper is unreadable — the light pass uses the deep lime ink. */
   html:not(.dark) .advertise-badge { color: #4e6900; border-color: rgb(110 160 0 / 0.4); background: rgb(204 255 0 / 0.18); }
   html:not(.dark) .advertise-stat { border-color: rgb(42 8 19 / 0.12); background: linear-gradient(180deg, #ffffff 0%, #fbf6f8 100%); color: #241019; }
   html:not(.dark) .advertise-stat__label { color: #4a2835; }
-  html:not(.dark) .advertise-stat__value { color: #18030a; }
+  html:not(.dark) .advertise-stat__value { color: #0B0D0A; }
   html:not(.dark) .advertise-stat__detail { color: #5a3341; }
   html:not(.dark) .advertise-section-title { color: #2a1a20; }
   html:not(.dark) .advertise-partner-note { border-color: rgb(42 8 19 / 0.14); background: rgb(42 8 19 / 0.04); color: #3f2029; }
-  html:not(.dark) .advertise-modal { background: rgb(24 3 10 / 0.55); }
-  html:not(.dark) .staff-title { color: #18030a; }
+  html:not(.dark) .advertise-modal { background: rgb(11 13 10 / 0.55); }
+  html:not(.dark) .staff-title { color: #0B0D0A; }
   html:not(.dark) .staff-copy { color: #3f2029; }
   html:not(.dark) .staff-note { color: #4e6900; }
   html:not(.dark) .staff-tab { border-color: rgb(42 8 19 / 0.14); background: rgb(255 255 255 / 0.7); color: #3f2029; }
-  html:not(.dark) .staff-tab:hover { color: #18030a; border-color: rgb(110 160 0 / 0.55); }
-  html:not(.dark) .staff-tab--active { color: #18030A; }
+  html:not(.dark) .staff-tab:hover { color: #0B0D0A; border-color: rgb(110 160 0 / 0.55); }
+  html:not(.dark) .staff-tab--active { color: #0B0D0A; }
   html:not(.dark) .staff-locked { border-color: rgb(42 8 19 / 0.12); color: #5a3341; }
 
   /* The pitch keeps its dark glass in both themes (match-centre convention),

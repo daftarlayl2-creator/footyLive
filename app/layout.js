@@ -33,7 +33,7 @@ export const viewport = {
   maximumScale: 1,
   // Draw edge-to-edge; the header and bottom tab bar pad themselves with the safe-area insets.
   viewportFit: 'cover',
-  themeColor: '#18030A',
+  themeColor: '#0B0D0A',
 };
 
 export default async function RootLayout({ children }) {
@@ -89,7 +89,7 @@ export default async function RootLayout({ children }) {
           <header className="sticky top-0 z-50 flex w-full justify-center border-b border-navy-750 bg-navy-950/85 pt-[env(safe-area-inset-top)] text-zinc-100 backdrop-blur-xl backdrop-saturate-150">
             <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-2 px-3 py-1 sm:px-6 lg:px-8">
               <Link href="/" aria-label="Limon Live — home" className="tactile group shrink-0">
-                <BrandLogo className="block h-auto w-[106px] transition-transform duration-300 group-hover:scale-105 sm:w-36" />
+                <BrandLogo className="transition-transform duration-300 group-hover:scale-105" />
               </Link>
 
               <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -117,7 +117,7 @@ export default async function RootLayout({ children }) {
           <footer className="relative z-10 flex w-full justify-center border-t border-navy-750 bg-navy-950/90 px-4 py-8 text-zinc-400">
             <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-6 text-center text-xs md:flex-row md:text-left">
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:text-left">
-                <BrandLogo className="block h-auto w-28 shrink-0" />
+                <BrandLogo className="shrink-0" />
                 <p className="max-w-lg leading-relaxed">
                   © {new Date().getFullYear()} Limon Live. Live fixtures and statistics come from public sports data;
                   streams are aggregated from third-party networks.

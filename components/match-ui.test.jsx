@@ -102,25 +102,19 @@ const FINISHED_MATCH = {
 };
 
 describe('Limon lockup', () => {
-  it('renders the Limon Live lemon-and-coin mark, wordmark and on-air animation with isolated SVG definitions at both sizes', () => {
+  it('renders the Limon Live brand icon and two-tone wordmark at both usages', () => {
     const html = renderToStaticMarkup(
-      <div><BrandLogo className="w-[106px] h-auto" /><BrandLogo className="w-28 h-auto" /></div>
+      <div><BrandLogo /><BrandLogo /></div>
     );
-    expect((html.match(/viewBox="0 0 320 150"/g) || [])).toHaveLength(2);
-    // Lime lemon + burgundy leaf + the engraved EVIV Coin at its heart.
-    expect(html).toContain('M60 26c12-14 26-16 34-15');
-    expect(html).toContain('aria-label="Limon Live"');
-    expect(html).toContain('stop-color="#CCFF00"');
-    expect(html).toContain('stop-color="#2A0813"');
-    expect(html).toContain('attributeName="r"');
-    expect(html).toContain('aria-label="Limon Live"');
-    // Two copies of the logo, each with its own gradient + leaf defs: no id collision.
-    const gradients = [...html.matchAll(/<(?:linear|radial)Gradient id="([^"]+)"/g)].map((match) => match[1]);
-    expect(new Set(gradients).size).toBe(6);
-    for (const id of gradients) expect(html).toContain(`url(#${id})`);
-    // Each copy defines its own three gradients (gradient + leaf + coin).
-    const copies = html.split('</svg>').slice(0, 2);
-    expect(copies.map((copy) => [...copy.matchAll(/<(?:linear|radial)Gradient/g)].length)).toEqual([3, 3]);
+    // Brand icon at 36px with the accessible name, twice (header + footer).
+    expect((html.match(/src="\/logo-icon\.svg"/g) || [])).toHaveLength(2);
+    expect(html).toContain('alt="Limon Live"');
+    expect(html).toContain('h-9 w-9');
+    // Cairo wordmark: "limon" in chalk, "live" in brand lime.
+    expect(html).toContain('font-wordmark');
+    expect(html).toContain('font-semibold');
+    expect(html).toContain('text-[#F4F6EE]">limon</span>');
+    expect(html).toContain('text-[#C1F11D]">live</span>');
   });
 });
 

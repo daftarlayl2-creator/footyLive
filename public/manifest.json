@@ -4,8 +4,8 @@
   "description": "Every football match of the day with real-time scores, live minutes, cards and statistics, plus premium ad-free streams.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#18030A",
-  "theme_color": "#18030A",
+  "background_color": "#0B0D0A",
+  "theme_color": "#0B0D0A",
   "orientation": "any",
   "icons": [
     {
