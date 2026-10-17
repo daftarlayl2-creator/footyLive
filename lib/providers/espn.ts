@@ -18,6 +18,7 @@ import { fixtureBroadcasters } from '../broadcast/broadcasters';
 import { Match, MatchEvent, MatchGoal, MatchLiveDetails, MatchStats, Team } from '../types';
 import { getCountryForLeague, getLeaguePriority } from '../utils/matching';
 import { getCacheManager } from '../cache/cacheManager';
+import { dedupeMatches } from '../match/merge';
 
 export const ESPN_ID_PREFIX = 'espn-';
 export const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard';
@@ -340,7 +341,10 @@ export function normalizeEspnEvent(event: any): Match | null {
   if (!homeRaw && !awayRaw) return null;
 
   const kickoff = Date.parse(event?.date || competition?.date || '');
-  const timestamp = Number.isFinite(kickoff) ? kickoff : Date.now();
+  // No parseable kick-off time → the event is unusable. Never substitute
+  // "now": a fabricated timestamp would corrupt sorting/visibility rules.
+  if (!Number.isFinite(kickoff)) return null;
+  const timestamp = kickoff;
 
   const { status, note } = espnStatus(event, competition);
   const statusBlock = competition?.status || event?.status;
@@ -428,8 +432,11 @@ export async function getEspnMatches(): Promise<Match[]> {
       const days = DAY_OFFSETS.map((offset) => espnDateString(offset));
       const results = await Promise.allSettled(days.map((day) => fetchEspnScoreboard(day)));
 
-      const seen = new Set<string>();
-      const matches: Match[] = [];
+      // Boards are folded oldest-first (DAY_OFFSETS order). The same event
+      // can appear on two adjacent boards around midnight; dedupeMatches
+      // resolves duplicates by authority/lifecycle/freshness so a stale
+      // scheduled or live copy can never overwrite a finished result.
+      const merged: Match[] = [];
       let failures = 0;
 
       results.forEach((result, idx) => {
@@ -440,11 +447,10 @@ export async function getEspnMatches(): Promise<Match[]> {
         }
         for (const event of result.value) {
           const normalized = normalizeEspnEvent(event);
-          if (!normalized || seen.has(normalized.id)) continue;
-          seen.add(normalized.id);
-          matches.push(normalized);
+          if (normalized) merged.push(normalized);
         }
       });
+      const matches = dedupeMatches(merged);
 
       if (!matches.length && failures === days.length) {
         throw new Error('ESPN scoreboards unavailable');

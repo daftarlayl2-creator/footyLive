@@ -21,6 +21,7 @@ import { getLiveChannels, toPlaybackUrl } from './broadcast/feeds';
 import { backupProvider, isFeedProvider, selectLiveBackups, type LiveBackup } from './broadcast/backups';
 import type { LiveChannel } from './broadcast/types';
 import { getCacheManager } from './cache/cacheManager';
+import { fresherMatch } from './match/merge';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
 import { signStreamRedirect } from './streamRedirect';
 import { detectStreamKind } from './player/servers';
@@ -162,15 +163,17 @@ export async function getMatchDetails(matchId: string): Promise<Match | null> {
     if (!espnMatch) return null;
     const catalogue = await getMatches().catch(() => [] as Match[]);
     const enriched = catalogue.find((m) => m.id === matchId);
-    return enriched
-      ? {
-          ...espnMatch,
-          sources: enriched.sources,
-          fallbackChannels: enriched.fallbackChannels,
-          feedStreamCount: enriched.feedStreamCount,
-          feedStreamIsFallback: enriched.feedStreamIsFallback,
-        }
-      : espnMatch;
+    if (!enriched) return espnMatch;
+    // The direct lookup and the cached list can disagree briefly; keep the
+    // fresher record (authority/lifecycle/live-evidence — see lib/match/merge)
+    // and take only stream plumbing from the catalogue entry.
+    return {
+      ...fresherMatch(espnMatch, enriched),
+      sources: enriched.sources,
+      fallbackChannels: enriched.fallbackChannels,
+      feedStreamCount: enriched.feedStreamCount,
+      feedStreamIsFallback: enriched.feedStreamIsFallback,
+    };
   }
   return getWatchFootyMatchDetails(matchId);
 }

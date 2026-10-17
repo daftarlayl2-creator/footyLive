@@ -158,8 +158,10 @@ function extractAttr(block: string, tag: string, attr: string): string {
   return match ? decodeXmlEntities(match[1]) : '';
 }
 
-/** Does this text segment look like a fixture ("A vs B", "A 2-1 B")? */
-const MATCH_SEGMENT_RE = /\s+(?:vs\.?|v|x)\s+|\s+\d+\s*[-–:]\s*\d+\s+/i;
+/** Does this text segment look like a fixture ("A vs B", "A 2-1 B")?
+ *  Scoreline separators are hyphens/en-dashes only — a colon is a kick-off
+ *  time ("18:00"), never a score. */
+const MATCH_SEGMENT_RE = /\s+(?:vs\.?|v|x)\s+|\s+\d+\s*[-–]\s*\d+\s+/i;
 
 /** Leading label words channels put in front of the fixture. */
 const LEADING_LABEL_RE =
@@ -195,8 +197,9 @@ export function splitTeams(title: string): { home: string; away: string } {
   // Whole-word separators only ("vs", "v", "x"), spaced dashes — never letters
   // inside names ("Arsenal" must not split on its "s") and never hyphens inside
   // names ("Paris Saint-Germain" stays intact) — plus a mid-title scoreline
-  // ("Arsenal 2-1 Liverpool").
-  const vsSplit = String(title || '').split(/\s+(?:vs\.?|v|x)\s+|\s+[-–—]\s+|\s+\d+\s*[-–:]\s*\d+\s+/i);
+  // ("Arsenal 2-1 Liverpool"). Colons are excluded: "18:00" is a kick-off
+  // time, not an 18-0 score.
+  const vsSplit = String(title || '').split(/\s+(?:vs\.?|v|x)\s+|\s+[-–—]\s+|\s+\d+\s*[-–]\s*\d+\s+/i);
   if (vsSplit.length >= 2) {
     // First two segments are the teams; anything after is a date/round suffix.
     return { home: vsSplit[0].trim(), away: vsSplit[1].trim() };

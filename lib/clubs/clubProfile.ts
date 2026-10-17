@@ -16,6 +16,7 @@ import { nameFromSlug, parseClubParam } from './links';
 import {
   formFromResults,
   homeVenueFrom,
+  mergeClubSchedules,
   normalizeEspnTeam,
   normalizeRoster,
   normalizeTeamSchedule,
@@ -139,13 +140,12 @@ async function loadClubCore(espnId: string): Promise<ClubCore | null> {
     leagueSlug ? espnFetch(`${ESPN_SITE}/${leagueSlug}/teams/${espnId}/roster`, 3600) : Promise.reject(new Error('no league')),
   ]);
 
-  const all = [
-    ...(resultsRes.status === 'fulfilled' ? resultsRes.value : []),
-    ...(fixturesRes.status === 'fulfilled' ? fixturesRes.value : []),
-  ];
-  const byId = new Map<string, ClubMatch>();
-  for (const match of all) byId.set(match.id, match);
-  const matches = Array.from(byId.values());
+  // Precedence-aware merge: a finished record from either schedule beats a
+  // scheduled/live copy of the same match (see mergeClubSchedules).
+  const matches = mergeClubSchedules(
+    resultsRes.status === 'fulfilled' ? resultsRes.value : [],
+    fixturesRes.status === 'fulfilled' ? fixturesRes.value : []
+  );
 
   const results = matches
     .filter((m) => m.status === 'finished')

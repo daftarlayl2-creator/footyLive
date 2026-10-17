@@ -37,45 +37,6 @@ function Trophy({ className }) {
   );
 }
 
-function promoteCatalogueMatches(matches) {
-  const now = Date.now();
-  return matches.map((m) => {
-    // ESPN statuses are authoritative (state pre/in/post), so only catalogue
-    // fixtures — which can lag behind reality — get the kickoff-time promotion.
-    if (m.status === 'upcoming' && m.source !== 'espn') {
-      const kickoffTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-      const diffMinutes = kickoffTime ? Math.floor((now - kickoffTime) / 60000) : -1;
-      // Promote to live if kickoff time has arrived/passed and less than 125 mins have passed
-      if (kickoffTime && diffMinutes >= 0 && diffMinutes < 125) {
-        let currentMinuteNumber = m.currentMinuteNumber || 0;
-        let currentMinute = m.currentMinute || '';
-
-        if (diffMinutes < 45) {
-          currentMinuteNumber = diffMinutes;
-          currentMinute = `${diffMinutes}'`;
-        } else if (diffMinutes >= 45 && diffMinutes < 60) {
-          currentMinuteNumber = 45;
-          currentMinute = 'HT';
-        } else if (diffMinutes >= 60 && diffMinutes < 105) {
-          currentMinuteNumber = diffMinutes - 15;
-          currentMinute = `${diffMinutes - 15}'`;
-        } else {
-          currentMinuteNumber = 90;
-          currentMinute = '90+';
-        }
-
-        return {
-          ...m,
-          status: 'live',
-          currentMinute,
-          currentMinuteNumber,
-        };
-      }
-    }
-    return m;
-  });
-}
-
 export default function MatchGrid({ matches, defaultTab, banner }) {
   const router = useRouter();
   const [tab, setTab] = useState(defaultTab);
@@ -134,7 +95,10 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
     name.toLowerCase() === match.homeTeam?.name?.toLowerCase() || name.toLowerCase() === match.awayTeam?.name?.toLowerCase()
   ));
 
-  const enrichedMatches = useMemo(() => promoteCatalogueMatches(matches), [matches]);
+  // Statuses and minutes are rendered exactly as the upstream providers
+  // reported them. Live status is never inferred here from kick-off times
+  // or elapsed wall-clock time.
+  const enrichedMatches = matches;
 
   const live = useMemo(() => enrichedMatches.filter(m => m.status === 'live'), [enrichedMatches]);
   const upcoming = useMemo(

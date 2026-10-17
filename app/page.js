@@ -1,5 +1,6 @@
 import { catalogMatch } from '@/lib/subscription/catalog';
 import { getMatches } from '@/lib/streamEngine';
+import { selectVisibleMatches } from '@/lib/match/visible';
 import MatchGrid from '@/components/MatchGrid';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { getHeroBanner } from '@/lib/bannerProvider';
@@ -17,28 +18,6 @@ export const metadata = {
     'Every football match of the day with real-time scores, live minutes, cards and statistics — plus reliable live streams.',
   alternates: { canonical: '/' },
 };
-
-function selectVisibleMatches(matches) {
-  const now = Date.now();
-  const dayAgo = now - 36 * 60 * 60 * 1000;
-  const visible = matches.filter((m) => {
-    if (m.status === 'live') return true;
-    if (m.status === 'finished') return m.timestamp >= dayAgo;
-    // Upcoming: keep fixtures that have not been running for more than 30 min
-    // (a stale "upcoming" row is dropped rather than shown as a fake live one).
-    return m.timestamp >= now - 30 * 60 * 1000;
-  });
-
-  // Live first, then the next kick-offs, then today's results.
-  const order = { live: 0, upcoming: 1, finished: 2 };
-  visible.sort((a, b) => {
-    const byStatus = (order[a.status] ?? 3) - (order[b.status] ?? 3);
-    if (byStatus !== 0) return byStatus;
-    if (a.status === 'finished') return b.timestamp - a.timestamp;
-    return a.timestamp - b.timestamp;
-  });
-  return visible;
-}
 
 export default async function Home({ searchParams }) {
   const resolvedSearchParams = await searchParams;

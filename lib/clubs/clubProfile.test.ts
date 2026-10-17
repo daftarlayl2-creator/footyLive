@@ -4,6 +4,7 @@ import schedule from '../providers/__fixtures__/espn-schedule-arsenal.json';
 import fixtures from '../providers/__fixtures__/espn-fixtures-arsenal.json';
 import roster from '../providers/__fixtures__/espn-roster-arsenal.json';
 import search from '../providers/__fixtures__/espn-search-real-madrid.json';
+import { mergeClubSchedules, type ClubMatch } from './espnClub';
 
 const espnFetch = vi.fn();
 const fetchJson = vi.fn();
@@ -95,5 +96,52 @@ describe('club resolution', () => {
     expect(isUpstreamNotFound(new Error('HTTP 400 for site.api.espn.com'))).toBe(true);
     expect(isUpstreamNotFound(new Error('HTTP 503'))).toBe(false);
     expect(isUpstreamNotFound(new TypeError('fetch failed'))).toBe(false);
+  });
+});
+
+describe('mergeClubSchedules conflict resolution', () => {
+  function clubMatch(patch: Partial<ClubMatch>): ClubMatch {
+    return {
+      id: '700001',
+      date: '2026-10-14T19:00Z',
+      competition: 'Premier League',
+      status: 'scheduled',
+      isHome: true,
+      home: { name: 'Arsenal' },
+      away: { name: 'Chelsea' },
+      opponent: { name: 'Chelsea' },
+      ...patch,
+    };
+  }
+
+  it('a fixtures-list scheduled copy cannot overwrite a finished result', () => {
+    const finished = clubMatch({ status: 'finished', home: { name: 'Arsenal', score: 2 }, away: { name: 'Chelsea', score: 0 }, result: 'W' });
+    const scheduled = clubMatch({ status: 'scheduled' });
+    expect(mergeClubSchedules([finished], [scheduled])).toEqual([finished]);
+  });
+
+  it('a finished copy in the fixtures list beats a scheduled copy in results', () => {
+    const finished = clubMatch({ status: 'finished', home: { name: 'Arsenal', score: 1 }, away: { name: 'Chelsea', score: 1 }, result: 'D' });
+    const scheduled = clubMatch({ status: 'scheduled' });
+    expect(mergeClubSchedules([scheduled], [finished])).toEqual([finished]);
+  });
+
+  it('a live fixtures copy beats a stale scheduled results copy', () => {
+    const live = clubMatch({ status: 'live', statusDetail: "63'" });
+    const scheduled = clubMatch({ status: 'scheduled' });
+    expect(mergeClubSchedules([scheduled], [live])[0].status).toBe('live');
+  });
+
+  it('prefers the finished copy that carries scores', () => {
+    const withScores = clubMatch({ status: 'finished', home: { name: 'Arsenal', score: 3 }, away: { name: 'Chelsea', score: 1 }, result: 'W' });
+    const withoutScores = clubMatch({ status: 'finished' });
+    expect(mergeClubSchedules([withoutScores], [withScores])).toEqual([withScores]);
+    expect(mergeClubSchedules([withScores], [withoutScores])).toEqual([withScores]);
+  });
+
+  it('unions disjoint matches from both schedules', () => {
+    const result = clubMatch({ id: '1', status: 'finished' });
+    const fixture = clubMatch({ id: '2', status: 'scheduled' });
+    expect(mergeClubSchedules([result], [fixture]).map((m) => m.id).sort()).toEqual(['1', '2']);
   });
 });

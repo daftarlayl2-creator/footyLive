@@ -199,11 +199,16 @@ describe('MatchGrid', () => {
     expect(html).not.toMatch(/live-dot/);
   });
 
-  it('promotes catalogue fixtures at kickoff time (upstream status lags)', () => {
-    const catalogue = { ...UPCOMING_MATCH, id: 'wf-1', source: 'watchfooty', timestamp: Date.now() - 10 * 60 * 1000 };
-    const html = renderToStaticMarkup(<MatchGrid matches={[catalogue]} defaultTab="live" />);
-    expect(html).toContain('Real Madrid');
-    expect(html).toMatch(/live-dot/);
+  it('never promotes catalogue fixtures to live from kickoff time alone', () => {
+    // Past kick-off and a structured minute upstream, but the provider
+    // status is still upcoming: the grid must not invent a live state.
+    const catalogue = { ...UPCOMING_MATCH, id: 'wf-1', source: 'watchfooty', timestamp: Date.now() - 10 * 60 * 1000, currentMinuteNumber: 10 };
+    const liveHtml = renderToStaticMarkup(<MatchGrid matches={[catalogue]} defaultTab="live" />);
+    expect(liveHtml).toContain('Live Now (0)');
+    expect(liveHtml).not.toContain('Real Madrid');
+    const upcomingHtml = renderToStaticMarkup(<MatchGrid matches={[catalogue]} defaultTab="upcoming" />);
+    expect(upcomingHtml).toContain('Real Madrid');
+    expect(upcomingHtml).not.toMatch(/live-dot/);
   });
 });
 
