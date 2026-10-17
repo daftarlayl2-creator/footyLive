@@ -84,3 +84,6 @@ Existing safeguards (verified, kept): 3s-bounded provider + client fetch that de
 
 ## Phase 9 — Footer & informational pages
 None of the standard pages existed. Added `components/legal/LegalPage.jsx` shell and six routes — `/about`, `/contact`, `/privacy`, `/terms`, `/copyright`, `/api-partnerships` — with accurate, implementation-based content. No address, e-mail, legal entity, pricing, or SLA was invented; each page carries an in-code owner-confirmation note (support e-mail, DMCA agent, counsel review, partner-API decision). Footer rebuilt as a compact 4-column layout (brand/pricing preserved; Explore/Company/Legal link columns). Six routes added to `app/sitemap.ts`. The Phase 6 footer ad slot sits directly above the footer.
+
+## Phase 10 — Squad cards with portraits
+Audit: squad cards (components/club/ClubTabs.jsx) already showed number, name, position, age, flag, apps/G/A and an honest unavailable state — but no portrait. `normalizeRoster` now carries the provider headshot through `safePlayerImage` (http/https only, no credentials — `javascript:` rejected, tested). The card renders the portrait when present, falls back to the number badge on missing/failed images (onError state, no broken-image icon), and keeps `#number` in the meta line either way. Portraits/profile pages (`lib/players/cutouts.ts`, host-pinned SportsDB + ESPN PNGs) unchanged.

@@ -222,6 +222,36 @@ function FixturesTab({ fixtures }) {
 /*  Squad                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/** Squad-card portrait (Phase 10): verified provider headshot when present,
+ * the shirt-number badge when it is missing or fails to load — never a
+ * broken-image icon. */
+function PlayerPortrait({ player, accent }) {
+  const [failed, setFailed] = useState(false);
+  if (player.headshot && !failed) {
+    return (
+      <img
+        src={player.headshot}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        data-squad-portrait
+        className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm"
+        style={{ background: accent }}
+      />
+    );
+  }
+  return (
+    <span
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black text-white shadow-sm"
+      style={{ background: accent }}
+      aria-label={player.jersey ? `Shirt number ${player.jersey}` : undefined}
+      data-squad-portrait-fallback
+    >
+      {player.jersey || <Shirt className="h-4 w-4" aria-hidden="true" />}
+    </span>
+  );
+}
+
 function PlayerCard({ player, accent, club }) {
   const stats = [
     player.appearances !== undefined ? `${player.appearances} apps` : null,
@@ -231,13 +261,7 @@ function PlayerCard({ player, accent, club }) {
   return (
     <li>
       <Link href={playerHref(player.id, { clubId: club?.espnId, league: club?.league?.slug })} prefetch={false} aria-label={`Open ${player.name} player profile`} className="tactile flex h-full items-center gap-3 rounded-2xl border border-navy-100 bg-white px-3 py-2.5 outline-none transition-colors hover:border-lime-500/50 focus-visible:ring-2 focus-visible:ring-lime-500 dark:border-navy-750/70 dark:bg-navy-950/50 dark:hover:border-lime-500/50">
-      <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black text-white shadow-sm"
-        style={{ background: accent }}
-        aria-label={player.jersey ? `Shirt number ${player.jersey}` : undefined}
-      >
-        {player.jersey || <Shirt className="h-4 w-4" aria-hidden="true" />}
-      </span>
+      <PlayerPortrait player={player} accent={accent} />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 truncate text-sm font-extrabold text-navy-900 dark:text-white">
           <span className="truncate">{player.name}</span>
@@ -248,7 +272,7 @@ function PlayerCard({ player, accent, club }) {
           )}
         </p>
         <p className="truncate text-[11px] font-semibold text-navy-500 dark:text-zinc-400">
-          {[player.position, player.age ? `${player.age} yrs` : null].filter(Boolean).join(' · ')}
+          {[player.jersey ? `#${player.jersey}` : null, player.position, player.age ? `${player.age} yrs` : null].filter(Boolean).join(' · ')}
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">

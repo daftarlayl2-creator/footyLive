@@ -12,6 +12,7 @@
  */
 import { competitionFromSeasonName } from '@/lib/providers/espn';
 import { normalizeHex } from './colors';
+import { safePlayerImage } from '@/lib/players/normalize';
 
 export interface ClubRecord {
   played?: number;
@@ -75,6 +76,8 @@ export interface SquadPlayer {
   id: string;
   name: string;
   jersey?: string;
+  /** Verified provider headshot URL (Phase 10); absent ⇒ number/initials fallback. */
+  headshot?: string;
   position: string;
   group: PositionGroup;
   age?: number;
@@ -366,6 +369,7 @@ export function normalizeRoster(json: any): SquadPlayer[] {
       id: String(athlete.id),
       name,
       ...(athlete.jersey ? { jersey: String(athlete.jersey) } : {}),
+      ...(() => { const headshot = safePlayerImage(athlete.headshot?.href ?? athlete.headshot); return headshot ? { headshot } : {}; })(),
       position: athlete.position?.displayName || athlete.position?.name || 'Player',
       group: positionGroup(athlete.position),
       ...(age !== undefined ? { age } : {}),
