@@ -3,13 +3,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { config, middleware } from '../../middleware';
 
 /**
- * Phase 13 (Task 1): the soft-404 fix. Unit level: the middleware must turn
- * hidden channel pages into the standard not-found response while the flag
- * is off, and stay completely out of the way while it is on. (The actual
- * HTTP 404 status is verified against clean production builds — see the
- * Phase 13 entry in docs/engineering-log.md.)
+ * Phase 13 (Task 1) + IPTV follow-up: the soft-404 fix. Unit level: the
+ * middleware must turn hidden Live TV playback pages (`/channel/*` and
+ * `/iptv/*`) into the standard not-found response while the flag is off,
+ * and stay completely out of the way while it is on. (The actual HTTP 404
+ * status is verified against clean production builds — see the Phase 13
+ * entry in docs/engineering-log.md.)
  */
 const channelRequest = () => new NextRequest('https://limon.example/channel/bein-sports-1?quality=hd');
+const iptvRequest = () => new NextRequest('https://limon.example/iptv/arryadia-ma');
 
 describe('Live TV channel middleware', () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -30,6 +32,21 @@ describe('Live TV channel middleware', () => {
     expect(middleware(channelRequest()).headers.get('x-middleware-rewrite')).toBeTruthy();
   });
 
+  it('rewrites IPTV playback pages to the unmatched 404 path while Live TV is disabled (default)', () => {
+    const response = middleware(iptvRequest());
+    const rewrite = response.headers.get('x-middleware-rewrite');
+    expect(rewrite).toBeTruthy();
+    expect(new URL(rewrite!).pathname).toBe('/__live-tv-disabled-404');
+    expect(response.headers.get('location')).toBeNull();
+  });
+
+  it('passes IPTV playback pages through untouched while Live TV is enabled', () => {
+    vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'true');
+    const response = middleware(iptvRequest());
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+  });
+
   it('passes channel pages through untouched while Live TV is enabled', () => {
     vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'true');
     const response = middleware(channelRequest());
@@ -37,7 +54,7 @@ describe('Live TV channel middleware', () => {
     expect(response.headers.get('x-middleware-next')).toBe('1');
   });
 
-  it('is scoped to channel playback pages only (never /channels or assets)', () => {
-    expect(config.matcher).toEqual(['/channel/:path*']);
+  it('is scoped to playback pages only (never /channels, /live-channels, or assets)', () => {
+    expect(config.matcher).toEqual(['/channel/:path*', '/iptv/:path*']);
   });
 });
