@@ -27,3 +27,21 @@ Plus brand identity commit `5b0e6f4`.
 - Tests: flag predicate, engine flag-off/on resolution, feeds fallback now
   expects `[]`, watch hub hidden state. Existing TV suites stub the flag on.
 
+
+## Phase 3 — Dynamic IPTV playlist engine
+
+- Discovery: `daftarlayl2-creator/iptv` is an iptv-org-style fork; 326
+  `streams/{cc}.m3u` files on `master` (no group-title/logos in source
+  files; generated category playlists in PLAYLISTS.md point upstream).
+- `lib/iptv/catalog.ts`: allowlisted fetches (owner repo only, HTTPS,
+  timeouts, 10MB cap, no redirects), reuses tolerant `parseM3U`, stable
+  ids, per-source failure isolation, SWR cache (TTL env, default 900s),
+  last-known-good served `stale:true`, never fabricated. Defaults:
+  ma,dz,tn,eg,sa,ae,qa,fr,es,uk (env `IPTV_COUNTRIES`/`IPTV_PLAYLIST_URLS`).
+- UI `/live-channels` + playback `/iptv/[id]` (existing StreamPlayer +
+  signed proxy) + `/api/iptv/catalog`; all behind the Phase 2 flag.
+  Search (accent-folded, typo-tolerant), category/region filters,
+  device-local favorites, paged rendering, empty/error states.
+- Verified against real cloned repo files: ma 14 / fr 223 / es 277 /
+  uk 227 entries parse; playback itself not verifiable in this sandbox
+  (egress allowlist; streams are third-party and rights vary).
