@@ -21,6 +21,7 @@ const STATIC_ROUTES: Array<[string, NonNullable<MetadataRoute.Sitemap[number]['c
   ['/terms', 'yearly', 0.2],
   ['/copyright', 'yearly', 0.2],
   ['/api-partnerships', 'monthly', 0.3],
+  ['/submit', 'monthly', 0.3],
   ['/spin', 'daily', 0.5],
   ['/leaderboard', 'daily', 0.5],
 ];

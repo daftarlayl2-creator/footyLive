@@ -90,3 +90,11 @@ Audit: squad cards (components/club/ClubTabs.jsx) already showed number, name, p
 
 ## Phase 11 — Event icons
 Audit: the typed event vocabulary + ordered text classifier (`classifyEspnEventType`) already existed and is tested; scoreboard scorer lines carry `(P)`/`(OG)` marks. Added `lib/match/eventIcons.ts` (canonical typed-event → icon-key mapping with penalty-goal / penalty-awarded / penalty-missed kept distinct and a neutral fallback) and `components/match/EventIcon.jsx` (card chips + labelled lucide glyphs), with 4 tests including classifier-ordering pins (Second Yellow → red; Penalty-Missed/Awarded never become goals). A structured ESPN `type.id` table was deliberately NOT invented — verified fixtures carry `type.text` only; the module documents where ids will pre-empt once captured. No event-timeline surface exists yet to consume `EventIcon` (commentary is free text); nothing was fabricated to force one. Also fixed the Phase-7 regression in `components/match-ui.test.jsx` (panel now asserted collapsed-by-default, body via `defaultOpen`).
+
+## Phase 12 — Community submissions
+Nothing existed. Built on the advertiser-desk blueprint (cacheManager store + honeypot + throttle + staff RBAC):
+- `lib/community/submissions.ts`: two kinds (missing-match, source-suggestion); markup-stripping length caps; URL validation (http/https, no credentials, localhost/private/link-local hosts rejected incl. 169.254.169.254); lifecycle pending→approved/rejected/removed; public report counter. Storage is its own key — structurally unable to write match data; "approved" means "queued for human verification", never auto-promoted.
+- `app/api/community/submissions/route.ts`: public POST (honeypot, 5/10min/IP) + report action; staff GET/PATCH behind `streams.manage`.
+- Public UI: `/submit` (form + rules) using the LegalPage shell; sitemap entry.
+- 4 tests (URL matrix, validation, moderation/report flow, no promote-to-verified status exists).
+- Durability note (same as the ads desk): durable only with Upstash configured; in-process otherwise.
