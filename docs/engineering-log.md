@@ -59,3 +59,6 @@ No ticker existed. Added:
 - `lib/ticker/tickerItems.ts`: pure builder from canonical Matches — live entries only from upstream live status, verified finals <24h, today's fixtures (kickoff times, never scored); deduped, capped at 20; colon/time strings never parsed as scores. No news headlines (no verified news feed configured) — the strip says "No verified live scores or results to show right now" rather than inventing content.
 - `components/ticker/SportsTicker.jsx`: mounted in layout under the header; fixed 36px strip (no layout shift); polls `/api/matches` every 60s and keeps last-good items on failure; CSS marquee (`tickerScroll`) paused on hover and via an accessible pause/resume button; `motion-safe` only (reduced-motion users get a static strip); duplicated loop content marked `aria-hidden`/`tabIndex=-1`.
 - 4 unit tests pass; typecheck + lint clean.
+
+## Phase 1 §D (completed with Phase 5) — targeted match refresh
+`components/MatchGrid.jsx` no longer calls `router.refresh()` every 20s. Server props seed first paint; a 30s poll of `/api/matches` (skipped while the tab is hidden, keeps last verified list on failure) drives the grid, goal audio, and FavoritesHub. Scroll/filters/modal state survive updates.
