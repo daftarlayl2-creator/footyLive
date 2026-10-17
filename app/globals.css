@@ -303,6 +303,11 @@ html:not(.dark) {
 }
 
 /* === Immersive Premium Micro-Animations & Core Keyframes === */
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

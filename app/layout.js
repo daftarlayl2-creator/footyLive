@@ -3,6 +3,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import AdSlot from '@/components/ads/AdSlot';
 import HeaderNav from '@/components/nav/HeaderNav';
+import SportsTicker from '@/components/ticker/SportsTicker';
 import AccountButton from '@/components/auth/AccountButton';
 import WalletBadge from '@/components/coins/WalletBadge';
 import NotificationTray from '@/components/inbox/NotificationTray';
@@ -106,6 +107,9 @@ export default async function RootLayout({ children }) {
               </nav>
             </div>
           </header>
+
+          {/* Verified-scores ticker (Phase 5): fixed height, client-polled. */}
+          <SportsTicker />
 
           {/* Content wrapper */}
           <main className="relative z-10 w-full max-w-full flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8 flex-1 overflow-x-clip">

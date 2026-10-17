@@ -53,3 +53,9 @@ Audit: `lib/lineups/formations.ts` geometry is rigorous (0–100 viewBox, `prese
 - Tests: +2 (unavailable state, unpublished-formation label); 9/9 pitch tests pass.
 - No trade dress copied: geometry is the repo's own original model; no predicted XIs exist anywhere in the app (grep-verified).
 - Phase 4 verification details consolidated in the final report; browser pixel checks at 1275px etc. unavailable here (no browser) — geometry covered by unit tests.
+
+## Phase 5 — Live sports ticker
+No ticker existed. Added:
+- `lib/ticker/tickerItems.ts`: pure builder from canonical Matches — live entries only from upstream live status, verified finals <24h, today's fixtures (kickoff times, never scored); deduped, capped at 20; colon/time strings never parsed as scores. No news headlines (no verified news feed configured) — the strip says "No verified live scores or results to show right now" rather than inventing content.
+- `components/ticker/SportsTicker.jsx`: mounted in layout under the header; fixed 36px strip (no layout shift); polls `/api/matches` every 60s and keeps last-good items on failure; CSS marquee (`tickerScroll`) paused on hover and via an accessible pause/resume button; `motion-safe` only (reduced-motion users get a static strip); duplicated loop content marked `aria-hidden`/`tabIndex=-1`.
+- 4 unit tests pass; typecheck + lint clean.
