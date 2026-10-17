@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Goal, Layers, Radio, Trophy } from 'lucide-react';
-import { PRIMARY_NAV, activeNavKey } from '@/lib/navigation';
+import { activeNavKey, visiblePrimaryNav } from '@/lib/navigation';
 import EvivCoin from '@/components/coins/EvivCoin';
 import useWallet from '@/lib/hooks/useWallet';
 
@@ -16,6 +16,7 @@ const ICONS = { matches: Goal, channels: Radio, standings: Trophy, multiview: La
  */
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const navItems = visiblePrimaryNav();
   const active = activeNavKey(pathname);
   const onWallet = (pathname || '').startsWith('/profile');
   // The coin balance lives in the tab bar on phones (the header chip appears from `sm`).
@@ -25,8 +26,8 @@ export default function MobileBottomNav() {
     <nav aria-label="Primary" className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-[70] md:hidden">
       {/* Dark glass chrome in both themes, matching the header and the ad dock. */}
       <div className="rounded-t-3xl border-t border-white/[0.08] bg-navy-950/85 pb-[env(safe-area-inset-bottom)] shadow-[0_-14px_34px_-20px_rgba(0,0,0,0.85)] backdrop-blur-xl backdrop-saturate-150">
-        <ul className="mx-auto grid h-16 max-w-md grid-cols-5 px-1.5">
-          {PRIMARY_NAV.map((item) => {
+        <ul className={`mx-auto grid h-16 max-w-md px-1.5 ${navItems.length >= 4 ? 'grid-cols-5' : 'grid-cols-4'}`}>
+          {navItems.map((item) => {
             const Icon = ICONS[item.key];
             const isActive = item.key === active;
             return (

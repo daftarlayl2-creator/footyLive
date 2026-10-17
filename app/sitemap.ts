@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { isLiveTvEnabled } from '@/lib/config/features';
 import { getMatches } from '@/lib/streamEngine';
 import { clubHref } from '@/lib/clubs/links';
 import { matchHref } from '@/lib/seo/matches';
@@ -21,7 +22,9 @@ const STATIC_ROUTES: Array<[string, NonNullable<MetadataRoute.Sitemap[number]['c
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const matches = await getMatches().catch(() => []);
   const paths = new Map<string, MetadataRoute.Sitemap[number]>();
-  for (const [path, changeFrequency, priority] of STATIC_ROUTES) {
+  // TV routes stay out of the sitemap while Live TV is hidden.
+  const staticRoutes = isLiveTvEnabled() ? STATIC_ROUTES : STATIC_ROUTES.filter(([path]) => path !== '/channels');
+  for (const [path, changeFrequency, priority] of staticRoutes) {
     paths.set(path, { url: absoluteUrl(path), changeFrequency, priority });
   }
   for (const match of matches.slice(0, 2000)) {

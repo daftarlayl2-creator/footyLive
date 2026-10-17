@@ -22,6 +22,7 @@ import { backupProvider, isFeedProvider, selectLiveBackups, type LiveBackup } fr
 import type { LiveChannel } from './broadcast/types';
 import { getCacheManager } from './cache/cacheManager';
 import { fresherMatch } from './match/merge';
+import { isLiveTvEnabled } from './config/features';
 import { buildProxyUrl, isDirectStreamUrl } from './hlsProxy';
 import { signStreamRedirect } from './streamRedirect';
 import { detectStreamKind } from './player/servers';
@@ -83,8 +84,9 @@ export async function getMatches(): Promise<Match[]> {
     if (espnMatches.length > 0) {
       const enriched = attachStreamSources(espnMatches, watchFootyMatches);
       // Cards with no catalogue servers still need a route into the player.
-      // Only fetch the feed when ESPN actually has live, unlinked fixtures.
-      if (!enriched.some((m) => m.source === 'espn' && m.status === 'live' && !m.sources?.length)) {
+      // Only fetch the feed when ESPN actually has live, unlinked fixtures —
+      // and only while Live TV is enabled (feed previews are TV surfaces).
+      if (!isLiveTvEnabled() || !enriched.some((m) => m.source === 'espn' && m.status === 'live' && !m.sources?.length)) {
         return enriched;
       }
       try {
@@ -214,7 +216,12 @@ export async function resolveAllStreams(
   const cacheKey = `streams_v2_${matchId}`;
 
   return cache.swr(cacheKey, async () => {
-    const resolveTasks = providers.map(async provider => {
+    // While Live TV is hidden, feed-family providers (live M3U events and
+    // the IPTV-Org pool) are excluded and no channel backups are injected:
+    // only match-specific catalogue servers can be selected.
+    const liveTv = isLiveTvEnabled();
+    const activeProviders = liveTv ? providers : providers.filter((p) => p.id !== 'livefeed' && p.id !== 'iptv-org');
+    const resolveTasks = activeProviders.map(async provider => {
       try {
         return await provider.resolveStreams(matchTitle, homeTeam, awayTeam, matchId, preFetchedMatch);
       } catch (err) {
@@ -237,7 +244,7 @@ export async function resolveAllStreams(
     // any match-specific provider servers as clearly labelled backups — so a
     // geo-blocked or expired fixture link fails over instead of dead-ending —
     // never as a claim that they carry this fixture.
-    if (preFetchedMatch?.status === 'live') {
+    if (liveTv && preFetchedMatch?.status === 'live') {
       try {
         const backups = await selectLiveBackups(await getLiveChannels(), {
           title: matchTitle,

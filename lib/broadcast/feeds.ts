@@ -461,7 +461,11 @@ const STATIC_FALLBACK_ENTRIES: FeedEntry[] = [
 /** Built once — pure transformation of the static definitions above. */
 export const STATIC_FALLBACK_CHANNELS: LiveChannel[] = buildLiveChannels(STATIC_FALLBACK_ENTRIES);
 
-/** The static fallback channel definitions (stable ids, playable URLs). */
+/**
+ * @deprecated Retained definitions only — no longer used by any listing or
+ * resolver path (the hardcoded standby stub was removed from production
+ * listing logic). Kept so historical channel ids remain recognisable.
+ */
 export function getStaticFallbackChannels(): LiveChannel[] {
   return STATIC_FALLBACK_CHANNELS;
 }
@@ -493,7 +497,7 @@ export function resetChannelMemoryCache(): void {
  *   1. 10-minute server-side memory cache (fresh list),
  *   2. cache-manager SWR (Redis / memory) → GitHub Contents API inside it,
  *   3. last-known-good list even when stale,
- *   4. static fallback channel definitions.
+ *   4. an honest empty list (no hardcoded standby channels are invented).
  * Explicitly disabled feeds (`LIVE_FEED_URLS=''`) still yield an empty list.
  */
 export async function getLiveChannels(): Promise<LiveChannel[]> {
@@ -521,7 +525,10 @@ export async function getLiveChannels(): Promise<LiveChannel[]> {
   // A stale list beats no list: visitors keep the last working channels.
   if (channelMemory) return channelMemory.channels;
 
-  return getStaticFallbackChannels();
+  // No feed data at all → honest empty catalogue. The former hardcoded
+  // three-channel standby stub was removed from the active listing logic
+  // (Phase 2/3): channels are only ever presented from verified feeds.
+  return [];
 }
 
 /** Look a channel up by its stable id. */

@@ -1,7 +1,7 @@
 /**
  * Channels feed resilience tests: `getLiveChannels` must NEVER throw — it
- * serves the 10-minute memory cache, then the last-known-good list, then the
- * static standby channel definitions, so /channels never shows an error banner.
+ * serves the 10-minute memory cache, then the last-known-good list, then an
+ * honest empty list (the hardcoded standby stub was removed in Phase 2/3).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -44,14 +44,13 @@ describe('getLiveChannels fallback chain', () => {
     delete (process.env as any).LIVE_FEED_URLS;
   });
 
-  it('serves static standby channels when every feed path is down', async () => {
+  it('serves an honest empty list when every feed path is down (no hardcoded stub)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })));
     const channels = await getLiveChannels();
-    expect(channels).toEqual(STATIC_FALLBACK_CHANNELS);
-    expect(channels.length).toBeGreaterThan(0);
-    // They are real, playable definitions — never an error placeholder.
-    expect(channels.every((c) => c.id && c.url && c.name)).toBe(true);
+    expect(channels).toEqual([]);
+    // The retained definitions still exist for id recognition, unused by listings.
     expect(getStaticFallbackChannels()).toBe(STATIC_FALLBACK_CHANNELS);
+    expect(STATIC_FALLBACK_CHANNELS.every((c) => c.id && c.url && c.name)).toBe(true);
   });
 
   it('serves the last-known-good list when a later refresh fails', async () => {

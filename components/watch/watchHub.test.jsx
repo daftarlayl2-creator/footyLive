@@ -21,6 +21,8 @@ import LiveChannelPicker from './LiveChannelPicker';
 let container;
 let root;
 beforeEach(() => {
+  // Live TV surfaces are flag-gated (Phase 2); these suites test the enabled UI.
+  vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'true');
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -30,6 +32,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.clearAllMocks();
 });
 const render = async (element) => { await act(async () => root.render(element)); };
@@ -171,5 +174,14 @@ describe('watch stream hub', () => {
     await settle();
     expect(container.querySelector('[data-live-channel-picker]')).not.toBeNull();
     expect(container.querySelectorAll('[data-live-channel-picker] li')).toHaveLength(3);
+  });
+
+  it('hides the channel list while Live TV is disabled, player unaffected (Phase 2)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'false');
+    stubFeeds();
+    await render(<WatchStreamHub matchId="espn-700003" streamUrl="https://cdn.example.com/m.m3u8" channels={[{ name: 'Server 1', url: 'https://cdn.example.com/m.m3u8' }]} matchTitle="A vs B" matchStatus="live" />);
+    await settle();
+    expect(container.querySelector('[data-live-channel-picker]')).toBeNull();
+    expect(container.querySelector('[data-player]')).not.toBeNull();
   });
 });

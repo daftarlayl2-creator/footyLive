@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import LiveChannelsGrid from '@/components/LiveChannelsGrid';
+import { isLiveTvEnabled } from '@/lib/config/features';
 import { getLiveChannels } from '@/lib/broadcast/feeds';
 import { getChannelStatuses } from '@/lib/broadcast/probe';
 import logger from '@/lib/logger';
@@ -26,7 +28,31 @@ async function loadInitialChannelFeed() {
   }
 }
 
+/** Honest unavailable state while Live TV is temporarily hidden (flag off). */
+function LiveTvUnavailable() {
+  return (
+    <div className="w-full space-y-4">
+      <header>
+        <h1 className="text-xl font-bold text-navy-900 dark:text-white">
+          Live <span className="brand-gradient-text">Channels</span>
+        </h1>
+      </header>
+      <div className="glass-panel rounded-3xl p-6 text-sm leading-relaxed text-navy-700 dark:text-zinc-300">
+        <p className="font-bold text-navy-900 dark:text-white">Live TV is temporarily unavailable.</p>
+        <p className="mt-2">
+          We are rebuilding the channel catalogue. Live scores, fixtures and match streams are unaffected —
+          head back to today&apos;s matches in the meantime.
+        </p>
+        <Link href="/" className="tactile mt-4 inline-flex rounded-xl bg-lime-500 px-4 py-2 text-xs font-extrabold text-navy-950">
+          Browse today&apos;s matches
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default async function ChannelsPage() {
+  if (!isLiveTvEnabled()) return <LiveTvUnavailable />;
   // Server-render the channel list so the grid is never empty: even if the
   // client-side status probe is blocked, every channel is listed and clickable.
   // `getLiveChannels` never throws — it falls back to cached / standby channels.

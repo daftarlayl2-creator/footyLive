@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isLiveTvEnabled } from '@/lib/config/features';
 import { getRequestSubscription } from '@/lib/subscription/server';
 import { subscriptionAccess } from '@/lib/subscription/plans';
 import { preparePlayback } from '@/lib/subscription/playback';
@@ -8,6 +9,8 @@ export const dynamic = 'force-dynamic';
 const headers = { 'Cache-Control': 'no-store, private', Vary: 'Cookie' };
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Live TV temporarily hidden: no channel stream resolution.
+  if (!isLiveTvEnabled()) return NextResponse.json({ error: 'Live TV is temporarily unavailable.' }, { status: 404, headers });
   const { id } = await params;
   try {
     const access = subscriptionAccess((await getRequestSubscription(request)).grants);

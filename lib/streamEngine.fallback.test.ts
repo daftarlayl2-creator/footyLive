@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Match } from './types';
 import type { LiveChannel } from './broadcast/types';
 import { buildLiveChannels } from './broadcast/feeds';
@@ -84,6 +84,9 @@ function probeResults(rules: Record<string, 'live' | 'offline'>) {
 }
 
 beforeEach(() => {
+  // These suites exercise the Live-TV-enabled behaviour; the flag-off path
+  // is covered separately below.
+  vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'true');
   resetIptvOrgSelection();
   resetLiveBackupSelection();
   services.espnMatches.mockReset().mockResolvedValue([match()]);
@@ -249,5 +252,32 @@ describe('official sports integration in the shared match/Multi-View resolver', 
     expect(JSON.stringify(verified)).not.toContain('sports.example.com');
     const fixture = match({ status: 'upcoming', broadcasters: ['ESPN 2'] });
     await expect(resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture)).rejects.toThrow('No streams available');
+  });
+});
+
+describe('Live TV feature flag (Phase 2: temporarily hidden)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('never auto-selects feed channels or backups while hidden', async () => {
+    vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'false');
+    services.feed.mockResolvedValue(CHANNELS);
+    // No feed preview counts on live cards…
+    const [preview] = await getMatches();
+    expect(preview.feedStreamCount).toBeUndefined();
+    // …and a live fixture with only feed coverage resolves to no servers
+    // instead of silently substituting TV channels.
+    const fixture = match({ id: 'espn-999991' });
+    await expect(resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture))
+      .rejects.toThrow('No streams available');
+  });
+
+  it('still resolves match-specific catalogue servers while hidden', async () => {
+    vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'false');
+    const fixture = match({
+      id: 'espn-999992',
+      sources: [{ id: 'primary', source: 'wf', label: 'Fixture', url: 'https://catalogue.example.com/arsenal.m3u8' }],
+    });
+    const resolved = await resolveAllStreams(fixture.title, fixture.id, fixture.homeTeam.name, fixture.awayTeam.name, fixture);
+    expect(resolved.channels.map(({ provider }) => provider)).toEqual(['watchfooty']);
   });
 });

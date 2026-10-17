@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { ArrowLeft, RadioTower } from 'lucide-react';
+import { isLiveTvEnabled } from '@/lib/config/features';
 import { resolveChannelStreams } from '@/lib/broadcast/channelStreams';
 import StreamPlayer from '@/components/StreamPlayer';
 import { getServerSubscription } from '@/lib/subscription/server';
@@ -10,6 +12,8 @@ import PremiumButton from '@/components/subscription/PremiumButton';
 export const dynamic = 'force-dynamic';
 
 export default async function ChannelPage({ params }) {
+  // Live TV temporarily hidden: channel playback pages do not resolve.
+  if (!isLiveTvEnabled()) notFound();
   const { id } = await params;
   const resolved = await resolveChannelStreams(id).catch(() => null);
   const channel = resolved?.channel;
