@@ -62,3 +62,12 @@ No ticker existed. Added:
 
 ## Phase 1 §D (completed with Phase 5) — targeted match refresh
 `components/MatchGrid.jsx` no longer calls `router.refresh()` every 20s. Server props seed first paint; a 30s poll of `/api/matches` (skipped while the tab is hidden, keeps last verified list on failure) drives the grid, goal audio, and FavoritesHub. Scroll/filters/modal state survive updates.
+
+## Phase 6 — Ads (partial; storage-blocked portion documented)
+Existing monetisation is the Adsterra network (keys verbatim in `lib/adsConfig.js`, never edited) + first-party house partners (`lib/ads/partners.ts`). Impressions/clicks are already counted per slot by `AdSlot` → `lib/admin/metrics.ts` (durable only when Upstash is configured).
+Done:
+- Footer leaderboard placement added (`footerLeaderboard`/`footerMobile` in `AD_PLACEMENTS`, rendered in layout, VIP-hidden via `AdSlot`).
+- `AdSlot` accepts an analytics `slot` override so placements sharing one network unit count impressions separately (footer no longer inflates the home-top slot's numbers).
+- Hero slot (TopSportsBanner) and the large slot between the new ticker and FavoritesHub (homeTop desktop/mobile) already exist on the homepage — verified, kept.
+- `lib/ads/creativeValidation.ts`: magic-byte-only PNG/JPEG/WEBP validation (2 MiB cap; SVG/HTML/GIF rejected) + 3 tests — ready for any future upload UI.
+BLOCKED (needs owner decision, not implemented): first-party campaign CRUD, creative upload storage, schedules, impression targets. There is no durable object/table store in this environment (no Supabase credentials, no Upstash token), and inventing an in-memory "campaign manager" would fabricate capabilities that vanish on restart. Recommended: Supabase Storage bucket `ad-creatives` + `ad_campaigns` table behind existing admin RBAC; `validateCreative` plugs into the upload route unchanged.

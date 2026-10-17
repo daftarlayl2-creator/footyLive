@@ -118,6 +118,17 @@ export default async function RootLayout({ children }) {
             </div>
           </main>
 
+          {/* Footer leaderboard (Phase 6): desktop 728x90 / mobile 320x50.
+              AdSlot self-hides for VIP and counts impressions per slot id. */}
+          <div className="relative z-10 w-full border-t border-navy-750 bg-navy-950/90 px-4 pt-6" data-ad-slot-wrapper="footer-leaderboard">
+            <div className="hidden w-full justify-center md:flex">
+              <AdSlot variant="banner" banner={AD_PLACEMENTS.footerLeaderboard} slot="footer-leaderboard" label="Advertisement" />
+            </div>
+            <div className="flex w-full justify-center overflow-hidden md:hidden">
+              <AdSlot variant="banner" banner={AD_PLACEMENTS.footerMobile} slot="footer-mobile" label="Advertisement" />
+            </div>
+          </div>
+
           <footer className="relative z-10 flex w-full justify-center border-t border-navy-750 bg-navy-950/90 px-4 py-8 text-zinc-400">
             <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-6 text-center text-xs md:flex-row md:text-left">
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:text-left">
