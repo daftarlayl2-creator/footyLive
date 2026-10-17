@@ -106,6 +106,9 @@ describe('club links across the app', () => {
 
 describe('navigation', () => {
   it('renders the four mobile tabs plus the coin wallet, and marks the active destination', () => {
+    // Phase 2: the Live Channels tab exists only while Live TV is enabled.
+    // This test covers the full enabled nav; the hidden default is asserted below.
+    vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'true');
     pathname = '/club/359-arsenal';
     const html = renderToStaticMarkup(<MobileBottomNav />);
     for (const label of ['Matches', 'Live Channels', 'Standings', 'Multi-View', 'Wallet']) expect(html).toContain(label);
@@ -116,13 +119,29 @@ describe('navigation', () => {
     expect((html.match(/aria-current="page"/g) || []).length).toBe(1);
     expect(html).toContain('md:hidden');
     expect(html).toContain('safe-area-inset-bottom');
+    vi.unstubAllEnvs();
+  });
+
+  it('hides the Live Channels tab while Live TV is disabled (Phase 2 default)', () => {
+    pathname = '/club/359-arsenal';
+    const html = renderToStaticMarkup(<MobileBottomNav />);
+    expect(html).not.toContain('Live Channels');
+    expect(html).not.toContain('href="/channels"');
+    for (const label of ['Matches', 'Standings', 'Multi-View', 'Wallet']) expect(html).toContain(label);
   });
 
   it('highlights the current page in the desktop header', () => {
+    // Phase 2: /channels is only in the header while Live TV is enabled.
+    vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'true');
     pathname = '/channel/abc';
     const html = renderToStaticMarkup(<HeaderNav />);
     expect(html).toMatch(/href="\/channels"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/channels"/);
     expect(html).toContain('href="/highlights"');
+    vi.unstubAllEnvs();
+    // Default (hidden): no /channels entry in the header at all.
+    const hidden = renderToStaticMarkup(<HeaderNav />);
+    expect(hidden).not.toContain('href="/channels"');
+    expect(hidden).toContain('href="/highlights"');
   });
 
   it('exposes the sound switch with an accessible state', () => {
@@ -135,7 +154,12 @@ describe('navigation', () => {
 
 describe('fixed match widgets', () => {
   it('never renders the chat input disabled and offers Enter-to-send', () => {
-    const html = renderToStaticMarkup(<MatchChatPanel matchId="espn-1" />);
+    // Phase 7: collapsed by default — the composer mounts once expanded.
+    const collapsed = renderToStaticMarkup(<MatchChatPanel matchId="espn-1" />);
+    expect(collapsed).toContain('Live Match Chat');
+    expect(collapsed).toContain('Expand chat');
+    expect(collapsed).not.toContain('aria-label="Chat message"');
+    const html = renderToStaticMarkup(<MatchChatPanel matchId="espn-1" defaultOpen />);
     const input = html.match(/<input[^>]*aria-label="Chat message"[^>]*>/)?.[0] || '';
     expect(input).not.toBe('');
     expect(input).not.toContain('disabled');

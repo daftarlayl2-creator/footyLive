@@ -98,3 +98,13 @@ Nothing existed. Built on the advertiser-desk blueprint (cacheManager store + ho
 - Public UI: `/submit` (form + rules) using the LegalPage shell; sitemap entry.
 - 4 tests (URL matrix, validation, moderation/report flow, no promote-to-verified status exists).
 - Durability note (same as the ads desk): durable only with Upstash configured; in-process otherwise.
+
+## Stabilization pass — 9 phase-regression test failures (2026-10-17)
+Full-suite run after Phase 12 showed 9 failures in 4 files. Baseline proof: all 44 tests in those files pass at `5b0e6f4` (isolated worktree), so every failure was introduced by deliberate phase behavior changes, none pre-existing:
+- Phase 2 (`NEXT_PUBLIC_LIVE_TV_ENABLED`): overhaul-ui nav ×2 (channels tab/link hidden), `lib/broadcast/channelStreams.test.ts` ×2 (`/api/channels/[id]/streams` 404 while hidden), crawlability ×1 (/channels out of sitemap).
+- Phase 7 (chat collapsed by default): glass-sprint ×2, overhaul-ui chat input ×1.
+- Phase 9/12: crawlability static-route count 8→14 (7 new pages − /channels).
+Fixes are test-only (no product code changed): original assertions preserved under flag-on stubs / `defaultOpen`; new flag-off coverage added (overhaul mobile tab, crawlability flag-on sitemap). Results: full suite 126 files / 1080 tests green; typecheck + lint clean; clean production build OK; runtime smokes pass (flag-off and flag-on builds; community API 400/201/401).
+Operational findings:
+1. **Clean-build requirement**: toggling `NEXT_PUBLIC_LIVE_TV_ENABLED` between incremental builds produced a mixed-flag bundle (flag-off UI + flag-on APIs) from the `.next` cache. Always `rm -rf .next` when changing NEXT_PUBLIC_ flags (fresh CI builds are unaffected).
+2. `/channel/[id]` while hidden renders the not-found UI with HTTP **200** (root `loading.js` streams the shell before `notFound()` throws; unmatched routes correctly return 404). Content is fully hidden (zero stream URLs verified), but the status is a soft-404 — a future middleware-level fix is required if a true 404 status is needed. Not changed during this freeze.
