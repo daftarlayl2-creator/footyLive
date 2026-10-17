@@ -45,7 +45,14 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
   useEffect(() => {
     if (!videoIdForState) return undefined;
     const timer = setTimeout(() => {
-      setPlayer((prev) => (prev.id === videoIdForState && !prev.ready ? { ...prev, slow: true } : prev));
+      // The deadline belongs to THIS video (the effect re-runs per id). If no
+      // load/error has claimed the state yet, the player id is still null or
+      // the previous video's — that is precisely the slow case, so claim the
+      // state as slow for the current video instead of ignoring the deadline.
+      setPlayer((prev) => {
+        if (prev.id === videoIdForState) return prev.ready ? prev : { ...prev, slow: true };
+        return { id: videoIdForState, ready: false, failed: false, slow: true };
+      });
     }, 6000);
     return () => clearTimeout(timer);
   }, [videoIdForState]);
