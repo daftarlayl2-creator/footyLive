@@ -5,6 +5,7 @@ import StreamPlayer from '@/components/StreamPlayer';
 import LiveReactions from '@/components/reactions/LiveReactions';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import LiveChannelPicker from './LiveChannelPicker';
+import { isLiveTvEnabled } from '@/lib/config/features';
 import { ArrowLeft, MonitorPlay } from 'lucide-react';
 
 /**
@@ -82,6 +83,8 @@ export default function WatchStreamHub({
         )}
       </div>
 
+      {/* Manual live-channel list — hidden with Live TV, match servers unaffected. */}
+      {isLiveTvEnabled() && (
       <LiveChannelPicker
         matchTitle={matchTitle}
         activeChannelId={active.channelId}
@@ -101,6 +104,7 @@ export default function WatchStreamHub({
           }
         }}
       />
+      )}
     </div>
   );
 }

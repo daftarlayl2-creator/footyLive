@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, ExternalLink, Eye, Tv, X } from 'lucide-react';
 import { stripIframeSandbox } from '@/lib/player/embed';
 import SafeExternalLink from '@/components/ui/ExternalLink';
@@ -34,6 +34,31 @@ function formatViews(views) {
  */
 export default function HighlightPlayerModal({ highlight, onClose }) {
   const closeRef = useRef(null);
+  // Phase 8: embed failure detection. A disabled/blocked embed strands the
+  // viewer on YouTube's error screen with no signal we can read cross-origin,
+  // so we watch the frame's own load/error events and a patience deadline —
+  // then surface the authorized fallback (the official watch page). We never
+  // proxy or re-host the video.
+  // State is keyed by video id so switching highlights needs no reset effect.
+  const [player, setPlayer] = useState({ id: null, ready: false, failed: false, slow: false });
+  const videoIdForState = highlight?.videoId;
+  useEffect(() => {
+    if (!videoIdForState) return undefined;
+    const timer = setTimeout(() => {
+      // The deadline belongs to THIS video (the effect re-runs per id). If no
+      // load/error has claimed the state yet, the player id is still null or
+      // the previous video's — that is precisely the slow case, so claim the
+      // state as slow for the current video instead of ignoring the deadline.
+      setPlayer((prev) => {
+        if (prev.id === videoIdForState) return prev.ready ? prev : { ...prev, slow: true };
+        return { id: videoIdForState, ready: false, failed: false, slow: true };
+      });
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [videoIdForState]);
+  const playerReady = player.id === videoIdForState && player.ready;
+  const playerFailed = player.id === videoIdForState && player.failed;
+  const playerSlow = player.id === videoIdForState && player.slow;
 
   useEffect(() => {
     if (!highlight) return undefined;
@@ -124,6 +149,8 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
                 className="h-full w-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="strict-origin-when-cross-origin"
+                onLoad={() => setPlayer((prev) => ({ id: videoId, ready: true, failed: prev.id === videoId ? prev.failed : false, slow: false }))}
+                onError={() => setPlayer((prev) => ({ id: videoId, ready: prev.id === videoId ? prev.ready : false, failed: true, slow: prev.id === videoId ? prev.slow : false }))}
                 allowFullScreen
               />
             ) : highlight.embed ? (
@@ -137,6 +164,20 @@ export default function HighlightPlayerModal({ highlight, onClose }) {
             )}
           </div>
         </div>
+
+        {/* Authorized fallback when the embed fails or never becomes ready
+            (region/embedding restrictions show inside the frame itself): we
+            point to the official watch page instead of proxying anything. */}
+        {embedSrc && (playerFailed || (!playerReady && playerSlow)) ? (
+          <p data-highlight-fallback className="mt-3 rounded-xl border border-navy-750 bg-navy-900/80 px-3 py-2 text-center text-xs text-zinc-300" role="status">
+            {playerFailed ? 'The embedded player could not load.' : 'The player is taking a while — the video may be restricted in your region.'}{' '}
+            {highlight.url ? (
+              <SafeExternalLink href={highlight.url} fallbackLabel="YouTube link unavailable" className="font-bold text-lime-400 hover:underline">
+                Watch it on YouTube
+              </SafeExternalLink>
+            ) : null}
+          </p>
+        ) : null}
 
         {/* Footer */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">

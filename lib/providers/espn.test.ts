@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   classifyEspnEventType,
   espnDateString,
+  getEspnMatches,
   getEspnMatchStats,
   isEspnMatchId,
   leagueSlugFromSeasonSlug,
@@ -273,6 +274,44 @@ describe('normalising real ESPN events', () => {
     expect(normalizeEspnEvent(null)).toBeNull();
     expect(normalizeEspnEvent({ id: '1' })).toBeNull();
     expect(normalizeEspnEvent({ id: '1', competitions: [{ competitors: [] }] })).toBeNull();
+  });
+
+  it('drops events without a parseable kick-off instead of stamping them "now"', () => {
+    const noDate = structuredClone(SCHEDULED_EVENT) as any;
+    delete noDate.date;
+    delete noDate.competitions[0].date;
+    expect(normalizeEspnEvent(noDate)).toBeNull();
+
+    const badDate = structuredClone(SCHEDULED_EVENT) as any;
+    badDate.date = 'not-a-date';
+    badDate.competitions[0].date = 'also-not-a-date';
+    expect(normalizeEspnEvent(badDate)).toBeNull();
+  });
+});
+
+describe('multi-day scoreboard merging', () => {
+  it('a stale scheduled copy on an older board cannot overwrite the finished result', async () => {
+    const scheduledCopy = { ...structuredClone(SCHEDULED_EVENT), id: '700099' };
+    const finishedCopy = { ...structuredClone(FINISHED_EVENT), id: '700099' };
+    const boards: Record<string, any[]> = {
+      [espnDateString(-1)]: [scheduledCopy],
+      [espnDateString(0)]: [finishedCopy],
+      [espnDateString(1)]: [],
+    };
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const date = /dates=(\d{8})/.exec(String(url))?.[1] ?? '';
+      return { ok: true, json: async () => ({ events: boards[date] ?? [] }) };
+    }));
+    try {
+      const matches = await getEspnMatches();
+      const kept = matches.filter((m) => m.id === 'espn-700099');
+      expect(kept).toHaveLength(1);
+      expect(kept[0].status).toBe('finished');
+      expect(kept[0].homeScore).toBe(3);
+      expect(kept[0].awayScore).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

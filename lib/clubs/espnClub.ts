@@ -12,6 +12,7 @@
  */
 import { competitionFromSeasonName } from '@/lib/providers/espn';
 import { normalizeHex } from './colors';
+import { safePlayerImage } from '@/lib/players/normalize';
 
 export interface ClubRecord {
   played?: number;
@@ -75,6 +76,8 @@ export interface SquadPlayer {
   id: string;
   name: string;
   jersey?: string;
+  /** Verified provider headshot URL (Phase 10); absent ⇒ number/initials fallback. */
+  headshot?: string;
   position: string;
   group: PositionGroup;
   age?: number;
@@ -266,6 +269,51 @@ export function normalizeTeamSchedule(json: any, teamId: string): ClubMatch[] {
   return matches;
 }
 
+/** Lifecycle stage for club matches (`scheduled/postponed/canceled → live → finished`). */
+function clubStageRank(status: ClubMatchStatus): number {
+  if (status === 'finished') return 2;
+  if (status === 'live') return 1;
+  return 0;
+}
+
+function hasScores(match: ClubMatch): boolean {
+  return match.home.score !== undefined && match.away.score !== undefined;
+}
+
+/**
+ * Merge the results schedule and the fixtures schedule into one record per
+ * match id. Both lists come from the same ESPN endpoints, so conflicts are
+ * resolved by lifecycle stage — a `finished` copy always beats a `scheduled`
+ * or `live` copy of the same match whatever list it arrived in — then by
+ * score completeness. On a full tie the results-list record wins (that
+ * endpoint is authoritative for completed matches). Deterministic for any
+ * input order of the two lists themselves.
+ */
+export function mergeClubSchedules(results: ClubMatch[], fixtures: ClubMatch[]): ClubMatch[] {
+  const byId = new Map<string, ClubMatch>();
+  // Fixtures first, results second: with the tie-break below (incoming
+  // results record wins only when it is not strictly worse), the fixtures
+  // copy survives only when it is at a strictly later lifecycle stage.
+  for (const match of fixtures) byId.set(match.id, match);
+  for (const match of results) {
+    const existing = byId.get(match.id);
+    if (!existing) {
+      byId.set(match.id, match);
+      continue;
+    }
+    const stage = clubStageRank(match.status) - clubStageRank(existing.status);
+    if (stage > 0) {
+      byId.set(match.id, match);
+    } else if (stage === 0 && hasScores(match) && !hasScores(existing)) {
+      byId.set(match.id, match);
+    } else if (stage === 0 && hasScores(match) === hasScores(existing)) {
+      byId.set(match.id, match);
+    }
+    // stage < 0, or same stage with fewer scores: keep the existing record.
+  }
+  return [...byId.values()];
+}
+
 /** Last `count` results, oldest → newest (W/D/L). */
 export function formFromResults(matches: ClubMatch[], count = 5): Array<'W' | 'D' | 'L'> {
   return matches
@@ -321,6 +369,7 @@ export function normalizeRoster(json: any): SquadPlayer[] {
       id: String(athlete.id),
       name,
       ...(athlete.jersey ? { jersey: String(athlete.jersey) } : {}),
+      ...(() => { const headshot = safePlayerImage(athlete.headshot?.href ?? athlete.headshot); return headshot ? { headshot } : {}; })(),
       position: athlete.position?.displayName || athlete.position?.name || 'Player',
       group: positionGroup(athlete.position),
       ...(age !== undefined ? { age } : {}),

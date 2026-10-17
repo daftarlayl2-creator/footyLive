@@ -3,6 +3,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import AdSlot from '@/components/ads/AdSlot';
 import HeaderNav from '@/components/nav/HeaderNav';
+import SportsTicker from '@/components/ticker/SportsTicker';
 import AccountButton from '@/components/auth/AccountButton';
 import WalletBadge from '@/components/coins/WalletBadge';
 import NotificationTray from '@/components/inbox/NotificationTray';
@@ -33,7 +34,7 @@ export const viewport = {
   maximumScale: 1,
   // Draw edge-to-edge; the header and bottom tab bar pad themselves with the safe-area insets.
   viewportFit: 'cover',
-  themeColor: '#18030A',
+  themeColor: '#0B0D0A',
 };
 
 export default async function RootLayout({ children }) {
@@ -89,7 +90,7 @@ export default async function RootLayout({ children }) {
           <header className="sticky top-0 z-50 flex w-full justify-center border-b border-navy-750 bg-navy-950/85 pt-[env(safe-area-inset-top)] text-zinc-100 backdrop-blur-xl backdrop-saturate-150">
             <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-2 px-3 py-1 sm:px-6 lg:px-8">
               <Link href="/" aria-label="Limon Live — home" className="tactile group shrink-0">
-                <BrandLogo className="block h-auto w-[106px] transition-transform duration-300 group-hover:scale-105 sm:w-36" />
+                <BrandLogo className="transition-transform duration-300 group-hover:scale-105" />
               </Link>
 
               <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -107,6 +108,9 @@ export default async function RootLayout({ children }) {
             </div>
           </header>
 
+          {/* Verified-scores ticker (Phase 5): fixed height, client-polled. */}
+          <SportsTicker />
+
           {/* Content wrapper */}
           <main className="relative z-10 w-full max-w-full flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8 flex-1 overflow-x-clip">
             <div className="w-full max-w-6xl mx-auto flex flex-col items-stretch">
@@ -114,17 +118,60 @@ export default async function RootLayout({ children }) {
             </div>
           </main>
 
-          <footer className="relative z-10 flex w-full justify-center border-t border-navy-750 bg-navy-950/90 px-4 py-8 text-zinc-400">
-            <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-6 text-center text-xs md:flex-row md:text-left">
-              <div className="flex flex-col items-center gap-3 sm:flex-row sm:text-left">
-                <BrandLogo className="block h-auto w-28 shrink-0" />
-                <p className="max-w-lg leading-relaxed">
-                  © {new Date().getFullYear()} Limon Live. Live fixtures and statistics come from public sports data;
-                  streams are aggregated from third-party networks.
-                </p>
-              </div>
-              <Link href="/pricing" className="tactile rounded-xl border border-eviv-lime/30 px-4 py-2 font-bold text-eviv-lime">VIP passes · from 3 MAD</Link>
+          {/* Footer leaderboard (Phase 6): desktop 728x90 / mobile 320x50.
+              AdSlot self-hides for VIP and counts impressions per slot id. */}
+          <div className="relative z-10 w-full border-t border-navy-750 bg-navy-950/90 px-4 pt-6" data-ad-slot-wrapper="footer-leaderboard">
+            <div className="hidden w-full justify-center md:flex">
+              <AdSlot variant="banner" banner={AD_PLACEMENTS.footerLeaderboard} slot="footer-leaderboard" label="Advertisement" />
             </div>
+            <div className="flex w-full justify-center overflow-hidden md:hidden">
+              <AdSlot variant="banner" banner={AD_PLACEMENTS.footerMobile} slot="footer-mobile" label="Advertisement" />
+            </div>
+          </div>
+
+          {/* Compact multi-column footer (Phase 9) */}
+          <footer className="relative z-10 w-full border-t border-navy-750 bg-navy-950/90 px-4 py-8 text-zinc-400">
+            <div className="mx-auto grid w-full max-w-6xl gap-8 text-xs sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-3">
+                <BrandLogo className="shrink-0" />
+                <p className="max-w-xs leading-relaxed">
+                  Live fixtures and statistics come from public sports data; streams are aggregated from third-party
+                  networks.
+                </p>
+                <Link href="/pricing" className="tactile inline-block rounded-xl border border-eviv-lime/30 px-4 py-2 font-bold text-eviv-lime">VIP passes · from 3 MAD</Link>
+              </div>
+              <nav aria-label="Explore" className="space-y-2">
+                <p className="font-extrabold uppercase tracking-widest text-zinc-200">Explore</p>
+                <ul className="space-y-1.5">
+                  <li><Link className="hover:text-lime-400" href="/">Today&rsquo;s matches</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/standings">Standings</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/highlights">Highlights</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/leaderboard">Leaderboard</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/pricing">VIP passes</Link></li>
+                </ul>
+              </nav>
+              <nav aria-label="Company" className="space-y-2">
+                <p className="font-extrabold uppercase tracking-widest text-zinc-200">Company</p>
+                <ul className="space-y-1.5">
+                  <li><Link className="hover:text-lime-400" href="/about">About</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/contact">Contact</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/advertise">Advertise</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/api-partnerships">API Partnerships</Link></li>
+                </ul>
+              </nav>
+              <nav aria-label="Legal" className="space-y-2">
+                <p className="font-extrabold uppercase tracking-widest text-zinc-200">Legal</p>
+                <ul className="space-y-1.5">
+                  <li><Link className="hover:text-lime-400" href="/privacy">Privacy Policy</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/terms">Terms of Service</Link></li>
+                  <li><Link className="hover:text-lime-400" href="/copyright">Copyright / DMCA</Link></li>
+                </ul>
+              </nav>
+            </div>
+            <p className="mx-auto mt-8 w-full max-w-6xl border-t border-navy-800 pt-4 text-[11px] leading-relaxed">
+              © {new Date().getFullYear()} Limon Live. Scores and statuses are shown as reported by upstream providers;
+              third-party content remains the responsibility of its provider.
+            </p>
           </footer>
 
           {/* Mobile sticky footer banner (320x50), docked just above the bottom tab bar.

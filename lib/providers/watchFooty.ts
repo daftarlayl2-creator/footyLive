@@ -57,54 +57,82 @@ export class WatchFootyProvider implements StreamProvider {
   }
 }
 
+/** Epoch values below this are seconds; at/above it they are milliseconds. */
+const EPOCH_MS_THRESHOLD = 100_000_000_000; // 1e11 ms ≈ 1973, 1e11 s ≈ year 5138
+const MIN_PLAUSIBLE_MS = Date.UTC(2000, 0, 1);
+const MAX_PLAUSIBLE_MS = Date.UTC(2100, 0, 1);
+
+/**
+ * Normalise an upstream kick-off time to epoch **milliseconds** with an
+ * explicit unit decision, or 0 when the value cannot be trusted:
+ *   - numbers (and all-digit strings) below 1e11 are epoch *seconds*;
+ *   - numbers at/above 1e11 are epoch *milliseconds*;
+ *   - other strings must parse as a date (ISO etc.);
+ *   - results outside 2000–2100 are rejected as unit mix-ups/garbage.
+ * Returning 0 (never "now") keeps bad timestamps visible to the shared
+ * visibility rules instead of fabricating a kick-off time.
+ */
+export function parseWatchFootyTimestamp(value: unknown): number {
+  let ms: number;
+  if (value instanceof Date) {
+    ms = value.getTime();
+  } else if (typeof value === 'number' || (typeof value === 'string' && /^-?\d+$/.test(value.trim()))) {
+    const numeric = typeof value === 'number' ? value : Number(value.trim());
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+    ms = numeric < EPOCH_MS_THRESHOLD ? numeric * 1000 : numeric;
+  } else if (typeof value === 'string' && value.trim()) {
+    ms = Date.parse(value);
+  } else {
+    return 0;
+  }
+  return Number.isFinite(ms) && ms >= MIN_PLAUSIBLE_MS && ms < MAX_PLAUSIBLE_MS ? ms : 0;
+}
+
+/** Upstream status strings that authoritatively mean the match has ended. */
+const FINISHED_STATUSES = new Set(['post', 'finished', 'ft', 'full-time', 'fulltime', 'full_time', 'completed', 'final']);
+/** Upstream status strings that authoritatively mean the match is in play. */
+const LIVE_STATUSES = new Set(['in', 'live', 'inprogress', 'in-progress', 'in_progress', 'playing']);
+const POSTPONED_STATUSES = new Set(['postponed', 'delayed']);
+const CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'abandoned']);
+
+/**
+ * Status comes only from the upstream status field. Kick-off times, elapsed
+ * wall-clock time and structured minutes/scores are never used to promote a
+ * match to `live` — a lagging feed stays honestly `upcoming` until the
+ * provider itself reports the match in play.
+ */
+function watchFootyStatus(match: any): { status: Match['status']; note: string } {
+  const raw = String(match?.status ?? '').toLowerCase().trim();
+  if (FINISHED_STATUSES.has(raw)) return { status: 'finished', note: '' };
+  if (LIVE_STATUSES.has(raw)) return { status: 'live', note: '' };
+  if (POSTPONED_STATUSES.has(raw)) return { status: 'upcoming', note: 'Postponed' };
+  if (CANCELLED_STATUSES.has(raw)) return { status: 'upcoming', note: 'Cancelled' };
+  return { status: 'upcoming', note: '' };
+}
+
+/** Structured numeric field → a non-negative integer score (0 when unusable). */
+function structuredScore(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+}
+
 export function normalizeWatchFootyMatch(match: any): Match {
   const streams = match.streams || [];
   const homeLogo = match.teams?.home?.logoUrl ? match.teams.home.logoUrl : '';
   const awayLogo = match.teams?.away?.logoUrl ? match.teams.away.logoUrl : '';
   const leagueLogo = match.leagueLogo ? match.leagueLogo : '';
   const poster = match.poster ? match.poster : '';
-  
-  const kickoffTime = match.timestamp ? new Date(match.timestamp).getTime() : 0;
-  const now = Date.now();
-  const diffMinutes = kickoffTime ? Math.floor((now - kickoffTime) / 60000) : -1;
-  // A match is dynamically live if the kickoff time has arrived/passed, and it's less than 125 minutes since kickoff
-  const isTimeLive = kickoffTime && diffMinutes >= 0 && diffMinutes < 125;
 
-  const isExplicitlyLive = match.status === 'in' || match.status === 'live';
-  const hasLiveScores = (match.scores?.home >= 0 || match.scores?.away >= 0) && 
-                         match.currentMinuteNumber > 0 && match.currentMinuteNumber < 90;
+  const kickoffTime = parseWatchFootyTimestamp(match.timestamp);
+  const { status, note: statusNote } = watchFootyStatus(match);
 
-  let status: 'live' | 'upcoming';
-  if (match.status === 'post' || match.status === 'postponed' || match.status === 'cancelled') {
-    status = 'upcoming';
-  } else if (isExplicitlyLive) {
-    status = 'live';
-  } else if (match.status === 'pre' && (hasLiveScores || isTimeLive)) {
-    status = 'live';
-  } else {
-    status = 'upcoming';
-  }
-
-  let currentMinuteNumber = match.currentMinuteNumber || 0;
-  let currentMinute = match.currentMinute || '';
-
-  if (status === 'live' && !currentMinuteNumber) {
-    if (diffMinutes >= 0 && diffMinutes < 125) {
-      if (diffMinutes < 45) {
-        currentMinuteNumber = diffMinutes;
-        currentMinute = `${diffMinutes}'`;
-      } else if (diffMinutes >= 45 && diffMinutes < 60) {
-        currentMinuteNumber = 45;
-        currentMinute = 'HT';
-      } else if (diffMinutes >= 60 && diffMinutes < 105) {
-        currentMinuteNumber = diffMinutes - 15;
-        currentMinute = `${diffMinutes - 15}'`;
-      } else {
-        currentMinuteNumber = 90;
-        currentMinute = '90+';
-      }
-    }
-  }
+  // Minutes pass through only as reported upstream — never derived from
+  // the kick-off time or the wall clock.
+  const upstreamMinute = Number(match.currentMinuteNumber);
+  const currentMinuteNumber = Number.isFinite(upstreamMinute) && upstreamMinute > 0 ? Math.trunc(upstreamMinute) : 0;
+  const currentMinute = status === 'finished'
+    ? 'FT'
+    : typeof match.currentMinute === 'string' ? match.currentMinute : '';
 
   const country = getCountryForLeague(match.league || '');
 
@@ -113,7 +141,8 @@ export function normalizeWatchFootyMatch(match: any): Match {
     title: match.title || '',
     sport: 'football',
     status,
-    timestamp: kickoffTime || Date.now(),
+    source: 'watchfooty',
+    timestamp: kickoffTime,
     tournament: match.league || '',
     country: country,
     priority: getLeaguePriority(match.league || ''),
@@ -122,7 +151,7 @@ export function normalizeWatchFootyMatch(match: any): Match {
     leagueLogo: leagueLogo,
     poster: poster,
     venue: match.venue || '',
-    note: match.note || '',
+    note: match.note || statusNote,
     sources: streams.map((s: any, idx: number) => ({ 
       source: `wf-${s.source || 'stream'}-${idx + 1}`,
       id: String(s.id),
@@ -136,8 +165,8 @@ export function normalizeWatchFootyMatch(match: any): Match {
     })),
     currentMinute,
     currentMinuteNumber,
-    homeScore: Math.max(0, match.scores?.home ?? match.homeScore ?? 0),
-    awayScore: Math.max(0, match.scores?.away ?? match.awayScore ?? 0),
+    homeScore: structuredScore(match.scores?.home ?? match.homeScore ?? 0),
+    awayScore: structuredScore(match.scores?.away ?? match.awayScore ?? 0),
   };
 
 }

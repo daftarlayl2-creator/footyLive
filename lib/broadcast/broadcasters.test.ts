@@ -17,7 +17,7 @@ describe('fixture broadcaster metadata', () => {
   });
 
   it('retains explicit networks on normalized ESPN fixtures without inferring league rights', () => {
-    const event = { id: '123', name: 'Real Madrid vs AC Milan', competitions: [{
+    const event = { id: '123', date: '2026-10-14T19:00Z', name: 'Real Madrid vs AC Milan', competitions: [{
       competitors: [{ homeAway: 'home', team: { displayName: 'Real Madrid' } }, { homeAway: 'away', team: { displayName: 'AC Milan' } }],
       broadcasts: [{ names: ['ESPN+', 'beIN SPORTS'] }],
     }] };

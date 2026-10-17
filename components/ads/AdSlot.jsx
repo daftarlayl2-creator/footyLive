@@ -41,6 +41,9 @@ export default function AdSlot({
   className = '',
   label = 'Advertisement',
   refreshMs = AD_REFRESH_INTERVAL_MS,
+  /** Analytics placement id override (Phase 6): two placements sharing one
+   * network unit must still count impressions separately and honestly. */
+  slot,
 }) {
   const { access } = useSubscription();
   const mounted = useSyncExternalStore(
@@ -56,7 +59,7 @@ export default function AdSlot({
   // so analytics can mount before the VIP/social branches render.
   const isBanner = variant === 'banner' || variant === 'banner-refresh';
   const ad = isBanner ? BANNER_BY_ID[banner?.id] ?? banner : NATIVE_BANNER;
-  const slotId = variant === 'social' ? 'social-bar' : ad.id;
+  const slotId = typeof slot === 'string' && slot ? slot : variant === 'social' ? 'social-bar' : ad.id;
 
   // Analytics: an impression when the creative mounts; a pointerdown on the
   // slot counts as the click (the frame itself is cross-origin, so the tap is

@@ -203,6 +203,19 @@ describe('ESPN club normalisers', () => {
     expect(JSON.stringify(players)).not.toContain('Wenger');
   });
 
+  it('maps verified headshots and rejects unsafe image URLs (Phase 10)', () => {
+    const players = normalizeRoster({
+      athletes: [
+        { id: '1', displayName: 'With Photo', jersey: '7', position: { name: 'Forward' }, headshot: { href: 'https://a.espncdn.com/i/headshots/soccer/players/full/1.png' } },
+        { id: '2', displayName: 'Unsafe', position: { name: 'Forward' }, headshot: { href: 'javascript:alert(1)' } },
+        { id: '3', displayName: 'No Photo', position: { name: 'Midfielder' } },
+      ],
+    });
+    expect(players[0].headshot).toContain('/1.png');
+    expect(players[1].headshot).toBeUndefined();
+    expect(players[2].headshot).toBeUndefined();
+  });
+
   it('groups the squad by line and sorts by shirt number', () => {
     const squad = groupSquad([
       { id: '1', name: 'Striker', jersey: '9', position: 'Forward', group: 'Forwards' },

@@ -261,7 +261,7 @@ export default async function WatchPage({ params, searchParams, initialMatch }) 
             </dl>
           </div>
 
-          <MatchChatPanel matchId={matchId} />
+          <MatchChatPanel matchId={matchId} matchStatus={match.status} matchTimestamp={match.timestamp} />
 
           <div className="flex w-full justify-center overflow-hidden">
             <AdSlot variant="banner" banner={AD_PLACEMENTS.watchSidebar} />

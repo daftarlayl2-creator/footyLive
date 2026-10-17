@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Crown, Goal, Layers, Play, Radio, Sparkles, Trophy } from 'lucide-react';
-import { PRIMARY_NAV, activeNavKey } from '@/lib/navigation';
+import { activeNavKey, visiblePrimaryNav } from '@/lib/navigation';
 
 const ICONS = { matches: Goal, channels: Radio, standings: Trophy, multiview: Layers };
 
@@ -25,7 +25,7 @@ export default function HeaderNav() {
   return (
     <>
       <Link href="/pricing" aria-label="VIP passes" title="VIP passes" className="tactile hidden h-9 items-center gap-1.5 rounded-xl border border-eviv-lime/30 px-3 text-xs font-black text-eviv-lime xl:inline-flex"><Crown className="h-4 w-4" aria-hidden="true" />VIP</Link>
-      {PRIMARY_NAV.map((item) => {
+      {visiblePrimaryNav().map((item) => {
         const Icon = ICONS[item.key];
         const isActive = item.key === active;
         if (item.key === 'multiview') {

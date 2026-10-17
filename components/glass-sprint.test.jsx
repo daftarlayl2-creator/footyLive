@@ -560,7 +560,8 @@ describe('chat identity', () => {
   it('shows registered fans with the verified badge and tags their messages', async () => {
     configureAuth({ storage: window.localStorage, credentials: null, iterations: 1000 });
     await signUp({ email: 'fan@eviv.live', password: 'goal2026', displayName: 'Curva Sud' });
-    await render(<MatchChatPanel matchId="espn-77" />);
+    // Phase 7: panel is collapsed by default — these tests exercise the expanded body.
+    await render(<MatchChatPanel matchId="espn-77" defaultOpen />);
     expect(container.textContent).toContain('Chatting as');
     expect(container.textContent).toContain('Curva Sud');
     expect(container.querySelector('[data-verified-badge]')).not.toBeNull();
@@ -579,7 +580,7 @@ describe('chat identity', () => {
 
   it('offers guests a path to verification', async () => {
     configureAuth({ storage: window.localStorage, credentials: null, iterations: 1000 });
-    await render(<MatchChatPanel matchId="espn-78" />);
+    await render(<MatchChatPanel matchId="espn-78" defaultOpen />);
     expect(container.textContent).toContain('Get verified');
     expect(container.querySelector('a[href="/profile"]')).not.toBeNull();
   });

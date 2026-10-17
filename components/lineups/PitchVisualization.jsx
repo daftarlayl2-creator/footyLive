@@ -64,7 +64,7 @@ function PlayerPortrait({ player, alt }) {
   );
 }
 
-export default function PitchVisualization({ formation = '4-3-3', players, teamName }) {
+export default function PitchVisualization({ formation = '4-3-3', formationKnown = true, players, teamName }) {
   const layout = useMemo(() => formationLayout(formation), [formation]);
   const placed = useMemo(() => placePlayers(layout.id, players), [layout.id, players]);
   const roster = useMemo(() => rosterRows(placed), [placed]);
@@ -82,14 +82,41 @@ export default function PitchVisualization({ formation = '4-3-3', players, teamN
     setSelectedKey(keyFor(next));
   };
 
+  // No verified lineup from the source: say so instead of drawing
+  // placeholder shirts that would read as a confirmed XI.
+  if (!players?.length) {
+    return (
+      <div className="pitch-container rounded-2xl border border-navy-700 bg-navy-950/90 p-4 backdrop-blur-md" data-lineup-unavailable="">
+        {teamName && (
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-bold text-zinc-100">{teamName}</span>
+          </div>
+        )}
+        <div role="status" className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-navy-700 px-4 py-8 text-center">
+          <UserRound className="h-6 w-6 text-zinc-500" aria-hidden="true" />
+          <p className="text-sm font-bold text-zinc-200">Lineup not available</p>
+          <p className="max-w-60 text-[11px] leading-relaxed text-zinc-400">
+            The data source has not published a confirmed starting XI for this team yet.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pitch-container rounded-2xl border border-navy-700 bg-navy-950/90 p-4 backdrop-blur-md" data-pitch-formation={layout.id}>
       {teamName && (
         <div className="mb-2 flex items-center justify-between text-xs">
           <span className="font-bold text-zinc-100">{teamName}</span>
-          <span className="rounded-md border border-lime-500/30 bg-lime-500/10 px-2 py-0.5 text-[10px] font-bold text-lime-400">
-            {layout.id}
-          </span>
+          {formationKnown ? (
+            <span className="rounded-md border border-lime-500/30 bg-lime-500/10 px-2 py-0.5 text-[10px] font-bold text-lime-400">
+              {layout.id}
+            </span>
+          ) : (
+            <span className="rounded-md border border-navy-700 px-2 py-0.5 text-[10px] font-bold text-zinc-400">
+              Formation not published
+            </span>
+          )}
         </div>
       )}
 

@@ -12,8 +12,8 @@ vi.mock('./streamHealth', () => ({ rankChannelsByHealth: async (streams: Paramet
 
 const sources = buildLiveChannels([0, 1, 2].map((index) => ({ name: 'ESPN 2 HD', tvgId: 'ESPN2.us@HD', url: `https://sports.example.com/${index}/index.m3u8`, source: 'iptv-org.github.io', feedUrl: IPTV_ORG_SPORTS_URL })));
 const health = (status: StreamHealth['status'], mediaVerified = status === 'live'): StreamHealth => ({ status, mediaVerified, checkedAt: Date.now(), latencyMs: 50, samples: 1, successRate: Number(status === 'live') });
-beforeEach(() => { services.sources.mockReset().mockResolvedValue(sources); services.probe.mockReset().mockResolvedValue({ [sources[0].id]: health('unknown'), [sources[1].id]: health('unknown'), [sources[2].id]: health('live') }); });
-afterEach(() => vi.restoreAllMocks());
+beforeEach(() => { services.sources.mockReset().mockResolvedValue(sources); services.probe.mockReset().mockResolvedValue({ [sources[0].id]: health('unknown'), [sources[1].id]: health('unknown'), [sources[2].id]: health('live') }); /* Phase 2: channel APIs 404 while Live TV is hidden — this suite covers the enabled behaviour. */ vi.stubEnv('NEXT_PUBLIC_LIVE_TV_ENABLED', 'true'); });
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe('official channel and Multi-View shared resolution', () => {
   it('keeps a manually chosen blocked channel but auto-adds only segment-verified siblings', async () => {

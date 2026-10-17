@@ -273,6 +273,17 @@ describe('cleanMatchTitle / splitTeams', () => {
     expect(splitTeams('Single Name')).toEqual({ home: 'Single Name', away: '' });
   });
 
+  it('never treats a kick-off time as a scoreline separator', () => {
+    // "18:00" is a time, not an 18-0 score: no split happens on the colon…
+    expect(splitTeams('Arsenal 18:00 Liverpool')).toEqual({ home: 'Arsenal 18:00 Liverpool', away: '' });
+    // …while real separators around a time still work.
+    expect(splitTeams('Arsenal vs Liverpool 18:00')).toEqual({ home: 'Arsenal', away: 'Liverpool 18:00' });
+    // Hyphenated scorelines keep splitting.
+    expect(splitTeams('Arsenal 2-1 Liverpool')).toEqual({ home: 'Arsenal', away: 'Liverpool' });
+    // A segment is recognised as a fixture via its scoreline, not its time.
+    expect(cleanMatchTitle('Highlights | Kick-off 18:00 show | Arsenal 2-1 Liverpool')).toBe('Arsenal 2-1 Liverpool');
+  });
+
   it('recognises competitions from the title and falls back to the channel label', () => {
     expect(extractCompetition('Man City 2-2 Real Madrid | UEFA Champions League', 'UEFA')).toBe('UEFA Champions League');
     expect(extractCompetition('Resumen: Girona 1-1 Getafe', 'LaLiga')).toBe('LaLiga');

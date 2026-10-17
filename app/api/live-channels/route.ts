@@ -16,7 +16,8 @@
  */
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { getLiveChannels, getStaticFallbackChannels } from '@/lib/broadcast/feeds';
+import { isLiveTvEnabled } from '@/lib/config/features';
+import { getLiveChannels } from '@/lib/broadcast/feeds';
 import { getChannelHealth } from '@/lib/broadcast/probe';
 import { browsableChannels } from '@/lib/broadcast/pool';
 import { inferStreamQuality } from '@/lib/broadcast/matching';
@@ -25,18 +26,25 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const checkedAt = Date.now();
+  // Live TV temporarily hidden: identical response shape, honestly empty.
+  if (!isLiveTvEnabled()) {
+    return NextResponse.json(
+      { checkedAt, probed: false, disabled: true, channels: [], counts: { live: 0, standby: 0, offline: 0, total: 0 } },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
   const probeParam = new URL(request.url).searchParams.get('probe');
   const probe = probeParam !== '0';
 
   // `getLiveChannels` never throws (memory cache → GitHub Contents API →
-  // last-known-good → static standby channels); the catch is a final guard so
-  // the response still lists channels instead of an error.
-  let channels;
+  // last-known-good → empty list); the catch is a final guard so the
+  // response keeps its shape instead of erroring.
+  let channels: Awaited<ReturnType<typeof getLiveChannels>>;
   try {
     channels = await getLiveChannels();
   } catch (err: any) {
     logger.error('Live channels unavailable', err);
-    channels = getStaticFallbackChannels();
+    channels = [];
   }
 
   channels = browsableChannels(channels);

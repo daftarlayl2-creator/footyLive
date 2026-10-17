@@ -90,6 +90,7 @@ export interface Match {
   leagueSlug?: string | null;
   /** Explicit upstream TV/streaming names, not inferred broadcast rights. */
   broadcasters?: string[];
+  /** Kick-off time as epoch **milliseconds**; 0 when the upstream supplies no valid time (never silently defaults to "now"). */
   timestamp: number;
   tournament: string;
   country: string;

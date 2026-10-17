@@ -23,11 +23,14 @@ function normalizeRole(rawPos) {
   return null;
 }
 
-function extractTeamLineup(rosterEntry, fallbackFormation = '4-3-3') {
+function extractTeamLineup(rosterEntry) {
   if (!rosterEntry || typeof rosterEntry !== 'object') {
-    return { formation: fallbackFormation, players: undefined };
+    return { formation: null, players: undefined };
   }
-  const formation = rosterEntry.formation || fallbackFormation;
+  // Only the upstream-published formation is ever labelled as such; when the
+  // source omits it, the pitch still lays players out by role but says the
+  // formation was not published instead of asserting a default.
+  const formation = rosterEntry.formation || null;
   const rawList = Array.isArray(rosterEntry.players)
     ? rosterEntry.players
     : Array.isArray(rosterEntry.roster)
@@ -210,12 +213,14 @@ export default function MatchStatsSection({ teamStats = [], commentary = [], ros
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
                 <PitchVisualization
                   teamName={homeTeam?.name || 'Home'}
-                  formation={homeLineup.formation}
+                  formation={homeLineup.formation || '4-3-3'}
+                  formationKnown={Boolean(homeLineup.formation)}
                   players={homeLineup.players}
                 />
                 <PitchVisualization
                   teamName={awayTeam?.name || 'Away'}
-                  formation={awayLineup.formation}
+                  formation={awayLineup.formation || '4-3-3'}
+                  formationKnown={Boolean(awayLineup.formation)}
                   players={awayLineup.players}
                 />
               </div>

@@ -8,7 +8,6 @@ import HighlightPlayerModal from '@/components/HighlightPlayerModal';
 import AdSlot from '@/components/ads/AdSlot';
 import { AD_PLACEMENTS } from '@/lib/adsConfig';
 import { fetchHighlightsSafely } from '@/lib/utils/highlightsClient';
-import { useRouter } from 'next/navigation';
 import { getFavoriteTeams } from '@/lib/utils/favorites';
 import FavoritesHub from '@/components/favorites/FavoritesHub';
 import useGoalAudio from '@/lib/hooks/useGoalAudio';
@@ -37,47 +36,7 @@ function Trophy({ className }) {
   );
 }
 
-function promoteCatalogueMatches(matches) {
-  const now = Date.now();
-  return matches.map((m) => {
-    // ESPN statuses are authoritative (state pre/in/post), so only catalogue
-    // fixtures — which can lag behind reality — get the kickoff-time promotion.
-    if (m.status === 'upcoming' && m.source !== 'espn') {
-      const kickoffTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-      const diffMinutes = kickoffTime ? Math.floor((now - kickoffTime) / 60000) : -1;
-      // Promote to live if kickoff time has arrived/passed and less than 125 mins have passed
-      if (kickoffTime && diffMinutes >= 0 && diffMinutes < 125) {
-        let currentMinuteNumber = m.currentMinuteNumber || 0;
-        let currentMinute = m.currentMinute || '';
-
-        if (diffMinutes < 45) {
-          currentMinuteNumber = diffMinutes;
-          currentMinute = `${diffMinutes}'`;
-        } else if (diffMinutes >= 45 && diffMinutes < 60) {
-          currentMinuteNumber = 45;
-          currentMinute = 'HT';
-        } else if (diffMinutes >= 60 && diffMinutes < 105) {
-          currentMinuteNumber = diffMinutes - 15;
-          currentMinute = `${diffMinutes - 15}'`;
-        } else {
-          currentMinuteNumber = 90;
-          currentMinute = '90+';
-        }
-
-        return {
-          ...m,
-          status: 'live',
-          currentMinute,
-          currentMinuteNumber,
-        };
-      }
-    }
-    return m;
-  });
-}
-
 export default function MatchGrid({ matches, defaultTab, banner }) {
-  const router = useRouter();
   const [tab, setTab] = useState(defaultTab);
   const [highlights, setHighlights] = useState([]);
   const [highlightsLoading, setHighlightsLoading] = useState(false);
@@ -112,10 +71,30 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
     });
   };
 
+  // Phase 1 §D: targeted polling of the canonical matches API instead of a
+  // whole-page router.refresh() every 20s. Server-rendered props seed the
+  // first paint; /api/matches keeps cards current without losing scroll,
+  // filters, or modal state. Failures keep the last verified list.
+  const [liveMatches, setLiveMatches] = useState(matches);
   useEffect(() => {
-    const interval = setInterval(() => { router.refresh(); }, 20000);
-    return () => clearInterval(interval);
-  }, [router]);
+    let cancelled = false;
+    void Promise.resolve().then(() => { if (!cancelled) setLiveMatches(matches); });
+    return () => { cancelled = true; };
+  }, [matches]);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      try {
+        const response = await fetch('/api/matches', { cache: 'no-store' });
+        if (!response.ok || cancelled) return;
+        const payload = await response.json().catch(() => null);
+        if (!cancelled && Array.isArray(payload?.matches)) setLiveMatches(payload.matches);
+      } catch { /* keep last verified list */ }
+    };
+    const interval = setInterval(() => { void poll(); }, 30_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     const updateFavs = () => {
@@ -130,11 +109,14 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
     };
   }, []);
 
-  useGoalAudio(matches, (match) => favorites.some((name) =>
+  useGoalAudio(liveMatches, (match) => favorites.some((name) =>
     name.toLowerCase() === match.homeTeam?.name?.toLowerCase() || name.toLowerCase() === match.awayTeam?.name?.toLowerCase()
   ));
 
-  const enrichedMatches = useMemo(() => promoteCatalogueMatches(matches), [matches]);
+  // Statuses and minutes are rendered exactly as the upstream providers
+  // reported them. Live status is never inferred here from kick-off times
+  // or elapsed wall-clock time.
+  const enrichedMatches = liveMatches;
 
   const live = useMemo(() => enrichedMatches.filter(m => m.status === 'live'), [enrichedMatches]);
   const upcoming = useMemo(
@@ -199,7 +181,7 @@ export default function MatchGrid({ matches, defaultTab, banner }) {
 
   return (
     <div className="space-y-8 relative w-full max-w-full overflow-x-clip">
-      <FavoritesHub favorites={favorites} matches={matches} />
+      <FavoritesHub favorites={favorites} matches={liveMatches} />
       {/* Decorative desktop illustrations */}
       <Ball className="fixed left-6 top-28 h-20 w-20 opacity-40 rotate-12 hidden xl:block animate-pulse-slow" />
       <Trophy className="fixed right-6 top-32 h-20 w-20 opacity-40 rotate-45 hidden xl:block animate-pulse-slow" />

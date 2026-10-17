@@ -58,9 +58,13 @@ class InMemoryCacheManager implements CacheManager {
   }
 }
 
-class RedisCacheManager implements CacheManager {
+export class RedisCacheManager implements CacheManager {
   private redis: Redis;
   private memoryFallback = new InMemoryCacheManager();
+  /** One upstream refresh per key at a time, shared by every caller. */
+  private inflight = new Map<string, Promise<any>>();
+  /** Last successful revalidation per key (this instance). */
+  private lastRevalidatedAt = new Map<string, number>();
 
   constructor(url: string, token: string) {
     this.redis = new Redis({
@@ -72,7 +76,7 @@ class RedisCacheManager implements CacheManager {
   async get<T>(key: string): Promise<T | null> {
     try {
       const data = await this.redis.get(key);
-      if (!data) return null;
+      if (data === null || data === undefined) return null;
       return (typeof data === 'string' ? JSON.parse(data) : data) as T;
     } catch (err) {
       logger.error(`Redis get failed for key: ${key}, falling back to memory`, err);
@@ -89,26 +93,45 @@ class RedisCacheManager implements CacheManager {
     }
   }
 
+  /** Deduplicated refresh: concurrent callers share one upstream fetch. */
+  private refresh<T>(key: string, fetcher: () => Promise<T>, ttlSeconds: number): Promise<T> {
+    const existing = this.inflight.get(key);
+    if (existing) return existing as Promise<T>;
+    const promise = fetcher()
+      .then(async (data) => {
+        this.lastRevalidatedAt.set(key, Date.now());
+        await this.set(key, data, ttlSeconds);
+        return data;
+      })
+      .finally(() => {
+        this.inflight.delete(key);
+      });
+    this.inflight.set(key, promise);
+    return promise;
+  }
+
   async swr<T>(key: string, fetcher: () => Promise<T>, ttlSeconds: number): Promise<T> {
     try {
       const cached = await this.get<T>(key);
       if (cached !== null) {
-        // Trigger background revalidation asynchronously
-        fetcher()
-          .then(async (freshData) => {
-            await this.set(key, freshData, ttlSeconds);
-          })
-          .catch((err) => logger.error(`SWR background refresh failed for Redis key: ${key}`, err));
+        // Serve the cached value and revalidate in the background at most
+        // once per TTL window (per instance). Previously every hit fired
+        // its own upstream fetch, so N concurrent readers caused N fetches
+        // whose write-backs raced — the slowest (stalest) could win.
+        const last = this.lastRevalidatedAt.get(key) ?? 0;
+        if (Date.now() - last >= ttlSeconds * 1000) {
+          this.refresh(key, fetcher, ttlSeconds).catch((err) =>
+            logger.error(`SWR background refresh failed for Redis key: ${key}`, err)
+          );
+        }
         return cached;
       }
     } catch (err) {
       logger.error(`Redis SWR failed for key: ${key}, calling fetcher directly`, err);
     }
-    
-    // Hard cache miss or Redis error: wait for fresh fetch
-    const data = await fetcher();
-    await this.set(key, data, ttlSeconds);
-    return data;
+
+    // Hard cache miss or Redis error: wait for the single shared fetch.
+    return this.refresh(key, fetcher, ttlSeconds);
   }
 }
 
